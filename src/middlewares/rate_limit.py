@@ -30,9 +30,7 @@ class RateLimitMiddleware(BaseMiddleware):
         limit = settings.rate_limit_per_user_per_min
 
         # Clean old entries
-        self._user_requests[user_id] = [
-            t for t in self._user_requests[user_id] if now - t < window
-        ]
+        self._user_requests[user_id] = [t for t in self._user_requests[user_id] if now - t < window]
 
         if len(self._user_requests[user_id]) >= limit:
             if isinstance(event, Message):

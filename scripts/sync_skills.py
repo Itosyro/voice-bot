@@ -145,9 +145,7 @@ def _parse_humanizer_md(repo_path: Path, repo_name: str) -> list[SkillIndex]:
         SkillIndex(
             source_repo=repo_name,
             skill_name=fm.get("name", "humanizer"),
-            description=fm.get(
-                "description", "Remove signs of AI-generated writing"
-            ),
+            description=fm.get("description", "Remove signs of AI-generated writing"),
             body=body[:20000],
             file_path=skill_md.name,
             tags=["humanize", "anti-ai", "writing"],
@@ -312,11 +310,9 @@ def _parse_uiux_pro_max(repo_path: Path, repo_name: str) -> list[SkillIndex]:
                             if k
                         }
                         guideline_name = norm.get("guideline") or norm.get("name") or f"rule_{i}"
-                        skill_name = (
-                            f"uupm_stack_{framework}_{guideline_name}"
-                            .lower()
-                            .replace(" ", "_")[:100]
-                        )
+                        skill_name = f"uupm_stack_{framework}_{guideline_name}".lower().replace(
+                            " ", "_"
+                        )[:100]
                         body_parts = [f"{k}: {v}" for k, v in norm.items() if v]
                         body = "\n".join(body_parts)
                         description = f"{framework} guideline: {guideline_name}"[:500]

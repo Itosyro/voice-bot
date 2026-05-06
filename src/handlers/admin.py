@@ -53,24 +53,16 @@ async def cmd_stats(message: Message, session: AsyncSession) -> None:
         return
 
     users_count = (await session.execute(select(func.count(User.id)))).scalar() or 0
-    requests_count = (
-        await session.execute(select(func.count(RequestHistory.id)))
-    ).scalar() or 0
-    skills_count = (
-        await session.execute(select(func.count(SkillIndex.id)))
-    ).scalar() or 0
+    requests_count = (await session.execute(select(func.count(RequestHistory.id)))).scalar() or 0
+    skills_count = (await session.execute(select(func.count(SkillIndex.id)))).scalar() or 0
 
     repo_stats = await session.execute(
-        select(SkillIndex.source_repo, func.count(SkillIndex.id)).group_by(
-            SkillIndex.source_repo
-        )
+        select(SkillIndex.source_repo, func.count(SkillIndex.id)).group_by(SkillIndex.source_repo)
     )
     repo_lines = [f"  {repo}: {cnt}" for repo, cnt in repo_stats]
 
     mode_stats = await session.execute(
-        select(RequestHistory.mode, func.count(RequestHistory.id)).group_by(
-            RequestHistory.mode
-        )
+        select(RequestHistory.mode, func.count(RequestHistory.id)).group_by(RequestHistory.mode)
     )
     mode_lines = [f"  {mode}: {cnt}" for mode, cnt in mode_stats]
 

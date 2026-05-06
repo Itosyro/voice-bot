@@ -124,8 +124,6 @@ class SkillsDB:
         for s in skills:
             body = s.body[:per_skill]
             parts.append(
-                f"## {s.skill_name} (источник: {s.source_repo})\n"
-                f"{s.description}\n\n"
-                f"{body}\n"
+                f"## {s.skill_name} (источник: {s.source_repo})\n{s.description}\n\n{body}\n"
             )
         return "\n".join(parts)

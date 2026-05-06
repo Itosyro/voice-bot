@@ -128,14 +128,10 @@ def settings_keyboard() -> InlineKeyboardMarkup:
                 ),
             ],
             [
-                InlineKeyboardButton(
-                    text="🌍 Язык перевода", callback_data="settings:target_lang"
-                ),
+                InlineKeyboardButton(text="🌍 Язык перевода", callback_data="settings:target_lang"),
             ],
             [
-                InlineKeyboardButton(
-                    text="🗑️ Сбросить настройки", callback_data="settings:reset"
-                ),
+                InlineKeyboardButton(text="🗑️ Сбросить настройки", callback_data="settings:reset"),
             ],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")],
         ]

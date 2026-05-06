@@ -39,11 +39,7 @@ async def save_request(
     await session.flush()
 
     # Increment total_requests counter
-    stmt = (
-        update(User)
-        .where(User.id == user_id)
-        .values(total_requests=User.total_requests + 1)
-    )
+    stmt = update(User).where(User.id == user_id).values(total_requests=User.total_requests + 1)
     await session.execute(stmt)
 
     return record

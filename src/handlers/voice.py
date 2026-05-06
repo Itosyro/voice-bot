@@ -39,9 +39,7 @@ async def handle_voice(
     style = user.default_style
 
     if not mode:
-        await message.answer(
-            "Сначала выбери режим:", reply_markup=mode_keyboard()
-        )
+        await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
         return
 
     if mode == "humanizer":
@@ -54,9 +52,7 @@ async def handle_voice(
 
     duration = voice.duration or 0
     if duration > settings.max_voice_duration_sec:
-        await message.answer(
-            VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec)
-        )
+        await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
         return
 
     started = time.monotonic()
