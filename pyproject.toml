@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     # Telegram
-    "aiogram>=3.10.0",
+    "aiogram>=3.21.0",
 
     # AI
     "groq>=0.13.0",

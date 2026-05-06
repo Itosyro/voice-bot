@@ -154,7 +154,7 @@ async def _process_text(
             result_text = result_text[:3900] + "\n\n… (обрезано)"
 
         final = (
-            f"<blockquote expandable>"
+            f"<blockquote>"
             f"<code>{_escape_html(result_text)}</code>"
             f"</blockquote>"
         )

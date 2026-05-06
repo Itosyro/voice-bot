@@ -2,10 +2,11 @@
 All inline keyboards.
 
 Design rules:
-- No style= param (Telegram doesn't support it)
-- Mode buttons: icon + CAPS name
-- Sub-style buttons: one per row, name + short description
-- Consistent callback_data prefixes: mode:, style:, lang:, back:, cmd:, settings:, info:
+- Mode buttons: style="danger" (red accent)
+- Utility buttons (settings, history, back): no style (default/neutral)
+- Sub-style buttons: style="primary" (blue)
+- All icons: Unicode symbols only
+- Callback prefixes: mode:, style:, lang:, back:, cmd:, settings:, info:, action:
 """
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -27,31 +28,42 @@ from src.ui.design import (
     STYLE_NAME,
 )
 
+# ── Helpers ──
+
+S_MODE = "danger"
+S_STYLE = "primary"
+
+
+def _mode_btn(mode: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(
+        text=f"{MODE_ICON[mode]} {MODE_NAME[mode]}",
+        callback_data=f"mode:{mode}",
+        style=S_MODE,
+    )
+
+
+def _style_btn(style_id: str) -> InlineKeyboardButton:
+    name = STYLE_NAME.get(style_id, style_id)
+    desc = STYLE_DESC.get(style_id, "")
+    text = f"{name} — {desc}" if desc else name
+    if len(text) > 64:
+        text = text[:61] + "..."
+    return InlineKeyboardButton(
+        text=text, callback_data=f"style:{style_id}", style=S_STYLE
+    )
+
+
+def _back_btn(target: str = "back:modes") -> list[InlineKeyboardButton]:
+    return [InlineKeyboardButton(text=f"{ICON_BACK} Назад", callback_data=target)]
+
+
 # ── Mode selection (main menu) ──
 
 def mode_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=f"{MODE_ICON['polish']} {MODE_NAME['polish']}",
-                    callback_data="mode:polish",
-                ),
-                InlineKeyboardButton(
-                    text=f"{MODE_ICON['prompt']} {MODE_NAME['prompt']}",
-                    callback_data="mode:prompt",
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text=f"{MODE_ICON['humanizer']} {MODE_NAME['humanizer']}",
-                    callback_data="mode:humanizer",
-                ),
-                InlineKeyboardButton(
-                    text=f"{MODE_ICON['translator']} {MODE_NAME['translator']}",
-                    callback_data="mode:translator",
-                ),
-            ],
+            [_mode_btn("polish"), _mode_btn("prompt")],
+            [_mode_btn("humanizer"), _mode_btn("translator")],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_SETTINGS} Настройки",
@@ -64,21 +76,6 @@ def mode_keyboard() -> InlineKeyboardMarkup:
             ],
         ]
     )
-
-
-# ── Sub-style buttons (name + description) ──
-
-def _style_btn(style_id: str) -> InlineKeyboardButton:
-    name = STYLE_NAME.get(style_id, style_id)
-    desc = STYLE_DESC.get(style_id, "")
-    text = f"{name} — {desc}" if desc else name
-    if len(text) > 64:
-        text = text[:61] + "..."
-    return InlineKeyboardButton(text=text, callback_data=f"style:{style_id}")
-
-
-def _back_btn() -> list[InlineKeyboardButton]:
-    return [InlineKeyboardButton(text=f"{ICON_BACK} Назад", callback_data="back:modes")]
 
 
 # ── Polish styles ──
@@ -128,9 +125,13 @@ def lang_keyboard() -> InlineKeyboardMarkup:
     buttons: list[list[InlineKeyboardButton]] = []
     row: list[InlineKeyboardButton] = []
     for code, _name in LANG_NAMES.items():
-        flag = LANG_FLAG.get(code, "🏳️")
+        flag = LANG_FLAG.get(code, "")
         row.append(
-            InlineKeyboardButton(text=f"{flag} {code.upper()}", callback_data=f"lang:{code}")
+            InlineKeyboardButton(
+                text=f"{flag} {code.upper()}",
+                callback_data=f"lang:{code}",
+                style=S_STYLE,
+            )
         )
         if len(row) == 4:
             buttons.append(row)
@@ -175,18 +176,21 @@ def settings_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['polish']} Сменить режим",
                     callback_data="settings:default_mode",
+                    style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['translator']} Язык перевода",
                     callback_data="settings:target_lang",
+                    style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_INFO} О режимах",
                     callback_data="settings:mode_info",
+                    style=S_STYLE,
                 ),
             ],
             [
@@ -209,27 +213,26 @@ def mode_info_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['polish']} {MODE_NAME['polish']}",
                     callback_data="info:polish",
+                    style=S_MODE,
                 ),
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['prompt']} {MODE_NAME['prompt']}",
                     callback_data="info:prompt",
+                    style=S_MODE,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['humanizer']} {MODE_NAME['humanizer']}",
                     callback_data="info:humanizer",
+                    style=S_MODE,
                 ),
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['translator']} {MODE_NAME['translator']}",
                     callback_data="info:translator",
+                    style=S_MODE,
                 ),
             ],
-            [
-                InlineKeyboardButton(
-                    text=f"{ICON_BACK} Назад к настройкам",
-                    callback_data="back:settings",
-                ),
-            ],
+            _back_btn("back:settings"),
         ]
     )
