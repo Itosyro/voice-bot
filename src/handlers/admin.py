@@ -39,11 +39,9 @@ async def cmd_sync_skills(message: Message) -> None:
     errors = proc.stderr[-500:] if proc.stderr else ""
 
     if proc.returncode == 0:
-        msg = f"Skills синхронизированы.\n\n```\n{output}\n```"
-        await message.answer(msg, parse_mode="Markdown")
+        await message.answer(f"Skills синхронизированы.\n\n{output[-1500:]}")
     else:
-        msg = f"Ошибка:\n```\n{errors}\n```"
-        await message.answer(msg, parse_mode="Markdown")
+        await message.answer(f"Ошибка:\n{errors[-500:]}")
 
 
 @router.message(Command("stats"))
@@ -67,13 +65,13 @@ async def cmd_stats(message: Message, session: AsyncSession) -> None:
     mode_lines = [f"  {mode}: {cnt}" for mode, cnt in mode_stats]
 
     stats_text = (
-        f"**Статистика:**\n\n"
-        f"Пользователей: {users_count}\n"
-        f"Запросов: {requests_count}\n"
+        f"СТАТИСТИКА\n\n"
+        f"Юзеры: {users_count}\n"
+        f"Запросы: {requests_count}\n"
         f"Skills: {skills_count}\n\n"
-        f"**Skills по репозиториям:**\n"
+        f"ПО РЕПОЗИТОРИЯМ\n"
         + "\n".join(repo_lines or ["  (пусто)"])
-        + "\n\n**Запросы по режимам:**\n"
+        + "\n\nПО РЕЖИМАМ\n"
         + "\n".join(mode_lines or ["  (пусто)"])
     )
-    await message.answer(stats_text, parse_mode="Markdown")
+    await message.answer(stats_text)

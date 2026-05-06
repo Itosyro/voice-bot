@@ -21,13 +21,13 @@ async def cmd_settings(message: Message, session: AsyncSession) -> None:
     lang = user.target_lang or "en"
 
     text = (
-        f"⚙️ **Текущие настройки:**\n\n"
+        f"НАСТРОЙКИ\n\n"
         f"Режим: {mode_name}\n"
         f"Стиль: {style_name}\n"
-        f"Язык перевода: {lang.upper()}\n"
-        f"Запросов: {user.total_requests}\n"
+        f"Язык: {lang.upper()}\n"
+        f"Запросов: {user.total_requests}"
     )
-    await message.answer(text, reply_markup=settings_keyboard(), parse_mode="Markdown")
+    await message.answer(text, reply_markup=settings_keyboard())
 
 
 @router.message(Command("lang"))
@@ -62,10 +62,10 @@ async def cmd_history(message: Message, session: AsyncSession) -> None:
         await message.answer("📜 История пуста.")
         return
 
-    lines = ["📜 **Последние запросы:**\n"]
+    lines = ["ИСТОРИЯ\n"]
     for h in history:
         mode_name = MODE_NAMES.get(h.mode, h.mode)
         preview = (h.input_preview or "")[:80]
-        lines.append(f"• {mode_name} | {h.input_type} | {preview}...")
+        lines.append(f"· {mode_name} | {h.input_type} | {preview}")
 
-    await message.answer("\n".join(lines), parse_mode="Markdown")
+    await message.answer("\n".join(lines))

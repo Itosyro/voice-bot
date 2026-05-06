@@ -1,80 +1,60 @@
 START_MESSAGE = """\
-👋 Привет! Я — Voice Polisher Bot.
+VOICE POLISHER
 
-Я умею обрабатывать голос и текст в 4 режимах:
-
-✨ **Polish** — транскрипция + очистка текста
-🧠 **Prompt Engineer** — превращаю идею в профессиональный промпт
-🤖 **Humanizer** — убираю признаки AI из текста (только текст!)
-🌍 **Translator** — перевод с сохранением тона
-
-Отправь мне голосовое сообщение или текст, и я обработаю!
-Или выбери режим кнопкой ниже."""
+Голос → текст за секунды.
+Выбери режим и отправь голосовое или текст."""
 
 HELP_MESSAGE = """\
-📖 **Команды бота:**
+VOICE POLISHER — СПРАВКА
 
-/start — Приветствие
-/help — Эта справка
-/modes — Выбор режима
-/settings — Настройки
-/lang <код> — Быстрая смена языка (пример: /lang en)
-/history — Последние 10 запросов
-/cancel — Отменить текущее действие
+РЕЖИМЫ
 
-**Режимы:**
+✦ POLISH — чистит речь
+  default · creative · formal · embellish
 
-✨ **Polish** — Очищает голосовую заметку: убирает слова-паразиты, \
-ставит пунктуацию, исправляет грамматику.
-- Default — минимальная правка
-- Creative — яркий, эмоциональный текст
-- Formal — деловой стиль
-- Embellish — литературный, богатый язык
+✦ PROMPT — идея → промпт
+  general · designer · coder · strict
 
-🧠 **Prompt Engineer** — Превращает идею в структурированный промпт.
-- General — универсальный
-- Designer — UI/UX дизайн
-- Coder — Full-stack разработка
-- Coder Strict — production-grade с полным чеклистом
+✦ HUMANIZER — убирает AI
+  lite · strong
 
-🤖 **Humanizer** — Убирает AI-маркеры из текста.
-- Lite — бережная очистка
-- Strong — полное переписывание
+✦ TRANSLATOR — перевод
+  14 языков, сохраняет тон
 
-🌍 **Translator** — Переводит текст с сохранением тона.
-Поддерживает: EN, RU, ES, FR, DE, ZH, JA, KO, AR, TR и другие."""
+КОМАНДЫ
+/modes — выбор режима
+/settings — настройки
+/lang en — сменить язык
+/history — последние запросы"""
 
-HUMANIZER_VOICE_ERROR = (
-    "🤖 Humanizer работает только с текстом. "
-    "Перешли мне текст для очеловечивания, или переключись на режим Polish/Translator для голоса."
-)
+HUMANIZER_VOICE_ERROR = "Humanizer работает только с текстом.\nОтправь текст или переключи режим."
 
-VOICE_TOO_LONG = "⚠️ Слишком длинное аудио (> {max_sec} секунд). Раздели на части."
+VOICE_TOO_LONG = "Аудио слишком длинное — макс. {max_sec} сек."
 
-TEXT_TOO_LONG = "⚠️ Слишком длинный текст (> {max_len} символов). Сократи или раздели."
+TEXT_TOO_LONG = "Текст слишком длинный — макс. {max_len} символов."
 
-RATE_LIMIT_ERROR = "⏳ Слишком много запросов, подожди минуту."
+RATE_LIMIT_ERROR = "Подожди минуту — слишком много запросов."
 
-GROQ_ERROR = "⚠️ Сервер AI временно недоступен, попробуй через минуту."
+GROQ_ERROR = "Сервер временно недоступен. Попробуй через минуту."
 
-NOT_ALLOWED = "🔒 У тебя нет доступа к этому боту."
+NOT_ALLOWED = "Нет доступа."
 
 MODE_NAMES = {
-    "polish": "✨ Polish",
-    "prompt": "🧠 Prompt Engineer",
-    "humanizer": "🤖 Humanizer",
-    "translator": "🌍 Translator",
+    "polish": "POLISH",
+    "prompt": "PROMPT",
+    "humanizer": "HUMANIZER",
+    "translator": "TRANSLATOR",
 }
 
 STYLE_NAMES = {
-    "polish_default": "📝 Default",
-    "polish_creative": "🎨 Creative",
-    "polish_formal": "👔 Formal",
-    "polish_embellish": "✍️ Embellish",
-    "prompt_general": "🌐 General",
-    "prompt_designer": "🎨 Designer",
-    "prompt_coder": "💻 Coder",
-    "prompt_coder_strict": "🔒 Coder Strict",
-    "humanize_lite": "🌿 Lite",
-    "humanize_strong": "🔥 Strong",
+    "polish_default": "Default",
+    "polish_creative": "Creative",
+    "polish_formal": "Formal",
+    "polish_embellish": "Embellish",
+    "prompt_general": "General",
+    "prompt_designer": "Designer",
+    "prompt_coder": "Coder",
+    "prompt_coder_strict": "Strict",
+    "humanize_lite": "Lite",
+    "humanize_strong": "Strong",
 }

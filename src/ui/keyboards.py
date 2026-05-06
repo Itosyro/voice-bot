@@ -7,16 +7,24 @@ def mode_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✨ Polish", callback_data="mode:polish"),
-                InlineKeyboardButton(text="🧠 Prompt Engineer", callback_data="mode:prompt"),
+                InlineKeyboardButton(
+                    text="POLISH", callback_data="mode:polish", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="PROMPT", callback_data="mode:prompt", style="primary"
+                ),
             ],
             [
-                InlineKeyboardButton(text="🤖 Humanizer", callback_data="mode:humanizer"),
-                InlineKeyboardButton(text="🌍 Translator", callback_data="mode:translator"),
+                InlineKeyboardButton(
+                    text="HUMANIZER", callback_data="mode:humanizer", style="success"
+                ),
+                InlineKeyboardButton(
+                    text="TRANSLATOR", callback_data="mode:translator", style="success"
+                ),
             ],
             [
-                InlineKeyboardButton(text="⚙️ Настройки", callback_data="cmd:settings"),
-                InlineKeyboardButton(text="📜 История", callback_data="cmd:history"),
+                InlineKeyboardButton(text="Настройки", callback_data="cmd:settings"),
+                InlineKeyboardButton(text="История", callback_data="cmd:history"),
             ],
         ]
     )
@@ -26,14 +34,22 @@ def polish_style_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="📝 Default", callback_data="style:polish_default"),
-                InlineKeyboardButton(text="🎨 Creative", callback_data="style:polish_creative"),
+                InlineKeyboardButton(
+                    text="Default", callback_data="style:polish_default", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="Creative", callback_data="style:polish_creative", style="success"
+                ),
             ],
             [
-                InlineKeyboardButton(text="👔 Formal", callback_data="style:polish_formal"),
-                InlineKeyboardButton(text="✍️ Embellish", callback_data="style:polish_embellish"),
+                InlineKeyboardButton(
+                    text="Formal", callback_data="style:polish_formal", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="Embellish", callback_data="style:polish_embellish", style="success"
+                ),
             ],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")],
+            [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
         ]
     )
 
@@ -42,16 +58,22 @@ def prompt_style_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🌐 General", callback_data="style:prompt_general"),
-                InlineKeyboardButton(text="🎨 Designer", callback_data="style:prompt_designer"),
-            ],
-            [
-                InlineKeyboardButton(text="💻 Coder", callback_data="style:prompt_coder"),
                 InlineKeyboardButton(
-                    text="🔒 Coder Strict", callback_data="style:prompt_coder_strict"
+                    text="General", callback_data="style:prompt_general", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="Designer", callback_data="style:prompt_designer", style="success"
                 ),
             ],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")],
+            [
+                InlineKeyboardButton(
+                    text="Coder", callback_data="style:prompt_coder", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="Strict", callback_data="style:prompt_coder_strict", style="danger"
+                ),
+            ],
+            [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
         ]
     )
 
@@ -60,10 +82,14 @@ def humanizer_style_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🌿 Lite", callback_data="style:humanize_lite"),
-                InlineKeyboardButton(text="🔥 Strong", callback_data="style:humanize_strong"),
+                InlineKeyboardButton(
+                    text="Lite", callback_data="style:humanize_lite", style="success"
+                ),
+                InlineKeyboardButton(
+                    text="Strong", callback_data="style:humanize_strong", style="danger"
+                ),
             ],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")],
+            [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
         ]
     )
 
@@ -92,14 +118,16 @@ def lang_keyboard() -> InlineKeyboardMarkup:
     for code, _name in LANG_NAMES.items():
         emoji = LANG_EMOJI.get(code, "🏳️")
         row.append(
-            InlineKeyboardButton(text=f"{emoji} {code.upper()}", callback_data=f"lang:{code}")
+            InlineKeyboardButton(
+                text=f"{emoji} {code.upper()}", callback_data=f"lang:{code}", style="primary"
+            )
         )
         if len(row) == 4:
             buttons.append(row)
             row = []
     if row:
         buttons.append(row)
-    buttons.append([InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")])
+    buttons.append([InlineKeyboardButton(text="← Назад", callback_data="back:modes")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -107,12 +135,11 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔄 Перегенерировать", callback_data="action:regenerate"),
-                InlineKeyboardButton(text="🔀 Сменить режим", callback_data="back:modes"),
-            ],
-            [
                 InlineKeyboardButton(
-                    text="💾 Сделать default", callback_data=f"action:set_default:{mode}"
+                    text="Ещё раз", callback_data="action:regenerate", style="primary"
+                ),
+                InlineKeyboardButton(
+                    text="Режимы", callback_data="back:modes", style="success"
                 ),
             ],
         ]
@@ -124,15 +151,20 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🎯 Режим по умолчанию", callback_data="settings:default_mode"
+                    text="Режим по умолчанию", callback_data="settings:default_mode",
+                    style="primary",
                 ),
             ],
             [
-                InlineKeyboardButton(text="🌍 Язык перевода", callback_data="settings:target_lang"),
+                InlineKeyboardButton(
+                    text="Язык перевода", callback_data="settings:target_lang", style="primary"
+                ),
             ],
             [
-                InlineKeyboardButton(text="🗑️ Сбросить настройки", callback_data="settings:reset"),
+                InlineKeyboardButton(
+                    text="Сбросить", callback_data="settings:reset", style="danger"
+                ),
             ],
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")],
+            [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
         ]
     )

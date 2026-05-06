@@ -1,3 +1,4 @@
+import html
 import time
 
 import structlog
@@ -17,6 +18,12 @@ from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
 
 log = structlog.get_logger()
+
+
+def _escape_html(text: str) -> str:
+    return html.escape(text, quote=False)
+
+
 router = Router()
 
 
@@ -52,13 +59,13 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
     }
-    progress_msg = await message.answer(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
+    progress_msg = await message.answer(f"{mode_label.get(mode, 'Обрабатываю')}…")
 
     try:
         result_text = ""
         llm_ms = 0
         model_used = ""
-        used_skills: list[str] = []
+
 
         if mode == "polish":
             r = await run_polish(text, sub_style=style or "polish_default")
@@ -68,7 +75,7 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
                 text, sub_style=style or "prompt_general", skills_db=skills_db
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
-            used_skills = r2.used_skills
+            _ = r2.used_skills
         elif mode == "humanizer":
             r3 = await run_humanizer(text, sub_style=style or "humanize_lite")
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
@@ -93,17 +100,13 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
             total_ms=total_ms,
         )
 
-        skills_info = ""
-        if used_skills:
-            skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}"
+        if len(result_text) > 3900:
+            result_text = result_text[:3900] + "\n\n… (обрезано)"
 
-        timing = f"\n\n⏱ LLM: {llm_ms}ms | Total: {total_ms}ms"
-
-        final_text = result_text + skills_info + timing
-        if len(final_text) > 4000:
-            final_text = result_text[:3900] + "\n\n… (обрезано)" + timing
-
-        await progress_msg.edit_text(final_text, reply_markup=result_keyboard(mode))
+        final_text = f"<blockquote expandable><code>{_escape_html(result_text)}</code></blockquote>"
+        await progress_msg.edit_text(
+            final_text, reply_markup=result_keyboard(mode), parse_mode="HTML"
+        )
 
     except Exception:
         log.exception("text_handler_error")
