@@ -46,7 +46,7 @@ async def handle_voice(
     style = user.default_style
 
     if not mode:
-        await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
+        await message.answer("Сначала выбери режим", reply_markup=mode_keyboard())
         return
 
     if mode == "humanizer":

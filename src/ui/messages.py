@@ -1,24 +1,24 @@
 START_MESSAGE = """\
-VOICE POLISHER
+ГОЛОСОВОЙ ПОЛИРОВЩИК
 
-Голос → текст за секунды.
-Выбери режим и отправь голосовое или текст."""
+Записал → получил текст.
+Выбери режим ниже."""
 
 HELP_MESSAGE = """\
-VOICE POLISHER — СПРАВКА
+ГОЛОСОВОЙ ПОЛИРОВЩИК — СПРАВКА
 
 РЕЖИМЫ
 
-✦ POLISH — чистит речь
-  default · creative · formal · embellish
+✦ ПОЛИРОВКА — чистит речь
+  обычный · творческий · деловой · литературный
 
-✦ PROMPT — идея → промпт
-  general · designer · coder · strict
+✦ ПРОМПТ — идея → промпт
+  общий · дизайнер · кодер · строгий
 
-✦ HUMANIZER — убирает AI
-  lite · strong
+✦ ОЧЕЛОВЕЧИТЬ — убирает AI
+  лёгкий · сильный
 
-✦ TRANSLATOR — перевод
+✦ ПЕРЕВОД — перевод
   14 языков, сохраняет тон
 
 КОМАНДЫ
@@ -40,21 +40,21 @@ GROQ_ERROR = "Сервер временно недоступен. Попробу
 NOT_ALLOWED = "Нет доступа."
 
 MODE_NAMES = {
-    "polish": "POLISH",
-    "prompt": "PROMPT",
-    "humanizer": "HUMANIZER",
-    "translator": "TRANSLATOR",
+    "polish": "ПОЛИРОВКА",
+    "prompt": "ПРОМПТ",
+    "humanizer": "ОЧЕЛОВЕЧИТЬ",
+    "translator": "ПЕРЕВОД",
 }
 
 STYLE_NAMES = {
-    "polish_default": "Default",
-    "polish_creative": "Creative",
-    "polish_formal": "Formal",
-    "polish_embellish": "Embellish",
-    "prompt_general": "General",
-    "prompt_designer": "Designer",
-    "prompt_coder": "Coder",
-    "prompt_coder_strict": "Strict",
-    "humanize_lite": "Lite",
-    "humanize_strong": "Strong",
+    "polish_default": "Обычный",
+    "polish_creative": "Творческий",
+    "polish_formal": "Деловой",
+    "polish_embellish": "Литературный",
+    "prompt_general": "Общий",
+    "prompt_designer": "Дизайнер",
+    "prompt_coder": "Кодер",
+    "prompt_coder_strict": "Строгий",
+    "humanize_lite": "Лёгкий",
+    "humanize_strong": "Сильный",
 }

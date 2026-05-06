@@ -44,7 +44,7 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
     style = user.default_style
 
     if not mode:
-        await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
+        await message.answer("Сначала выбери режим", reply_markup=mode_keyboard())
         return
 
     text = message.text

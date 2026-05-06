@@ -8,22 +8,22 @@ def mode_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="POLISH", callback_data="mode:polish", style="primary"
+                    text="ПОЛИРОВКА", callback_data="mode:polish", style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="PROMPT", callback_data="mode:prompt", style="primary"
+                    text="ПРОМПТ", callback_data="mode:prompt", style="primary"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="HUMANIZER", callback_data="mode:humanizer", style="success"
+                    text="ОЧЕЛОВЕЧИТЬ", callback_data="mode:humanizer", style="success"
                 ),
                 InlineKeyboardButton(
-                    text="TRANSLATOR", callback_data="mode:translator", style="success"
+                    text="ПЕРЕВОД", callback_data="mode:translator", style="success"
                 ),
             ],
             [
-                InlineKeyboardButton(text="Настройки", callback_data="cmd:settings"),
+                InlineKeyboardButton(text="⚙ Настройки", callback_data="cmd:settings"),
                 InlineKeyboardButton(text="История", callback_data="cmd:history"),
             ],
         ]
@@ -35,18 +35,18 @@ def polish_style_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Default", callback_data="style:polish_default", style="primary"
+                    text="Обычный", callback_data="style:polish_default", style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="Creative", callback_data="style:polish_creative", style="success"
+                    text="Творческий", callback_data="style:polish_creative", style="success"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Formal", callback_data="style:polish_formal", style="primary"
+                    text="Деловой", callback_data="style:polish_formal", style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="Embellish", callback_data="style:polish_embellish", style="success"
+                    text="Литературный", callback_data="style:polish_embellish", style="success"
                 ),
             ],
             [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
@@ -59,18 +59,18 @@ def prompt_style_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="General", callback_data="style:prompt_general", style="primary"
+                    text="Общий", callback_data="style:prompt_general", style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="Designer", callback_data="style:prompt_designer", style="success"
+                    text="Дизайнер", callback_data="style:prompt_designer", style="success"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Coder", callback_data="style:prompt_coder", style="primary"
+                    text="Кодер", callback_data="style:prompt_coder", style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="Strict", callback_data="style:prompt_coder_strict", style="danger"
+                    text="Строгий", callback_data="style:prompt_coder_strict", style="danger"
                 ),
             ],
             [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
@@ -83,10 +83,10 @@ def humanizer_style_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Lite", callback_data="style:humanize_lite", style="success"
+                    text="Лёгкий", callback_data="style:humanize_lite", style="success"
                 ),
                 InlineKeyboardButton(
-                    text="Strong", callback_data="style:humanize_strong", style="danger"
+                    text="Сильный", callback_data="style:humanize_strong", style="danger"
                 ),
             ],
             [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],
@@ -136,10 +136,10 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Ещё раз", callback_data="action:regenerate", style="primary"
+                    text="Повтор", callback_data="action:regenerate", style="primary"
                 ),
                 InlineKeyboardButton(
-                    text="Режимы", callback_data="back:modes", style="success"
+                    text="Меню", callback_data="back:modes", style="success"
                 ),
             ],
         ]
@@ -151,18 +151,18 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Режим по умолчанию", callback_data="settings:default_mode",
+                    text="Режим", callback_data="settings:default_mode",
                     style="primary",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Язык перевода", callback_data="settings:target_lang", style="primary"
+                    text="Язык", callback_data="settings:target_lang", style="primary"
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text="Сбросить", callback_data="settings:reset", style="danger"
+                    text="Сброс", callback_data="settings:reset", style="danger"
                 ),
             ],
             [InlineKeyboardButton(text="← Назад", callback_data="back:modes")],

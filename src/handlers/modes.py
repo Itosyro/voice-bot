@@ -9,4 +9,4 @@ router = Router()
 
 @router.message(Command("modes"))
 async def cmd_modes(message: Message) -> None:
-    await message.answer("Выбери режим:", reply_markup=mode_keyboard())
+    await message.answer("ВЫБЕРИ РЕЖИМ", reply_markup=mode_keyboard())
