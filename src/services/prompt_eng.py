@@ -27,7 +27,7 @@ async def run_prompt_eng(
     skills_context = SkillsDB.format_for_prompt(relevant)
 
     system = PROMPT_ENG_PROMPTS[sub_style].format(
-        transcript=transcript,
+        transcript="{see user message}",
         skills_context=skills_context,
     )
 

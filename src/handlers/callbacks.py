@@ -183,13 +183,14 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
         await callback.answer()
         return
 
-    lines = ["📜 **Последние запросы:**\n"]
+    lines = ["📜 Последние запросы:\n"]
     for h in history:
         mode_name = MODE_NAMES.get(h.mode, h.mode)
         preview = (h.input_preview or "")[:80]
-        lines.append(f"• {mode_name} | {h.input_type} | {preview}...")
+        safe_preview = preview.replace("*", "").replace("_", "").replace("`", "").replace("[", "")
+        lines.append(f"• {mode_name} | {h.input_type} | {safe_preview}...")
 
     await callback.message.edit_text(  # type: ignore[union-attr]
-        "\n".join(lines), reply_markup=mode_keyboard(), parse_mode="Markdown"
+        "\n".join(lines), reply_markup=mode_keyboard()
     )
     await callback.answer()

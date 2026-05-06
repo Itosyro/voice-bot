@@ -22,7 +22,7 @@ async def run_humanizer(text: str, sub_style: str = "humanize_lite") -> Humanize
     if sub_style not in HUMANIZER_PROMPTS:
         sub_style = "humanize_lite"
 
-    system = HUMANIZER_PROMPTS[sub_style].format(text=text)
+    system = HUMANIZER_PROMPTS[sub_style].format(text="{see user message}")
     result, ms = await complete(
         system_prompt=system,
         user_message=text,

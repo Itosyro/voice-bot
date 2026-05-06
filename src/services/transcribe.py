@@ -1,9 +1,9 @@
 import time
 
-from groq import AsyncGroq
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
+from src.services.llm import _get_client
 from src.storage.models import TranscriptionCache
 
 
@@ -20,7 +20,7 @@ async def transcribe(
         if cached:
             return cached.transcript, 0
 
-    client = AsyncGroq(api_key=api_key)
+    client = _get_client(api_key)
     started = time.monotonic()
     result = await client.audio.transcriptions.create(
         file=("voice.ogg", audio_bytes),

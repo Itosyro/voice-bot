@@ -24,7 +24,7 @@ async def run_polish(transcript: str, sub_style: str = "polish_default") -> Poli
     if sub_style not in POLISH_PROMPTS:
         sub_style = "polish_default"
 
-    system = POLISH_PROMPTS[sub_style].format(transcript=transcript)
+    system = POLISH_PROMPTS[sub_style].format(transcript="{see user message}")
     text, ms = await complete(
         system_prompt=system,
         user_message=transcript,

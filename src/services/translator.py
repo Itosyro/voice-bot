@@ -22,7 +22,7 @@ async def run_translator(
     system = TRANSLATE_PROMPT.format(
         target_lang_name=lang_name,
         target_lang_code=target_lang,
-        transcript=transcript,
+        transcript="{see user message}",
     )
 
     text, ms = await complete(

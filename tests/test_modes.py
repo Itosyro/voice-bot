@@ -8,17 +8,17 @@ from src.storage.models import SkillIndex
 
 @pytest.fixture
 def mock_groq():
-    with patch("src.services.llm.AsyncGroq") as mock:
-        client = AsyncMock()
-        mock.return_value = client
+    client = AsyncMock()
 
-        choice = AsyncMock()
-        choice.message.content = "Mocked response text"
+    choice = AsyncMock()
+    choice.message.content = "Mocked response text"
 
-        response = AsyncMock()
-        response.choices = [choice]
+    response = AsyncMock()
+    response.choices = [choice]
 
-        client.chat.completions.create = AsyncMock(return_value=response)
+    client.chat.completions.create = AsyncMock(return_value=response)
+
+    with patch("src.services.llm._get_client", return_value=client):
         yield client
 
 
