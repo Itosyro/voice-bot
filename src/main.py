@@ -1,6 +1,8 @@
 import asyncio
+import os
 
 import structlog
+from aiohttp import web
 
 from src.bot import create_bot, create_dispatcher
 from src.config import settings
@@ -19,6 +21,23 @@ async def load_skills() -> SkillsDB:
     return skills_db
 
 
+async def health_handler(_request: web.Request) -> web.Response:
+    return web.Response(text="ok")
+
+
+async def run_health_server() -> None:
+    """Run a minimal HTTP health-check server for Render."""
+    port = int(os.environ.get("PORT", "10000"))
+    app = web.Application()
+    app.router.add_get("/", health_handler)
+    app.router.add_get("/health", health_handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    log.info("health_server_started", port=port)
+
+
 async def main() -> None:
     setup_logging()
     log.info("starting_bot", log_level=settings.log_level)
@@ -30,6 +49,10 @@ async def main() -> None:
 
     # Pass skills_db to all handlers via dispatcher workflow_data
     dp.workflow_data["skills_db"] = skills_db
+
+    # Start health server for Render (if PORT env is set)
+    if os.environ.get("PORT"):
+        await run_health_server()
 
     try:
         await dp.start_polling(bot)
