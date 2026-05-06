@@ -8,12 +8,12 @@ Every emoji, label, and separator lives here.
 # ── Brand ──
 BRAND = "✦ VOICE ✦"
 
-# ── Mode icons (full-size emoji for visibility) ──
+# ── Mode icons (Unicode symbols — compact and elegant) ──
 MODE_ICON = {
-    "polish":     "📝",
-    "prompt":     "⚡️",
-    "humanizer":  "🪄",
-    "translator": "🌐",
+    "polish":     "✎",
+    "prompt":     "⚡",
+    "humanizer":  "✍",
+    "translator": "⇄",
 }
 
 # ── Mode names (Russian, CAPS for buttons) ──
@@ -54,14 +54,15 @@ STYLE_DESC = {
     "humanize_strong": "переписать полностью",
 }
 
-# ── Action icons (full-size emoji) ──
-ICON_BACK     = "◀️"
-ICON_REGEN    = "🔄"
-ICON_MENU     = "📋"
-ICON_SETTINGS = "⚙️"
-ICON_HISTORY  = "🕐"
-ICON_INFO     = "ℹ️"
-ICON_RESET    = "🔁"
+# ── Action icons ──
+ICON_BACK     = "←"
+ICON_REGEN    = "↻"
+ICON_MENU     = "≡"
+ICON_SETTINGS = "⚙"
+ICON_HISTORY  = "▤"
+ICON_INFO     = "ⓘ"
+ICON_RESET    = "↺"
+ICON_OTHER    = "⟳"
 
 # ── Separator ──
 DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"

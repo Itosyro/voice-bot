@@ -13,7 +13,7 @@ from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
 from src.services.translator import run_translator
 from src.storage.history import save_request
-from src.storage.users import get_or_create_user
+from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
 
@@ -27,10 +27,45 @@ def _escape_html(text: str) -> str:
 router = Router()
 
 
+def _extract_text(message: Message) -> str | None:
+    """Extract text from normal or forwarded messages."""
+    if message.text:
+        return message.text
+    if message.caption:
+        return message.caption
+    return None
+
+
 @router.message(F.text & ~F.text.startswith("/"))
-async def handle_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
+async def handle_text(
+    message: Message, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    await _process_text(message, session, skills_db)
+
+
+@router.message(F.forward_date & F.text)
+async def handle_forwarded_text(
+    message: Message, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    await _process_text(message, session, skills_db)
+
+
+@router.message(F.caption & ~(F.voice | F.audio))
+async def handle_caption(
+    message: Message, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    await _process_text(message, session, skills_db)
+
+
+async def _process_text(
+    message: Message, session: AsyncSession, skills_db: SkillsDB
+) -> None:
     user_tg = message.from_user
-    if not user_tg or not message.text:
+    if not user_tg:
+        return
+
+    text = _extract_text(message)
+    if not text or text.startswith("/"):
         return
 
     user = await get_or_create_user(
@@ -44,12 +79,19 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
     style = user.default_style
 
     if not mode:
-        await message.answer("Сначала выбери режим", reply_markup=mode_keyboard())
-        return
+        mode = "polish"
+        style = "polish_default"
+        await update_user_settings(
+            session,
+            telegram_user_id=user_tg.id,
+            default_mode=mode,
+            default_style=style,
+        )
 
-    text = message.text
     if len(text) > settings.max_text_length:
-        await message.answer(TEXT_TOO_LONG.format(max_len=settings.max_text_length))
+        await message.answer(
+            TEXT_TOO_LONG.format(max_len=settings.max_text_length)
+        )
         return
 
     started = time.monotonic()
@@ -59,28 +101,36 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
     }
-    progress_msg = await message.answer(f"{mode_label.get(mode, 'Обрабатываю')}…")
+    progress_msg = await message.answer(
+        f"{mode_label.get(mode, 'Обрабатываю')}…"
+    )
 
     try:
         result_text = ""
         llm_ms = 0
         model_used = ""
 
-
         if mode == "polish":
-            r = await run_polish(text, sub_style=style or "polish_default")
+            r = await run_polish(
+                text, sub_style=style or "polish_default"
+            )
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
-                text, sub_style=style or "prompt_general", skills_db=skills_db
+                text,
+                sub_style=style or "prompt_general",
+                skills_db=skills_db,
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
-            _ = r2.used_skills
         elif mode == "humanizer":
-            r3 = await run_humanizer(text, sub_style=style or "humanize_lite")
+            r3 = await run_humanizer(
+                text, sub_style=style or "humanize_lite"
+            )
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
         elif mode == "translator":
-            r4 = await run_translator(text, target_lang=user.target_lang or "en")
+            r4 = await run_translator(
+                text, target_lang=user.target_lang or "en"
+            )
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
 
         total_ms = int((time.monotonic() - started) * 1000)
@@ -103,9 +153,13 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         if len(result_text) > 3900:
             result_text = result_text[:3900] + "\n\n… (обрезано)"
 
-        final_text = f"<blockquote expandable><code>{_escape_html(result_text)}</code></blockquote>"
+        final = (
+            f"<blockquote expandable>"
+            f"<code>{_escape_html(result_text)}</code>"
+            f"</blockquote>"
+        )
         await progress_msg.edit_text(
-            final_text, reply_markup=result_keyboard(mode), parse_mode="HTML"
+            final, reply_markup=result_keyboard(mode), parse_mode="HTML"
         )
 
     except Exception:

@@ -159,6 +159,16 @@ async def on_regenerate(callback: CallbackQuery) -> None:
     await callback.answer("Отправь сообщение ещё раз для перегенерации.")
 
 
+@router.callback_query(F.data == "action:other_mode")
+async def on_other_mode(callback: CallbackQuery) -> None:
+    await callback.message.edit_text(  # type: ignore[union-attr]
+        "Выбери режим — отправь тот же текст или голос ещё раз:",
+        reply_markup=mode_keyboard(),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data == "settings:default_mode")
 async def on_settings_default_mode(callback: CallbackQuery) -> None:
     await callback.message.edit_text(  # type: ignore[union-attr]

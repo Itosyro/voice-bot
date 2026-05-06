@@ -16,6 +16,7 @@ from src.ui.design import (
     ICON_HISTORY,
     ICON_INFO,
     ICON_MENU,
+    ICON_OTHER,
     ICON_REGEN,
     ICON_RESET,
     ICON_SETTINGS,
@@ -150,6 +151,12 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
                     text=f"{ICON_REGEN} Повтор",
                     callback_data="action:regenerate",
                 ),
+                InlineKeyboardButton(
+                    text=f"{ICON_OTHER} Другой режим",
+                    callback_data="action:other_mode",
+                ),
+            ],
+            [
                 InlineKeyboardButton(
                     text=f"{ICON_MENU} Меню",
                     callback_data="back:modes",
