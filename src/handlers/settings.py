@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import lang_keyboard, settings_keyboard
-from src.ui.messages import MODE_NAMES, STYLE_NAMES
+from src.ui.messages import settings_text
 
 router = Router()
 
@@ -16,18 +16,13 @@ async def cmd_settings(message: Message, session: AsyncSession) -> None:
         return
     user = await get_or_create_user(session, telegram_user_id=message.from_user.id)
 
-    mode_name = MODE_NAMES.get(user.default_mode or "", "не выбран")
-    style_name = STYLE_NAMES.get(user.default_style or "", "не выбран")
-    lang = user.target_lang or "en"
-
-    text = (
-        f"НАСТРОЙКИ\n\n"
-        f"Режим: {mode_name}\n"
-        f"Стиль: {style_name}\n"
-        f"Язык: {lang.upper()}\n"
-        f"Запросов: {user.total_requests}"
+    text = settings_text(
+        user.default_mode,
+        user.default_style,
+        user.target_lang or "en",
+        user.total_requests,
     )
-    await message.answer(text, reply_markup=settings_keyboard())
+    await message.answer(text, reply_markup=settings_keyboard(), parse_mode="HTML")
 
 
 @router.message(Command("lang"))
@@ -46,7 +41,7 @@ async def cmd_lang(message: Message, session: AsyncSession) -> None:
         telegram_user_id=message.from_user.id,
         target_lang=lang,
     )
-    await message.answer(f"🌍 Язык перевода: {lang.upper()}")
+    await message.answer(f"⇄ Язык перевода: {lang.upper()}")
 
 
 @router.message(Command("history"))
@@ -59,13 +54,15 @@ async def cmd_history(message: Message, session: AsyncSession) -> None:
     history = await get_user_history(session, user_id=user.id, limit=10)
 
     if not history:
-        await message.answer("📜 История пуста.")
+        await message.answer("История пуста.")
         return
 
-    lines = ["ИСТОРИЯ\n"]
-    for h in history:
-        mode_name = MODE_NAMES.get(h.mode, h.mode)
-        preview = (h.input_preview or "")[:80]
-        lines.append(f"· {mode_name} | {h.input_type} | {preview}")
+    from src.ui.design import MODE_NAME
 
-    await message.answer("\n".join(lines))
+    lines = ["<b>Последние запросы</b>\n"]
+    for h in history:
+        mode_name = MODE_NAME.get(h.mode, h.mode)
+        preview = (h.input_preview or "")[:80]
+        lines.append(f"• {mode_name} | {h.input_type} | {preview}")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")

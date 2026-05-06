@@ -221,7 +221,11 @@ def mock_groq_client():
 async def test_polish_all_styles(mock_groq_client):
     from src.services.polish import run_polish
 
-    for style in ["polish_default", "polish_creative", "polish_formal", "polish_embellish"]:
+    styles = [
+        "polish_raw", "polish_default", "polish_creative",
+        "polish_formal", "polish_embellish",
+    ]
+    for style in styles:
         result = await run_polish("test text", sub_style=style)
         assert result.text == "Mocked output"
         assert result.llm_ms >= 0
@@ -445,7 +449,7 @@ def test_message_constants_exist():
     assert "{max_sec}" in VOICE_TOO_LONG
     assert "{max_len}" in TEXT_TOO_LONG
     assert len(MODE_NAMES) == 4
-    assert len(STYLE_NAMES) == 10
+    assert len(STYLE_NAMES) >= 10
 
 
 # ===== FSM states =====

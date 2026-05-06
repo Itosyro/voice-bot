@@ -22,12 +22,12 @@ async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) 
             first_name=message.from_user.first_name,
             language_code=message.from_user.language_code,
         )
-    await message.answer(START_MESSAGE, reply_markup=mode_keyboard())
+    await message.answer(START_MESSAGE, reply_markup=mode_keyboard(), parse_mode="HTML")
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
-    await message.answer(HELP_MESSAGE)
+    await message.answer(HELP_MESSAGE, parse_mode="HTML")
 
 
 @router.message(Command("cancel"))

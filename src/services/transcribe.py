@@ -25,6 +25,10 @@ async def transcribe(
     result = await client.audio.transcriptions.create(
         file=("voice.ogg", audio_bytes),
         model=model or settings.whisper_model,
+        prompt=(
+            "Транскрибируй дословно. Не цензурируй. "
+            "Маты и нецензурную лексику пиши как есть."
+        ),
     )
     elapsed_ms = int((time.monotonic() - started) * 1000)
 
