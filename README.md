@@ -123,6 +123,18 @@ python -m src.main
 
 ## Деплой
 
+### Render (рекомендуется)
+
+1. Подключи GitHub репозиторий на [dashboard.render.com](https://dashboard.render.com)
+2. Выбери «Blueprint» → используй `render.yaml` из репо
+3. Задай env variables (Telegram token, Groq keys)
+4. Регион: Frankfurt (единый для сервиса и БД)
+
+Или вручную:
+- Создай PostgreSQL (Free план)
+- Создай Web Service (Docker), укажи этот репо
+- DATABASE_URL подставится автоматически через `render.yaml`
+
 ### Fly.io
 
 ```bash

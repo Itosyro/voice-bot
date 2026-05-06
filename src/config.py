@@ -1,5 +1,6 @@
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,17 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str
+
+    @model_validator(mode="after")
+    def fix_database_url(self) -> "Settings":
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            self.database_url = url
+        elif url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            self.database_url = url
+        return self
 
     # Limits
     max_voice_duration_sec: int = 600

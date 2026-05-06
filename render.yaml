@@ -1,0 +1,37 @@
+databases:
+  - name: voicebot-db
+    region: frankfurt
+    plan: free
+    databaseName: voicebot
+    user: voicebot
+
+services:
+  - type: web
+    name: voice-polisher-bot
+    runtime: docker
+    region: frankfurt
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: voicebot-db
+          property: connectionURI
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY_POLISH
+        sync: false
+      - key: GROQ_API_KEY_PROMPT
+        sync: false
+      - key: GROQ_API_KEY_HUMANIZER
+        sync: false
+      - key: GROQ_API_KEY_TRANSLATOR
+        sync: false
+      - key: GROQ_API_KEY_FALLBACK
+        sync: false
+      - key: SKILLS_AUTO_SYNC_ON_STARTUP
+        value: "true"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: json

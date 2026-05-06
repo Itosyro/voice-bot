@@ -13,7 +13,11 @@ def test_get_groq_key_uses_fallback(monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "x")
     monkeypatch.setenv("DATABASE_URL", "x")
     monkeypatch.setenv("GROQ_API_KEY_FALLBACK", "fallback")
-    s = Settings()
+    monkeypatch.delenv("GROQ_API_KEY_POLISH", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY_PROMPT", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY_HUMANIZER", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY_TRANSLATOR", raising=False)
+    s = Settings(_env_file=None)
     assert s.get_groq_key("polish") == "fallback"
 
 

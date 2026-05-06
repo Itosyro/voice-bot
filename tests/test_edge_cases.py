@@ -16,7 +16,10 @@ def test_get_groq_key_specific_mode(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "x")
     monkeypatch.setenv("GROQ_API_KEY_POLISH", "polish_key")
     monkeypatch.setenv("GROQ_API_KEY_FALLBACK", "fallback_key")
-    s = Settings()
+    monkeypatch.delenv("GROQ_API_KEY_TRANSLATOR", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY_PROMPT", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY_HUMANIZER", raising=False)
+    s = Settings(_env_file=None)
     assert s.get_groq_key("polish") == "polish_key"
     assert s.get_groq_key("translator") == "fallback_key"
 
