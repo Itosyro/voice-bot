@@ -3,21 +3,17 @@ Design System for Voice Polisher Bot.
 
 Single source of truth for all visual elements.
 Every emoji, label, and separator lives here.
-
-Palette: minimal monochrome icons.
-One accent (✦) for brand, mode icons from a single family.
-No rainbow — all buttons look consistent.
 """
 
 # ── Brand ──
-BRAND = "✦"
+BRAND = "✦ VOICE ✦"
 
-# ── Mode icons (monochrome, same visual weight) ──
+# ── Mode icons (full-size emoji for visibility) ──
 MODE_ICON = {
-    "polish":     "✎",
-    "prompt":     "⚡",
-    "humanizer":  "✍",
-    "translator": "⇄",
+    "polish":     "📝",
+    "prompt":     "⚡️",
+    "humanizer":  "🪄",
+    "translator": "🌐",
 }
 
 # ── Mode names (Russian, CAPS for buttons) ──
@@ -58,17 +54,17 @@ STYLE_DESC = {
     "humanize_strong": "переписать полностью",
 }
 
-# ── Action icons ──
-ICON_BACK     = "←"
-ICON_REGEN    = "↻"
-ICON_MENU     = "≡"
-ICON_SETTINGS = "⚙"
-ICON_HISTORY  = "▤"
-ICON_INFO     = "ⓘ"
-ICON_RESET    = "↺"
+# ── Action icons (full-size emoji) ──
+ICON_BACK     = "◀️"
+ICON_REGEN    = "🔄"
+ICON_MENU     = "📋"
+ICON_SETTINGS = "⚙️"
+ICON_HISTORY  = "🕐"
+ICON_INFO     = "ℹ️"
+ICON_RESET    = "🔁"
 
 # ── Separator ──
-DIV = "─" * 22
+DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
 
 # ── Language flags ──
 LANG_FLAG = {
