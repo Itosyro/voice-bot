@@ -1,0 +1,16 @@
+app = "voice-polisher-bot"
+primary_region = "ams"
+
+[build]
+
+[env]
+  LOG_FORMAT = "json"
+  LOG_LEVEL = "INFO"
+  SKILLS_AUTO_SYNC_ON_STARTUP = "true"
+
+[processes]
+  app = "sh -c 'alembic upgrade head && python scripts/sync_skills.py && python -m src.main'"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
