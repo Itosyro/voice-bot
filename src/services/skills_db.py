@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from rank_bm25 import BM25Okapi
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +32,7 @@ class SkillsDB:
         skills = list(result.scalars().all())
         return cls(skills)
 
-    PRIORITY_BY_STYLE: dict[str, set[str]] = {
+    PRIORITY_BY_STYLE: ClassVar[dict[str, set[str]]] = {
         "designer": {
             "frontend-design",
             "theme-factory",
@@ -69,7 +71,7 @@ class SkillsDB:
         "polish_creative": {"stt_basic_cleanup"},
     }
 
-    UUPM_PREFIXES_BY_STYLE: dict[str, tuple[str, ...]] = {
+    UUPM_PREFIXES_BY_STYLE: ClassVar[dict[str, tuple[str, ...]]] = {
         "designer": (
             "uupm_products_",
             "uupm_styles_",

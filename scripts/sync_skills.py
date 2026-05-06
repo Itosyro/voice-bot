@@ -9,13 +9,12 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from sqlalchemy import delete
-
-# Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.storage.db import get_session  # noqa: E402
-from src.storage.models import SkillIndex  # noqa: E402
+from sqlalchemy import delete
+
+from src.storage.db import get_session
+from src.storage.models import SkillIndex
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "skill_repos"
 
