@@ -27,10 +27,14 @@ def _escape_html(text: str) -> str:
 router = Router()
 
 
-@router.message(F.voice | F.audio)
-async def handle_voice(
-    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+async def _process_voice(
+    message: Message,
+    voice_message: Message,
+    bot: Bot,
+    session: AsyncSession,
+    skills_db: SkillsDB,
 ) -> None:
+    """Core voice processing logic."""
     user_tg = message.from_user
     if not user_tg:
         return
@@ -59,14 +63,15 @@ async def handle_voice(
         await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard())
         return
 
-    voice = message.voice or message.audio
+    voice = voice_message.voice or voice_message.audio
     if not voice:
         return
 
     duration = voice.duration or 0
     if duration > settings.max_voice_duration_sec:
         await message.answer(
-            VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec)
+            VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec),
+            parse_mode="HTML",
         )
         return
 
@@ -91,6 +96,13 @@ async def handle_voice(
             file_id=voice.file_id,
             session=session,
         )
+
+        if not transcript or not transcript.strip():
+            await progress_msg.edit_text(
+                "⚠ Не удалось распознать речь. Попробуй записать чётче.",
+                reply_markup=mode_keyboard(),
+            )
+            return
 
         mode_label = {
             "polish": "Полирую",
@@ -123,6 +135,13 @@ async def handle_voice(
             )
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
 
+        if not result_text or not result_text.strip():
+            await progress_msg.edit_text(
+                "⚠ Не удалось обработать текст. Попробуй ещё раз.",
+                reply_markup=mode_keyboard(),
+            )
+            return
+
         total_ms = int((time.monotonic() - started) * 1000)
 
         await save_request(
@@ -153,6 +172,29 @@ async def handle_voice(
             final, reply_markup=result_keyboard(mode), parse_mode="HTML"
         )
 
-    except Exception:
+    except Exception as exc:
         log.exception("voice_handler_error")
-        await progress_msg.edit_text(GROQ_ERROR, reply_markup=mode_keyboard())
+        error_msg = GROQ_ERROR
+        exc_str = str(exc).lower()
+        if "rate" in exc_str or "limit" in exc_str:
+            error_msg = "⏳ Лимит Groq API. Подожди минуту и попробуй снова."
+        elif "model" in exc_str and "not found" in exc_str:
+            error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
+        await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
+
+
+@router.message(F.voice | F.audio)
+async def handle_voice(
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    await _process_voice(message, message, bot, session, skills_db)
+
+
+@router.message(F.reply_to_message.voice | F.reply_to_message.audio)
+async def handle_reply_to_voice(
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    """When user replies to a voice message, process that voice."""
+    reply = message.reply_to_message
+    if reply and (reply.voice or reply.audio):
+        await _process_voice(message, reply, bot, session, skills_db)

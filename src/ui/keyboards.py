@@ -2,10 +2,10 @@
 All inline keyboards.
 
 Design rules:
-- Mode buttons: style="danger" (red accent)
+- Mode buttons: style="danger" (red accent), plain text only
 - Utility buttons (settings, history, back): no style (default/neutral)
 - Sub-style buttons: style="primary" (blue)
-- All icons: Unicode symbols only
+- NO icons/symbols/emoji on buttons — clean text only
 - Callback prefixes: mode:, style:, lang:, back:, cmd:, settings:, info:, action:
 """
 
@@ -13,30 +13,23 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.prompts.translator import LANG_NAMES
 from src.ui.design import (
-    ICON_BACK,
-    ICON_HISTORY,
-    ICON_INFO,
-    ICON_MENU,
-    ICON_OTHER,
-    ICON_REGEN,
-    ICON_RESET,
-    ICON_SETTINGS,
     LANG_FLAG,
-    MODE_ICON,
     MODE_NAME,
     STYLE_DESC,
     STYLE_NAME,
 )
 
-# ── Helpers ──
+# ── Style constants ──
 
 S_MODE = "danger"
 S_STYLE = "primary"
 
 
+# ── Helpers ──
+
 def _mode_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
-        text=f"{MODE_ICON[mode]} {MODE_NAME[mode]}",
+        text=MODE_NAME[mode],
         callback_data=f"mode:{mode}",
         style=S_MODE,
     )
@@ -54,7 +47,7 @@ def _style_btn(style_id: str) -> InlineKeyboardButton:
 
 
 def _back_btn(target: str = "back:modes") -> list[InlineKeyboardButton]:
-    return [InlineKeyboardButton(text=f"{ICON_BACK} Назад", callback_data=target)]
+    return [InlineKeyboardButton(text="Назад", callback_data=target)]
 
 
 # ── Mode selection (main menu) ──
@@ -66,14 +59,26 @@ def mode_keyboard() -> InlineKeyboardMarkup:
             [_mode_btn("humanizer"), _mode_btn("translator")],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_SETTINGS} Настройки",
+                    text="Настройки",
                     callback_data="cmd:settings",
                 ),
                 InlineKeyboardButton(
-                    text=f"{ICON_HISTORY} История",
+                    text="История",
                     callback_data="cmd:history",
                 ),
             ],
+        ]
+    )
+
+
+# ── Reprocess mode selection ──
+
+def reprocess_mode_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [_mode_btn("polish"), _mode_btn("prompt")],
+            [_mode_btn("humanizer"), _mode_btn("translator")],
+            _back_btn(),
         ]
     )
 
@@ -149,17 +154,17 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_REGEN} Повтор",
+                    text="Повтор",
                     callback_data="action:regenerate",
                 ),
                 InlineKeyboardButton(
-                    text=f"{ICON_OTHER} Другой режим",
+                    text="Другой режим",
                     callback_data="action:other_mode",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_MENU} Меню",
+                    text="Меню",
                     callback_data="back:modes",
                 ),
             ],
@@ -174,28 +179,28 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['polish']} Сменить режим",
+                    text="Сменить режим",
                     callback_data="settings:default_mode",
                     style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['translator']} Язык перевода",
+                    text="Язык перевода",
                     callback_data="settings:target_lang",
                     style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_INFO} О режимах",
+                    text="О режимах",
                     callback_data="settings:mode_info",
                     style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_RESET} Сброс",
+                    text="Сброс",
                     callback_data="settings:reset",
                 ),
             ],
@@ -211,24 +216,24 @@ def mode_info_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['polish']} {MODE_NAME['polish']}",
+                    text=MODE_NAME["polish"],
                     callback_data="info:polish",
                     style=S_MODE,
                 ),
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['prompt']} {MODE_NAME['prompt']}",
+                    text=MODE_NAME["prompt"],
                     callback_data="info:prompt",
                     style=S_MODE,
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['humanizer']} {MODE_NAME['humanizer']}",
+                    text=MODE_NAME["humanizer"],
                     callback_data="info:humanizer",
                     style=S_MODE,
                 ),
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['translator']} {MODE_NAME['translator']}",
+                    text=MODE_NAME["translator"],
                     callback_data="info:translator",
                     style=S_MODE,
                 ),

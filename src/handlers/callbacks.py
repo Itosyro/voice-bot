@@ -13,6 +13,7 @@ from src.ui.keyboards import (
     mode_keyboard,
     polish_style_keyboard,
     prompt_style_keyboard,
+    reprocess_mode_keyboard,
     settings_keyboard,
 )
 from src.ui.messages import CHOOSE_MODE, MODE_INFO, settings_text, style_header
@@ -162,8 +163,10 @@ async def on_regenerate(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "action:other_mode")
 async def on_other_mode(callback: CallbackQuery) -> None:
     await callback.message.edit_text(  # type: ignore[union-attr]
-        "Выбери режим — отправь тот же текст или голос ещё раз:",
-        reply_markup=mode_keyboard(),
+        "<b>Другой режим</b>\n\n"
+        "Выбери режим — отправь тот же голос\n"
+        "или текст ещё раз:",
+        reply_markup=reprocess_mode_keyboard(),
         parse_mode="HTML",
     )
     await callback.answer()

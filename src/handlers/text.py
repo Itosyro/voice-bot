@@ -162,6 +162,12 @@ async def _process_text(
             final, reply_markup=result_keyboard(mode), parse_mode="HTML"
         )
 
-    except Exception:
+    except Exception as exc:
         log.exception("text_handler_error")
-        await progress_msg.edit_text(GROQ_ERROR, reply_markup=mode_keyboard())
+        error_msg = GROQ_ERROR
+        exc_str = str(exc).lower()
+        if "rate" in exc_str or "limit" in exc_str:
+            error_msg = "⏳ Лимит Groq API. Подожди минуту и попробуй снова."
+        elif "model" in exc_str and "not found" in exc_str:
+            error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
+        await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())

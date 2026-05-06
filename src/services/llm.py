@@ -7,8 +7,9 @@ from groq import AsyncGroq
 
 log = structlog.get_logger()
 
-_MAX_RETRIES = 2
-_RETRY_DELAY = 1.5
+_MAX_RETRIES = 3
+_RETRY_DELAY = 2.0
+_FALLBACK_MODEL = "llama-3.3-70b-versatile"
 
 
 @lru_cache(maxsize=8)
@@ -24,7 +25,7 @@ async def complete(
     temperature: float = 0.5,
     max_tokens: int = 4096,
 ) -> tuple[str, int]:
-    """Call Groq LLM with retry. Returns (response_text, elapsed_ms)."""
+    """Call Groq LLM with retry + fallback model. Returns (response_text, elapsed_ms)."""
     client = _get_client(api_key)
     started = time.monotonic()
     last_exc: Exception | None = None
@@ -44,8 +45,30 @@ async def complete(
             return resp.choices[0].message.content or "", elapsed_ms
         except Exception as exc:
             last_exc = exc
+            log.warning(
+                "groq_retry",
+                attempt=attempt + 1,
+                model=model,
+                error=str(exc),
+            )
             if attempt < _MAX_RETRIES:
-                log.warning("groq_retry", attempt=attempt + 1, error=str(exc))
                 await asyncio.sleep(_RETRY_DELAY * (attempt + 1))
+
+    if model != _FALLBACK_MODEL:
+        log.warning("groq_fallback", original_model=model, fallback=_FALLBACK_MODEL)
+        try:
+            resp = await client.chat.completions.create(
+                model=_FALLBACK_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=temperature,
+                max_tokens=min(max_tokens, 4096),
+            )
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            return resp.choices[0].message.content or "", elapsed_ms
+        except Exception as fallback_exc:
+            log.error("groq_fallback_failed", error=str(fallback_exc))
 
     raise last_exc  # type: ignore[misc]

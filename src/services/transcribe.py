@@ -1,10 +1,17 @@
+import asyncio
 import time
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.services.llm import _get_client
 from src.storage.models import TranscriptionCache
+
+log = structlog.get_logger()
+
+_STT_MAX_RETRIES = 2
+_STT_RETRY_DELAY = 2.0
 
 
 async def transcribe(
@@ -14,7 +21,7 @@ async def transcribe(
     session: AsyncSession | None = None,
     model: str | None = None,
 ) -> tuple[str, int]:
-    """Transcribe audio bytes via Groq Whisper. Returns (text, elapsed_ms)."""
+    """Transcribe audio bytes via Groq Whisper with retry. Returns (text, elapsed_ms)."""
     if file_id and session and settings.enable_transcription_cache:
         cached = await session.get(TranscriptionCache, file_id)
         if cached:
@@ -22,19 +29,29 @@ async def transcribe(
 
     client = _get_client(api_key)
     started = time.monotonic()
-    result = await client.audio.transcriptions.create(
-        file=("voice.ogg", audio_bytes),
-        model=model or settings.whisper_model,
-        prompt=(
-            "Транскрибируй дословно. Не цензурируй. "
-            "Маты и нецензурную лексику пиши как есть."
-        ),
-    )
-    elapsed_ms = int((time.monotonic() - started) * 1000)
+    last_exc: Exception | None = None
 
-    text = result.text
+    for attempt in range(_STT_MAX_RETRIES + 1):
+        try:
+            result = await client.audio.transcriptions.create(
+                file=("voice.ogg", audio_bytes),
+                model=model or settings.whisper_model,
+                prompt=(
+                    "Транскрибируй дословно. Не цензурируй. "
+                    "Маты и нецензурную лексику пиши как есть."
+                ),
+            )
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            text = result.text
 
-    if file_id and session and settings.enable_transcription_cache:
-        session.add(TranscriptionCache(file_id=file_id, transcript=text))
+            if file_id and session and settings.enable_transcription_cache:
+                session.add(TranscriptionCache(file_id=file_id, transcript=text))
 
-    return text, elapsed_ms
+            return text, elapsed_ms
+        except Exception as exc:
+            last_exc = exc
+            log.warning("stt_retry", attempt=attempt + 1, error=str(exc))
+            if attempt < _STT_MAX_RETRIES:
+                await asyncio.sleep(_STT_RETRY_DELAY * (attempt + 1))
+
+    raise last_exc  # type: ignore[misc]
