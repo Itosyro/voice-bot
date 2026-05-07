@@ -84,12 +84,39 @@
 - [x] `is_rate_limit_error()` — общая функция вместо дублирования в handlers
 - [x] Ревью промптов (polish, prompt_eng, humanizer, translator) — качество высокое
 - [x] ruff check + format пройдены
-- [ ] Локальное тестирование бота
+- [x] Локальное тестирование бота
 - [ ] Обновление environment config
+
+## Сессия 4: Глубокий ревью + финальные фиксы
+
+### Найденные проблемы
+
+| # | Проблема | Критичность | Статус |
+|---|----------|-------------|--------|
+| 16 | MODE_ICON: ⚡ и ✍ — emoji вместо Unicode символов (◇, ≈) | Средняя | [x] Исправлено |
+| 17 | `tempfile.mktemp` в `_extract_audio_from_video` — race condition (insecure) | Средняя | [x] Исправлено |
+| 18 | 5 файлов не соответствовали ruff format (design, callbacks, voice, keyboards, messages) | Низкая | [x] Исправлено |
+
+### Проверено и подтверждено корректным
+
+- [x] Reply-to-own-voice (re-transcribe) — работает корректно
+- [x] Forwarded voice messages — ловятся через F.voice | F.audio
+- [x] DbSessionMiddleware — `get_session()` уже коммитит через context manager
+- [x] Export callback — `msg.text` корректно извлекает текст без HTML-тегов
+- [x] Порядок роутеров в bot.py — voice перед text, корректно
+- [x] Неиспользуемый код (states.py, audio.py) — dead code, не вредит
+
+### Что было сделано
+
+- [x] Полный code review всех файлов (handlers, services, ui, config, middlewares, prompts, storage)
+- [x] MODE_ICON: `⚡` → `◇` (prompt), `✍` → `≈` (humanizer)
+- [x] `tempfile.mktemp` → `tempfile.mkstemp` + `os.fdopen` (безопасно)
+- [x] ruff check + ruff format пройдены
+- [x] Коммит и пуш в PR #3
 
 ## Отложено на будущее (v1.1)
 
-- [ ] Обработка video_note
+- [x] Обработка video_note (добавлена в Сессии 3)
 - [ ] Streaming ответов (editMessageText по мере генерации)
 - [ ] Голосовой ответ (TTS)
 - [ ] Длинные аудио (> 10 мин) — нарезка на чанки
