@@ -41,6 +41,21 @@ STYLE_NAME = {
     "humanize_strong": "Сильный",
 }
 
+# ── Style icons (Unicode, per sub-style) ──
+STYLE_ICON = {
+    "polish_raw": "▪",
+    "polish_default": "▫",
+    "polish_creative": "◦",
+    "polish_formal": "▸",
+    "polish_embellish": "◈",
+    "prompt_general": "▪",
+    "prompt_designer": "▫",
+    "prompt_coder": "◦",
+    "prompt_coder_strict": "▸",
+    "humanize_lite": "▪",
+    "humanize_strong": "▫",
+}
+
 # ── Short descriptions for sub-style buttons ──
 STYLE_DESC = {
     "polish_raw": "как есть, без правок",
@@ -65,6 +80,7 @@ ICON_HISTORY = "▤"
 ICON_INFO = "ⓘ"
 ICON_RESET = "↺"
 ICON_OTHER = "⟳"
+ICON_DOWNLOAD = "⇩"
 
 # ── Separator ──
 DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
