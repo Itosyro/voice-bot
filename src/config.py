@@ -3,6 +3,8 @@ from typing import Literal
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_transcription_idx = 0
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -73,6 +75,33 @@ class Settings(BaseSettings):
         key = key_map.get(mode) or self.groq_api_key_fallback
         if not key:
             raise RuntimeError(f"No Groq API key configured for mode '{mode}'")
+        return key
+
+    def get_all_groq_keys(self) -> list[str]:
+        """Return all unique configured Groq API keys."""
+        keys = [
+            self.groq_api_key_polish,
+            self.groq_api_key_prompt,
+            self.groq_api_key_humanizer,
+            self.groq_api_key_translator,
+            self.groq_api_key_fallback,
+        ]
+        seen: set[str] = set()
+        result: list[str] = []
+        for k in keys:
+            if k and k not in seen:
+                seen.add(k)
+                result.append(k)
+        return result
+
+    def get_transcription_key(self) -> str:
+        """Round-robin key for transcription to distribute load across accounts."""
+        global _transcription_idx
+        keys = self.get_all_groq_keys()
+        if not keys:
+            raise RuntimeError("No Groq API keys configured")
+        key = keys[_transcription_idx % len(keys)]
+        _transcription_idx += 1
         return key
 
 

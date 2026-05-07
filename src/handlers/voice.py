@@ -6,6 +6,7 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
+from src.services.llm import is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -84,10 +85,9 @@ async def _process_voice(
             return
         audio_bytes = file_bytes.read()
 
-        groq_key = settings.get_groq_key(mode)
         transcript, stt_ms = await transcribe(
             audio_bytes,
-            api_key=groq_key,
+            api_key=settings.get_transcription_key(),
             file_id=voice.file_id,
             session=session,
         )
@@ -104,18 +104,14 @@ async def _process_voice(
             "prompt": "Создаю промпт",
             "translator": "Перевожу",
         }
-        await progress_msg.edit_text(
-            f"{mode_label.get(mode, 'Обрабатываю')}…"
-        )
+        await progress_msg.edit_text(f"{mode_label.get(mode, 'Обрабатываю')}…")
 
         result_text = ""
         llm_ms = 0
         model_used = ""
 
         if mode == "polish":
-            r = await run_polish(
-                transcript, sub_style=style or "polish_default"
-            )
+            r = await run_polish(transcript, sub_style=style or "polish_default")
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
@@ -125,9 +121,7 @@ async def _process_voice(
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
         elif mode == "translator":
-            r3 = await run_translator(
-                transcript, target_lang=user.target_lang or "en"
-            )
+            r3 = await run_translator(transcript, target_lang=user.target_lang or "en")
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
 
         if not result_text or not result_text.strip():
@@ -158,22 +152,15 @@ async def _process_voice(
         if len(result_text) > 3900:
             result_text = result_text[:3900] + "\n\n… (обрезано)"
 
-        final = (
-            f"<blockquote>"
-            f"<code>{escape_html(result_text)}</code>"
-            f"</blockquote>"
-        )
-        await progress_msg.edit_text(
-            final, reply_markup=result_keyboard(mode), parse_mode="HTML"
-        )
+        final = f"<blockquote><code>{escape_html(result_text)}</code></blockquote>"
+        await progress_msg.edit_text(final, reply_markup=result_keyboard(mode), parse_mode="HTML")
 
     except Exception as exc:
         log.exception("voice_handler_error")
         error_msg = GROQ_ERROR
-        exc_str = str(exc).lower()
-        if "rate" in exc_str or "limit" in exc_str:
+        if is_rate_limit_error(exc):
             error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
-        elif "model" in exc_str and "not found" in exc_str:
+        elif "model" in str(exc).lower() and "not found" in str(exc).lower():
             error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
 

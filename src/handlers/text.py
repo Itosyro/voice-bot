@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.services.humanizer import run_humanizer
+from src.services.llm import is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -32,9 +33,7 @@ def _extract_text(message: Message) -> str | None:
 
 
 @router.message(F.text & ~F.text.startswith("/"))
-async def handle_text(
-    message: Message, session: AsyncSession, skills_db: SkillsDB
-) -> None:
+async def handle_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
     await _process_text(message, session, skills_db)
 
 
@@ -46,15 +45,11 @@ async def handle_forwarded_text(
 
 
 @router.message(F.caption & ~(F.voice | F.audio))
-async def handle_caption(
-    message: Message, session: AsyncSession, skills_db: SkillsDB
-) -> None:
+async def handle_caption(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
     await _process_text(message, session, skills_db)
 
 
-async def _process_text(
-    message: Message, session: AsyncSession, skills_db: SkillsDB
-) -> None:
+async def _process_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
     user_tg = message.from_user
     if not user_tg:
         return
@@ -97,9 +92,7 @@ async def _process_text(
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
     }
-    progress_msg = await message.answer(
-        f"{mode_label.get(mode, 'Обрабатываю')}…"
-    )
+    progress_msg = await message.answer(f"{mode_label.get(mode, 'Обрабатываю')}…")
 
     try:
         result_text = ""
@@ -107,9 +100,7 @@ async def _process_text(
         model_used = ""
 
         if mode == "polish":
-            r = await run_polish(
-                text, sub_style=style or "polish_default"
-            )
+            r = await run_polish(text, sub_style=style or "polish_default")
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
@@ -119,14 +110,10 @@ async def _process_text(
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
         elif mode == "humanizer":
-            r3 = await run_humanizer(
-                text, sub_style=style or "humanize_lite"
-            )
+            r3 = await run_humanizer(text, sub_style=style or "humanize_lite")
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
         elif mode == "translator":
-            r4 = await run_translator(
-                text, target_lang=user.target_lang or "en"
-            )
+            r4 = await run_translator(text, target_lang=user.target_lang or "en")
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
 
         if not result_text or not result_text.strip():
@@ -156,21 +143,14 @@ async def _process_text(
         if len(result_text) > 3900:
             result_text = result_text[:3900] + "\n\n… (обрезано)"
 
-        final = (
-            f"<blockquote>"
-            f"<code>{escape_html(result_text)}</code>"
-            f"</blockquote>"
-        )
-        await progress_msg.edit_text(
-            final, reply_markup=result_keyboard(mode), parse_mode="HTML"
-        )
+        final = f"<blockquote><code>{escape_html(result_text)}</code></blockquote>"
+        await progress_msg.edit_text(final, reply_markup=result_keyboard(mode), parse_mode="HTML")
 
     except Exception as exc:
         log.exception("text_handler_error")
         error_msg = GROQ_ERROR
-        exc_str = str(exc).lower()
-        if "rate" in exc_str or "limit" in exc_str:
+        if is_rate_limit_error(exc):
             error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
-        elif "model" in exc_str and "not found" in exc_str:
+        elif "model" in str(exc).lower() and "not found" in str(exc).lower():
             error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
