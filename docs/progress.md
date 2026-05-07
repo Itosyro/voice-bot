@@ -47,6 +47,9 @@
 | 7 | Превью истории не экранировалось (XSS через HTML) | Средняя | [x] Исправлено |
 | 8 | `video_note` не обрабатывается | Низкая | [ ] Отложено (v1.1) |
 | 9 | Неиспользуемый код (log в logging_config, states.py import) | Низкая | [x] Частично исправлено |
+| 10 | Упоминание "Groq API" в ошибках rate limit (видно юзеру) | Средняя | [x] Исправлено |
+| 11 | `HUMANIZER_VOICE_ERROR` без `parse_mode="HTML"` — HTML-теги видны как текст | Средняя | [x] Исправлено |
+| 12 | `TEXT_TOO_LONG` без `parse_mode="HTML"` — `<b>` теги видны как текст | Средняя | [x] Исправлено |
 
 ### Что было сделано
 
@@ -61,6 +64,9 @@
 - [x] Проверка пустого результата в text handler
 - [x] Убрана неиспользуемая переменная `log` в logging_config.py
 - [x] Обновлён docstring в keyboards.py
+- [x] Убраны упоминания "Groq API" из ошибок rate limit → "Сервер перегружен"
+- [x] Добавлен `parse_mode="HTML"` для HUMANIZER_VOICE_ERROR в voice.py
+- [x] Добавлен `parse_mode="HTML"` для TEXT_TOO_LONG в text.py
 - [x] ruff check пройден
 - [x] PR создан: https://github.com/Itosyro/voice-bot/pull/3
 - [x] Планёрные документы (docs/plan.md, docs/progress.md)
