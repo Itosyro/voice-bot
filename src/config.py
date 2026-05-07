@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     allowed_user_ids: str = ""
     admin_user_ids: str = ""
 
+    # Webhook (Render deploy)
+    webhook_url: str | None = None
+    webhook_secret: str | None = None
+
     # Groq keys
     groq_api_key_polish: str | None = None
     groq_api_key_prompt: str | None = None

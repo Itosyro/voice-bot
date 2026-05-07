@@ -19,6 +19,10 @@ services:
           property: connectionURI
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: WEBHOOK_URL
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
       - key: GROQ_API_KEY_POLISH
         sync: false
       - key: GROQ_API_KEY_PROMPT

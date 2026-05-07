@@ -1,7 +1,11 @@
 import asyncio
+import contextlib
 import os
 
+import aiohttp
 import structlog
+from aiogram import Bot, Dispatcher
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 
 from src.bot import create_bot, create_dispatcher
@@ -11,6 +15,9 @@ from src.services.skills_db import SkillsDB
 from src.storage.db import engine, get_session
 
 log = structlog.get_logger()
+
+SELF_PING_INTERVAL_SEC = 600
+SELF_PING_INITIAL_DELAY_SEC = 60
 
 
 async def load_skills() -> SkillsDB:
@@ -26,7 +33,7 @@ async def _health(_request: web.Request) -> web.Response:
 
 
 async def run_health_server() -> web.AppRunner:
-    """Run a minimal HTTP health-check server for Render."""
+    """Run a minimal HTTP health-check server for Render (polling mode)."""
     port = int(os.environ.get("PORT", "10000"))
     app = web.Application()
     app.router.add_get("/", _health)
@@ -37,6 +44,74 @@ async def run_health_server() -> web.AppRunner:
     await site.start()
     log.info("health_server_started", port=port)
     return runner
+
+
+async def _self_ping(url: str) -> None:
+    """Ping own /health endpoint every 10 min to prevent Render from sleeping."""
+    await asyncio.sleep(SELF_PING_INITIAL_DELAY_SEC)
+    target = f"{url.rstrip('/')}/health"
+    while True:
+        try:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(target, timeout=aiohttp.ClientTimeout(total=10)),
+            ):
+                pass
+            log.info("self_ping_ok", url=target)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.warning("self_ping_failed", error=str(exc), url=target)
+        await asyncio.sleep(SELF_PING_INTERVAL_SEC)
+
+
+async def run_webhook(bot: Bot, dp: Dispatcher) -> None:
+    """Run aiohttp server with aiogram webhook handler + self-ping."""
+    assert settings.webhook_url is not None
+    port = int(os.environ.get("PORT", "10000"))
+    webhook_path = f"/webhook/{settings.telegram_bot_token}"
+    webhook_full_url = f"{settings.webhook_url.rstrip('/')}{webhook_path}"
+
+    app = web.Application()
+    app.router.add_get("/", _health)
+    app.router.add_get("/health", _health)
+
+    handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+        secret_token=settings.webhook_secret,
+    )
+    handler.register(app, path=webhook_path)
+    setup_application(app, dp, bot=bot)
+
+    await bot.set_webhook(
+        url=webhook_full_url,
+        secret_token=settings.webhook_secret,
+        drop_pending_updates=True,
+    )
+    log.info("webhook_set", url=webhook_full_url)
+
+    ping_task = asyncio.create_task(_self_ping(settings.webhook_url))
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    log.info("webhook_server_started", port=port)
+
+    stop_event = asyncio.Event()
+    try:
+        await stop_event.wait()
+    finally:
+        ping_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await ping_task
+        try:
+            await bot.delete_webhook(drop_pending_updates=False)
+            log.info("webhook_deleted")
+        except Exception as exc:
+            log.warning("webhook_delete_failed", error=str(exc))
+        await runner.cleanup()
 
 
 async def main() -> None:
@@ -50,18 +125,28 @@ async def main() -> None:
 
     dp.workflow_data["skills_db"] = skills_db
 
-    health_runner = None
-    if os.environ.get("PORT"):
-        health_runner = await run_health_server()
+    if settings.webhook_url:
+        log.info("mode", mode="webhook")
+        try:
+            await run_webhook(bot, dp)
+        finally:
+            await bot.session.close()
+            await engine.dispose()
+            log.info("shutdown_complete")
+    else:
+        log.info("mode", mode="polling")
+        health_runner = None
+        if os.environ.get("PORT"):
+            health_runner = await run_health_server()
 
-    try:
-        await dp.start_polling(bot)
-    finally:
-        await bot.session.close()
-        if health_runner:
-            await health_runner.cleanup()
-        await engine.dispose()
-        log.info("shutdown_complete")
+        try:
+            await dp.start_polling(bot)
+        finally:
+            await bot.session.close()
+            if health_runner:
+                await health_runner.cleanup()
+            await engine.dispose()
+            log.info("shutdown_complete")
 
 
 if __name__ == "__main__":

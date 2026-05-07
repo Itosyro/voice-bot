@@ -221,15 +221,28 @@ Render Free Tier усыпляет сервис через ~15 минут без 
 
 ### План реализации
 
-- [ ] Добавить `webhook_url` и `webhook_secret` в `src/config.py`
-- [ ] Переписать `src/main.py`:
+- [x] Добавить `webhook_url` и `webhook_secret` в `src/config.py`
+- [x] Переписать `src/main.py`:
   - Если `WEBHOOK_URL` задан → aiohttp сервер с webhook handler + health-check + self-ping
   - Если `WEBHOOK_URL` не задан → long polling (как раньше, для локалки)
-- [ ] Обновить `render.yaml` — добавить env var `WEBHOOK_URL`
-- [ ] Self-ping каждые 10 минут через `asyncio.Task` чтобы Render не усыплял
-- [ ] ruff check + format
-- [ ] Коммит и пуш в deploy ветку
+- [x] Обновить `render.yaml` — добавить env vars `WEBHOOK_URL` и `WEBHOOK_SECRET`
+- [x] Self-ping каждые 10 минут через `asyncio.Task` чтобы Render не усыплял
+- [x] ruff check + format
+- [x] Коммит и пуш в deploy ветку
+
+### Что изменено
+
+- **`src/config.py`** — добавлены `webhook_url: str | None = None` и `webhook_secret: str | None = None` (env: `WEBHOOK_URL`, `WEBHOOK_SECRET`).
+- **`src/main.py`** — переписан `main()`:
+  - В webhook-режиме: aiohttp app с маршрутами `GET /`, `GET /health`, `POST /webhook/<token>` (через `SimpleRequestHandler` + `setup_application` из aiogram 3); регистрация webhook через `bot.set_webhook(...)` с `secret_token`; фоновая задача `_self_ping()` (каждые 600 сек GET на `/health`); корректный shutdown (`delete_webhook`, отмена self-ping, `runner.cleanup`, `bot.session.close`, `engine.dispose`).
+  - В polling-режиме (если `WEBHOOK_URL` не задан): как раньше — `dp.start_polling(bot)` + опциональный health server, если задан `PORT`.
+- **`render.yaml`** — добавлены env vars `WEBHOOK_URL` и `WEBHOOK_SECRET` (`sync: false` — задаются вручную в Render Dashboard).
+
+### Что нужно сделать вручную в Render Dashboard
+
+1. `WEBHOOK_URL` = `https://voice-polisher-bot.onrender.com` (или фактический URL сервиса).
+2. `WEBHOOK_SECRET` = любая случайная строка (например, `openssl rand -hex 32`) — используется как `X-Telegram-Bot-Api-Secret-Token` для верификации.
 
 ## Статус
 
-Все найденные проблемы (30 штук за 5 сессий) исправлены. UI обновлён Unicode-символами и цветными кнопками. Ни одного emoji на кнопках (кроме флагов стран). Код чист, линтер проходит. Ведётся работа над Webhook + Health-check (Сессия 8).
+Все найденные проблемы (30 штук за 5 сессий) исправлены. UI обновлён Unicode-символами и цветными кнопками. Ни одного emoji на кнопках (кроме флагов стран). Код чист, линтер проходит. Сессия 8 (Webhook + Health-check) реализована.
