@@ -17,7 +17,7 @@ async def run_summary(transcript: str) -> SummaryResult:
     text, ms = await complete(
         system_prompt=system,
         user_message=transcript,
-        api_key=settings.get_groq_key("polish"),
+        api_key=settings.get_groq_key("summary"),
         model=settings.llm_model_default,
         temperature=0.3,
     )

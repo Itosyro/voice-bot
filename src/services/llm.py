@@ -3,7 +3,7 @@ import time
 from functools import lru_cache
 
 import structlog
-from groq import AsyncGroq
+from groq import AsyncGroq, RateLimitError
 
 from src.config import settings
 
@@ -20,9 +20,11 @@ def get_client(api_key: str) -> AsyncGroq:
 
 
 def is_rate_limit_error(exc: Exception) -> bool:
-    """Check if exception is a rate limit error."""
+    """Check if exception is a Groq rate limit error."""
+    if isinstance(exc, RateLimitError):
+        return True
     exc_str = str(exc).lower()
-    return "rate" in exc_str or "limit" in exc_str
+    return "rate_limit" in exc_str or "rate limit" in exc_str
 
 
 async def complete(

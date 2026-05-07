@@ -2,6 +2,7 @@ import asyncio
 import time
 
 import structlog
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -46,7 +47,11 @@ async def transcribe(
             text = result.text
 
             if file_id and session and settings.enable_transcription_cache:
-                session.add(TranscriptionCache(file_id=file_id, transcript=text))
+                try:
+                    session.add(TranscriptionCache(file_id=file_id, transcript=text))
+                    await session.flush()
+                except IntegrityError:
+                    await session.rollback()
 
             return text, elapsed_ms
         except Exception as exc:

@@ -3,7 +3,10 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.prompts.translator import LANG_NAMES
+from src.storage.history import get_user_history
 from src.storage.users import get_or_create_user, update_user_settings
+from src.ui.design import MODE_NAME
 from src.ui.keyboards import lang_keyboard, settings_keyboard
 from src.ui.messages import settings_text
 from src.utils import escape_html
@@ -37,6 +40,12 @@ async def cmd_lang(message: Message, session: AsyncSession) -> None:
         return
 
     lang = parts[1].lower().strip()
+    if lang not in LANG_NAMES and len(lang) > 5:
+        await message.answer(
+            "⚠ Неизвестный код языка. Выбери из списка:",
+            reply_markup=lang_keyboard(),
+        )
+        return
     await update_user_settings(
         session,
         telegram_user_id=message.from_user.id,
@@ -49,7 +58,6 @@ async def cmd_lang(message: Message, session: AsyncSession) -> None:
 async def cmd_history(message: Message, session: AsyncSession) -> None:
     if not message.from_user:
         return
-    from src.storage.history import get_user_history
 
     user = await get_or_create_user(session, telegram_user_id=message.from_user.id)
     history = await get_user_history(session, user_id=user.id, limit=10)
@@ -57,8 +65,6 @@ async def cmd_history(message: Message, session: AsyncSession) -> None:
     if not history:
         await message.answer("История пуста.")
         return
-
-    from src.ui.design import MODE_NAME
 
     lines = ["<b>Последние запросы</b>\n"]
     for h in history:

@@ -21,7 +21,7 @@ from src.storage.history import save_request
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, HUMANIZER_VOICE_ERROR, VOICE_TOO_LONG
-from src.utils import escape_html
+from src.utils import send_result
 
 log = structlog.get_logger()
 
@@ -170,14 +170,21 @@ async def _process_voice(
             total_ms=total_ms,
         )
 
-        if len(result_text) > 3900:
-            result_text = result_text[:3900] + "\n\n… (обрезано)"
-
-        final = f"<blockquote><code>{escape_html(result_text)}</code></blockquote>"
-        await progress_msg.edit_text(final, reply_markup=result_keyboard(mode), parse_mode="HTML")
+        await send_result(progress_msg, result_text, result_keyboard(mode), mode)
 
     except Exception as exc:
         log.exception("voice_handler_error")
+        total_ms = int((time.monotonic() - started) * 1000)
+        with contextlib.suppress(Exception):
+            await save_request(
+                session,
+                user_id=user.id,
+                mode=mode,
+                style=style or "default",
+                input_type="video_note" if video_note else "voice",
+                total_ms=total_ms,
+                error=str(exc)[:500],
+            )
         error_msg = GROQ_ERROR
         if is_rate_limit_error(exc):
             error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
@@ -209,7 +216,12 @@ async def _extract_audio_from_video(video_bytes: bytes) -> bytes | None:
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
-        await proc.wait()
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=30)
+        except TimeoutError:
+            proc.kill()
+            log.error("ffmpeg_timeout", timeout=30)
+            return None
 
         if proc.returncode != 0:
             log.error("ffmpeg_extract_failed", returncode=proc.returncode)
