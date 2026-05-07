@@ -5,7 +5,6 @@ from aiogram.types import BufferedInputFile, Message
 # Telegram sendMessage limit: 4096 chars after entities parsing.
 # We use a safe threshold accounting for HTML wrapper overhead.
 _TG_MSG_LIMIT = 4096
-_SAFE_TEXT_LIMIT = 3800
 
 
 def escape_html(text: str) -> str:
