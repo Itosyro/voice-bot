@@ -78,8 +78,8 @@ src/
     translator.py      — системный промпт Translator
 
   ui/
-    design.py          — константы дизайна (MODE_NAME, STYLE_NAME, LANG_FLAG)
-    keyboards.py       — все inline-клавиатуры
+    design.py          — константы дизайна (MODE_NAME, MODE_ICON, STYLE_NAME, STYLE_ICON, LANG_FLAG, ICON_*)
+    keyboards.py       — все inline-клавиатуры (Unicode-символы на всех кнопках)
     messages.py        — шаблоны текстовых сообщений
 
   middlewares/
@@ -116,8 +116,7 @@ src/
 Коммиты на ветке `devin/1778083729-voice-polisher-bot`:
 - Дизайн-система: MODE_NAME, STYLE_NAME, LANG_FLAG
 - Русский UI (ПОЛИРОВКА, ПРОМПТ, ОЧЕЛОВЕЧИТЬ, ПЕРЕВОД)
-- Unicode-иконки на кнопках -> потом убраны (чистый текст)
-- Цветные кнопки (`style=` параметр) -> потом убраны (не в aiogram API)
+- Цветные кнопки (`style=` параметр) -> убраны (не в aiogram API на тот момент; возвращены в Сессии 7 через Bot API 9.4)
 - Reply-to-voice (частично)
 - Retry + fallback для Groq API
 
@@ -142,3 +141,31 @@ PR: https://github.com/Itosyro/voice-bot/pull/3
 12. **`src/middlewares/rate_limit.py`** — CallbackQuery ответ с show_alert
 13. **`src/states.py`** — удалён (dead code)
 14. **`src/services/audio.py`** — удалён (dead code)
+
+## Сессия 7 — Unicode-символы + цветные кнопки (Bot API 9.4)
+
+Ветка: `devin/1778153304-unicode-buttons`
+PR: https://github.com/Itosyro/voice-bot/pull/4
+
+### Что изменено
+
+1. **`src/ui/design.py`**:
+   - STYLE_ICON — Unicode-маркеры для подстилей (▪ ▫ ◦ ▸ ◈)
+   - ICON_DOWNLOAD = "⇩"
+   - BTN_STYLE_* константы цветов кнопок (primary, success, danger)
+2. **`src/ui/keyboards.py`**:
+   - Unicode-символы на всех кнопках (режимы, действия, настройки, стили)
+   - `style=` параметр на всех InlineKeyboardButton (Bot API 9.4)
+   - Emoji-флаги стран для языков сохранены
+   - Добавлен helper `_mode_info_btn()`
+
+### Цветовая схема кнопок
+
+| Тип кнопки | Стиль | Цвет |
+|------------|--------|------|
+| Режимы | primary | Синий |
+| Действия | success | Зелёный |
+| Настройки | primary | Синий |
+| Назад/Сброс | danger | Красный |
+| Стили | primary | Синий |
+| Языки | success | Зелёный |
