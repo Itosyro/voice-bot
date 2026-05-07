@@ -169,3 +169,72 @@ PR: https://github.com/Itosyro/voice-bot/pull/4
 | Назад/Сброс | danger | Красный |
 | Настройки, История | — | Дефолтный (белый) |
 | Языки | — | Дефолтный (белый) |
+
+## Сессия 8 — Webhook + Health-check (не засыпает на Render)
+
+### Проблема
+
+Render Free Tier усыпляет сервис через ~15 минут без входящего трафика. Бот работает в режиме **long polling** — он сам ходит к Telegram за обновлениями. Когда Render усыпляет процесс, polling прекращается и бот перестаёт отвечать. При этом Render dashboard показывает "deployed" (зелёный) — потому что последний деплой был успешным, но сам процесс уже спит.
+
+### Решение
+
+Два изменения, которые решают проблему комплексно:
+
+#### 1. Webhook вместо Long Polling
+
+**Что:** Переключить бота с `dp.start_polling()` на Webhook-режим.
+
+**Как работает:**
+- Бот регистрирует у Telegram URL вида `https://voice-polisher-bot.onrender.com/webhook/<BOT_TOKEN>`
+- Telegram отправляет обновления (сообщения, нажатия кнопок) как HTTP POST запросы на этот URL
+- Render получает входящий HTTP запрос → сервис просыпается → обрабатывает update
+- Это значит, что каждое сообщение пользователя само будит бота (если он заснул)
+
+**Какие файлы меняются:**
+
+| Файл | Что меняется |
+|------|-------------|
+| `src/config.py` | Добавить поле `webhook_url: str \| None = None` и `webhook_secret: str \| None = None` |
+| `src/main.py` | Переписать `main()`: если `webhook_url` задан — запускать aiohttp-сервер с webhook handler; если нет — использовать long polling (для локальной разработки) |
+| `render.yaml` | Добавить env var `WEBHOOK_URL` |
+
+**Детали реализации в `src/main.py`:**
+```
+Если webhook_url задан:
+  1. Создать aiohttp app
+  2. Добавить маршруты: GET /health → "ok", POST /webhook/<token> → aiogram webhook handler
+  3. bot.set_webhook(webhook_url + "/webhook/" + token, secret_token=webhook_secret)
+  4. Запустить aiohttp сервер на 0.0.0.0:PORT
+  5. При shutdown — bot.delete_webhook()
+
+Если webhook_url НЕ задан (локалка):
+  Как сейчас — dp.start_polling(bot)
+```
+
+#### 2. Health-check keep-alive (самопинг)
+
+**Что:** Добавить фоновый таск, который пингует сам себя каждые 10 минут.
+
+**Как работает:**
+- При старте бота запускается `asyncio.Task`, который каждые 600 секунд (10 мин) делает HTTP GET на `{webhook_url}/health`
+- Это не даёт Render усыпить сервис, потому что каждые 10 минут приходит трафик
+- Если `webhook_url` не задан (локалка) — self-ping не запускается
+
+**Какие файлы меняются:**
+
+| Файл | Что меняется |
+|------|-------------|
+| `src/main.py` | Добавить `async def _self_ping()` — цикл с `aiohttp.ClientSession().get(url)` каждые 600 сек |
+
+### Итого: что поменяется
+
+```
+src/config.py   — +2 поля (webhook_url, webhook_secret)
+src/main.py     — переписать main() с поддержкой webhook + self-ping
+render.yaml     — +1 env var (WEBHOOK_URL)
+```
+
+### Обратная совместимость
+
+- Если `WEBHOOK_URL` не задан — бот работает как раньше (long polling). Для локальной разработки ничего не меняется.
+- Health-check endpoint `/health` уже есть — он сохраняется.

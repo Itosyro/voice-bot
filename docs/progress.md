@@ -172,7 +172,7 @@
 - [ ] Streaming ответов (editMessageText по мере генерации)
 - [ ] Голосовой ответ (TTS)
 - [ ] Длинные аудио (> 10 мин) — нарезка на чанки
-- [ ] Webhook вместо long-polling
+- [x] Webhook вместо long-polling (реализовано в Сессии 8)
 - [ ] Inline-mode (@bot полировать ...)
 - [ ] Voice calibration в Humanizer
 - [ ] Custom system prompts через /prompts/new
@@ -213,6 +213,23 @@
 - [x] ruff check + format пройдены
 - [x] PR: https://github.com/Itosyro/voice-bot/pull/4
 
+## Сессия 8: Webhook + Health-check (не засыпает на Render)
+
+### Проблема
+
+Render Free Tier усыпляет сервис через ~15 минут без трафика. Бот на long polling перестаёт отвечать.
+
+### План реализации
+
+- [ ] Добавить `webhook_url` и `webhook_secret` в `src/config.py`
+- [ ] Переписать `src/main.py`:
+  - Если `WEBHOOK_URL` задан → aiohttp сервер с webhook handler + health-check + self-ping
+  - Если `WEBHOOK_URL` не задан → long polling (как раньше, для локалки)
+- [ ] Обновить `render.yaml` — добавить env var `WEBHOOK_URL`
+- [ ] Self-ping каждые 10 минут через `asyncio.Task` чтобы Render не усыплял
+- [ ] ruff check + format
+- [ ] Коммит и пуш в deploy ветку
+
 ## Статус
 
-Все найденные проблемы (30 штук за 5 сессий) исправлены. UI обновлён Unicode-символами и цветными кнопками. Ни одного emoji на кнопках (кроме флагов стран). Код чист, линтер проходит.
+Все найденные проблемы (30 штук за 5 сессий) исправлены. UI обновлён Unicode-символами и цветными кнопками. Ни одного emoji на кнопках (кроме флагов стран). Код чист, линтер проходит. Ведётся работа над Webhook + Health-check (Сессия 8).
