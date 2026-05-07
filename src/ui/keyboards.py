@@ -10,20 +10,10 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.prompts.translator import LANG_NAMES
 from src.ui.design import (
-    ICON_BACK,
-    ICON_DOWNLOAD,
-    ICON_HISTORY,
-    ICON_INFO,
-    ICON_MENU,
-    ICON_OTHER,
-    ICON_REGEN,
-    ICON_RESET,
-    ICON_SETTINGS,
     LANG_FLAG,
     MODE_ICON,
     MODE_NAME,
     STYLE_DESC,
-    STYLE_ICON,
     STYLE_NAME,
 )
 
@@ -40,11 +30,9 @@ def _mode_btn(mode: str) -> InlineKeyboardButton:
 
 
 def _style_btn(style_id: str) -> InlineKeyboardButton:
-    icon = STYLE_ICON.get(style_id, "")
     name = STYLE_NAME.get(style_id, style_id)
     desc = STYLE_DESC.get(style_id, "")
-    label = f"{name} — {desc}" if desc else name
-    text = f"{icon} {label}" if icon else label
+    text = f"{name} — {desc}" if desc else name
     if len(text) > 64:
         text = text[:61] + "..."
     return InlineKeyboardButton(
@@ -53,17 +41,8 @@ def _style_btn(style_id: str) -> InlineKeyboardButton:
     )
 
 
-def _mode_info_btn(mode: str) -> InlineKeyboardButton:
-    icon = MODE_ICON.get(mode, "")
-    name = MODE_NAME[mode]
-    return InlineKeyboardButton(
-        text=f"{icon} {name}" if icon else name,
-        callback_data=f"info:{mode}",
-    )
-
-
 def _back_btn(target: str = "back:modes") -> list[InlineKeyboardButton]:
-    return [InlineKeyboardButton(text=f"{ICON_BACK} Назад", callback_data=target)]
+    return [InlineKeyboardButton(text="Назад", callback_data=target)]
 
 
 # ── Mode selection (main menu) ──
@@ -77,11 +56,11 @@ def mode_keyboard() -> InlineKeyboardMarkup:
             [_mode_btn("summary")],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_SETTINGS} Настройки",
+                    text="Настройки",
                     callback_data="cmd:settings",
                 ),
                 InlineKeyboardButton(
-                    text=f"{ICON_HISTORY} История",
+                    text="История",
                     callback_data="cmd:history",
                 ),
             ],
@@ -178,21 +157,21 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_REGEN} Повтор",
+                    text="Повтор",
                     callback_data="action:regenerate",
                 ),
                 InlineKeyboardButton(
-                    text=f"{ICON_OTHER} Другой режим",
+                    text="Другой режим",
                     callback_data="action:other_mode",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_DOWNLOAD} Скачать .txt",
+                    text="Скачать .txt",
                     callback_data="action:export",
                 ),
                 InlineKeyboardButton(
-                    text=f"{ICON_MENU} Меню",
+                    text="Меню",
                     callback_data="back:modes",
                 ),
             ],
@@ -208,25 +187,25 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_OTHER} Сменить режим",
+                    text="Сменить режим",
                     callback_data="settings:default_mode",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{MODE_ICON['translator']} Язык перевода",
+                    text="Язык перевода",
                     callback_data="settings:target_lang",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_INFO} О режимах",
+                    text="О режимах",
                     callback_data="settings:mode_info",
                 ),
             ],
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_RESET} Сброс",
+                    text="Сброс",
                     callback_data="settings:reset",
                 ),
             ],
@@ -241,9 +220,32 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 def mode_info_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_mode_info_btn("polish"), _mode_info_btn("prompt")],
-            [_mode_info_btn("humanizer"), _mode_info_btn("translator")],
-            [_mode_info_btn("summary")],
+            [
+                InlineKeyboardButton(
+                    text=MODE_NAME["polish"],
+                    callback_data="info:polish",
+                ),
+                InlineKeyboardButton(
+                    text=MODE_NAME["prompt"],
+                    callback_data="info:prompt",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=MODE_NAME["humanizer"],
+                    callback_data="info:humanizer",
+                ),
+                InlineKeyboardButton(
+                    text=MODE_NAME["translator"],
+                    callback_data="info:translator",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=MODE_NAME["summary"],
+                    callback_data="info:summary",
+                ),
+            ],
             _back_btn("back:settings"),
         ]
     )
