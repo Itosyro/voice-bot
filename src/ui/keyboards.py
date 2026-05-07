@@ -47,6 +47,7 @@ def mode_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [_mode_btn("polish"), _mode_btn("prompt")],
             [_mode_btn("humanizer"), _mode_btn("translator")],
+            [_mode_btn("summary")],
             [
                 InlineKeyboardButton(
                     text="Настройки",
@@ -68,6 +69,7 @@ def reprocess_mode_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [_mode_btn("polish"), _mode_btn("prompt")],
             [_mode_btn("humanizer"), _mode_btn("translator")],
+            [_mode_btn("summary")],
             _back_btn(),
         ]
     )
@@ -153,6 +155,10 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    text="Скачать .txt",
+                    callback_data="action:export",
+                ),
+                InlineKeyboardButton(
                     text="Меню",
                     callback_data="back:modes",
                 ),
@@ -218,6 +224,12 @@ def mode_info_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=MODE_NAME["translator"],
                     callback_data="info:translator",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text=MODE_NAME["summary"],
+                    callback_data="info:summary",
                 ),
             ],
             _back_btn("back:settings"),

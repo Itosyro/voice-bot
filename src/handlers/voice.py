@@ -1,3 +1,7 @@
+import asyncio
+import contextlib
+import os
+import tempfile
 import time
 
 import structlog
@@ -10,6 +14,7 @@ from src.services.llm import is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
+from src.services.summary import run_summary
 from src.services.transcribe import transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
@@ -60,10 +65,12 @@ async def _process_voice(
         return
 
     voice = voice_message.voice or voice_message.audio
-    if not voice:
+    video_note = voice_message.video_note if not voice else None
+
+    if not voice and not video_note:
         return
 
-    duration = voice.duration or 0
+    duration = (voice.duration if voice else video_note.duration) or 0
     if duration > settings.max_voice_duration_sec:
         await message.answer(
             VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec),
@@ -75,7 +82,8 @@ async def _process_voice(
     progress_msg = await message.answer(f"Распознаю аудио ({duration} сек)…")
 
     try:
-        file = await bot.get_file(voice.file_id)
+        file_id = voice.file_id if voice else video_note.file_id  # type: ignore[union-attr]
+        file = await bot.get_file(file_id)
         if not file.file_path:
             await progress_msg.edit_text("⚠ Не удалось скачать аудио.")
             return
@@ -83,12 +91,20 @@ async def _process_voice(
         if not file_bytes:
             await progress_msg.edit_text("⚠ Не удалось скачать аудио.")
             return
-        audio_bytes = file_bytes.read()
+        raw_bytes = file_bytes.read()
+
+        if video_note:
+            audio_bytes = await _extract_audio_from_video(raw_bytes)
+            if not audio_bytes:
+                await progress_msg.edit_text("⚠ Не удалось извлечь аудио из кружочка.")
+                return
+        else:
+            audio_bytes = raw_bytes
 
         transcript, stt_ms = await transcribe(
             audio_bytes,
             api_key=settings.get_transcription_key(),
-            file_id=voice.file_id,
+            file_id=file_id,
             session=session,
         )
 
@@ -103,6 +119,7 @@ async def _process_voice(
             "polish": "Полирую",
             "prompt": "Создаю промпт",
             "translator": "Перевожу",
+            "summary": "Создаю саммари",
         }
         await progress_msg.edit_text(f"{mode_label.get(mode, 'Обрабатываю')}…")
 
@@ -123,6 +140,9 @@ async def _process_voice(
         elif mode == "translator":
             r3 = await run_translator(transcript, target_lang=user.target_lang or "en")
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
+        elif mode == "summary":
+            r4 = await run_summary(transcript)
+            result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
 
         if not result_text or not result_text.strip():
             await progress_msg.edit_text(
@@ -133,12 +153,13 @@ async def _process_voice(
 
         total_ms = int((time.monotonic() - started) * 1000)
 
+        input_type = "video_note" if video_note else "voice"
         await save_request(
             session,
             user_id=user.id,
             mode=mode,
             style=style or "default",
-            input_type="voice",
+            input_type=input_type,
             input_length=duration,
             input_preview=transcript[:200],
             output_text=result_text[:5000],
@@ -165,13 +186,45 @@ async def _process_voice(
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
 
 
-@router.message(F.reply_to_message.voice | F.reply_to_message.audio)
+async def _extract_audio_from_video(video_bytes: bytes) -> bytes | None:
+    """Extract audio from video_note (circle) using ffmpeg."""
+    in_path = tempfile.mktemp(suffix=".mp4")
+    out_path = tempfile.mktemp(suffix=".ogg")
+    try:
+        with open(in_path, "wb") as f:
+            f.write(video_bytes)
+
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-y", "-i", in_path,
+            "-vn", "-acodec", "libopus", "-b:a", "64k",
+            out_path,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+
+        if proc.returncode != 0:
+            log.error("ffmpeg_extract_failed", returncode=proc.returncode)
+            return None
+
+        with open(out_path, "rb") as f:
+            return f.read()
+    except Exception:
+        log.exception("extract_audio_error")
+        return None
+    finally:
+        for path in (in_path, out_path):
+            with contextlib.suppress(OSError):
+                os.unlink(path)
+
+
+@router.message(F.reply_to_message.voice | F.reply_to_message.audio | F.reply_to_message.video_note)
 async def handle_reply_to_voice(
     message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
 ) -> None:
-    """Re-transcribe when user replies to any voice/audio message (own or forwarded)."""
+    """Re-transcribe when user replies to any voice/audio/video_note message."""
     reply = message.reply_to_message
-    if reply and (reply.voice or reply.audio):
+    if reply and (reply.voice or reply.audio or reply.video_note):
         await _process_voice(message, reply, bot, session, skills_db)
 
 
@@ -180,4 +233,12 @@ async def handle_voice(
     message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
 ) -> None:
     """Handle direct and forwarded voice/audio messages."""
+    await _process_voice(message, message, bot, session, skills_db)
+
+
+@router.message(F.video_note)
+async def handle_video_note(
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    """Handle video notes (circles/кружочки) — extract audio and transcribe."""
     await _process_voice(message, message, bot, session, skills_db)

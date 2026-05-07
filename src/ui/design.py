@@ -14,6 +14,7 @@ MODE_ICON = {
     "prompt":     "⚡",
     "humanizer":  "✍",
     "translator": "⇄",
+    "summary":    "∑",
 }
 
 # ── Mode names (Russian, CAPS for buttons) ──
@@ -22,6 +23,7 @@ MODE_NAME = {
     "prompt":     "ПРОМПТ",
     "humanizer":  "ОЧЕЛОВЕЧИТЬ",
     "translator": "ПЕРЕВОД",
+    "summary":    "САММАРИ",
 }
 
 # ── Style names ──

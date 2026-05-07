@@ -11,6 +11,7 @@ from src.services.llm import is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
+from src.services.summary import run_summary
 from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.users import get_or_create_user, update_user_settings
@@ -91,6 +92,7 @@ async def _process_text(message: Message, session: AsyncSession, skills_db: Skil
         "prompt": "Создаю промпт",
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
+        "summary": "Создаю саммари",
     }
     progress_msg = await message.answer(f"{mode_label.get(mode, 'Обрабатываю')}…")
 
@@ -115,6 +117,9 @@ async def _process_text(message: Message, session: AsyncSession, skills_db: Skil
         elif mode == "translator":
             r4 = await run_translator(text, target_lang=user.target_lang or "en")
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
+        elif mode == "summary":
+            r5 = await run_summary(text)
+            result_text, llm_ms, model_used = r5.text, r5.llm_ms, r5.model
 
         if not result_text or not result_text.strip():
             await progress_msg.edit_text(

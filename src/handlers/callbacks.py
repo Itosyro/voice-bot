@@ -1,6 +1,6 @@
 import structlog
 from aiogram import F, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import BufferedInputFile, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.storage.history import get_user_history
@@ -35,6 +35,20 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
     if not callback.data or not callback.from_user:
         return
     mode = callback.data.split(":", 1)[1]
+
+    if mode == "summary":
+        await update_user_settings(
+            session,
+            telegram_user_id=callback.from_user.id,
+            default_mode="summary",
+            default_style="summary",
+        )
+        await callback.message.edit_text(  # type: ignore[union-attr]
+            "∑ <b>САММАРИ</b>\n\nОтправь голос или текст",
+            parse_mode="HTML",
+        )
+        await callback.answer()
+        return
 
     kb_fn = STYLE_KEYBOARDS.get(mode)
     if kb_fn:
@@ -154,6 +168,21 @@ async def on_set_default(callback: CallbackQuery, session: AsyncSession) -> None
     )
     mode_name = MODE_NAME.get(mode, mode)
     await callback.answer(f"Режим {mode_name} установлен по умолчанию!", show_alert=True)
+
+
+@router.callback_query(F.data == "action:export")
+async def on_export(callback: CallbackQuery) -> None:
+    """Export the result text as a .txt file."""
+    msg = callback.message
+    if not msg or not msg.text:
+        await callback.answer("Нет текста для экспорта.")
+        return
+
+    text_content = msg.text.strip()
+    file_bytes = text_content.encode("utf-8")
+    doc = BufferedInputFile(file_bytes, filename="result.txt")
+    await msg.answer_document(doc)  # type: ignore[union-attr]
+    await callback.answer("Готово!")
 
 
 @router.callback_query(F.data == "action:regenerate")
