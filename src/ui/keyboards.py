@@ -10,6 +10,12 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.prompts.translator import LANG_NAMES
 from src.ui.design import (
+    BTN_STYLE_ACTION,
+    BTN_STYLE_BACK,
+    BTN_STYLE_LANG,
+    BTN_STYLE_MODE,
+    BTN_STYLE_SETTINGS,
+    BTN_STYLE_STYLE,
     ICON_BACK,
     ICON_DOWNLOAD,
     ICON_HISTORY,
@@ -36,6 +42,7 @@ def _mode_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=f"{icon} {name}" if icon else name,
         callback_data=f"mode:{mode}",
+        style=BTN_STYLE_MODE,
     )
 
 
@@ -50,6 +57,7 @@ def _style_btn(style_id: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=text,
         callback_data=f"style:{style_id}",
+        style=BTN_STYLE_STYLE,
     )
 
 
@@ -59,11 +67,14 @@ def _mode_info_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=f"{icon} {name}" if icon else name,
         callback_data=f"info:{mode}",
+        style=BTN_STYLE_MODE,
     )
 
 
 def _back_btn(target: str = "back:modes") -> list[InlineKeyboardButton]:
-    return [InlineKeyboardButton(text=f"{ICON_BACK} Назад", callback_data=target)]
+    return [
+        InlineKeyboardButton(text=f"{ICON_BACK} Назад", callback_data=target, style=BTN_STYLE_BACK)
+    ]
 
 
 # ── Mode selection (main menu) ──
@@ -79,10 +90,12 @@ def mode_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{ICON_SETTINGS} Настройки",
                     callback_data="cmd:settings",
+                    style=BTN_STYLE_SETTINGS,
                 ),
                 InlineKeyboardButton(
                     text=f"{ICON_HISTORY} История",
                     callback_data="cmd:history",
+                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
         ]
@@ -159,6 +172,7 @@ def lang_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=f"{flag} {code.upper()}",
                 callback_data=f"lang:{code}",
+                style=BTN_STYLE_LANG,
             )
         )
         if len(row) == 4:
@@ -180,20 +194,24 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{ICON_REGEN} Повтор",
                     callback_data="action:regenerate",
+                    style=BTN_STYLE_ACTION,
                 ),
                 InlineKeyboardButton(
                     text=f"{ICON_OTHER} Другой режим",
                     callback_data="action:other_mode",
+                    style=BTN_STYLE_ACTION,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_DOWNLOAD} Скачать .txt",
                     callback_data="action:export",
+                    style=BTN_STYLE_ACTION,
                 ),
                 InlineKeyboardButton(
                     text=f"{ICON_MENU} Меню",
                     callback_data="back:modes",
+                    style=BTN_STYLE_ACTION,
                 ),
             ],
         ]
@@ -210,24 +228,28 @@ def settings_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{ICON_OTHER} Сменить режим",
                     callback_data="settings:default_mode",
+                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['translator']} Язык перевода",
                     callback_data="settings:target_lang",
+                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_INFO} О режимах",
                     callback_data="settings:mode_info",
+                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_RESET} Сброс",
                     callback_data="settings:reset",
+                    style=BTN_STYLE_BACK,
                 ),
             ],
             _back_btn(),
