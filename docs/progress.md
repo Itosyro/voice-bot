@@ -50,6 +50,9 @@
 | 10 | Упоминание "Groq API" в ошибках rate limit (видно юзеру) | Средняя | [x] Исправлено |
 | 11 | `HUMANIZER_VOICE_ERROR` без `parse_mode="HTML"` — HTML-теги видны как текст | Средняя | [x] Исправлено |
 | 12 | `TEXT_TOO_LONG` без `parse_mode="HTML"` — `<b>` теги видны как текст | Средняя | [x] Исправлено |
+| 13 | **Транскрипция и LLM используют ОДИН ключ Groq** — двойная нагрузка на 1 аккаунт | Критическая | [x] Исправлено |
+| 14 | При rate limit retry использовался тот же исчерпанный ключ — ретраи бесполезны | Критическая | [x] Исправлено |
+| 15 | `_get_client` импортировался как private (подчёркивание) в transcribe.py | Низкая | [x] Исправлено |
 
 ### Что было сделано
 
@@ -70,6 +73,17 @@
 - [x] ruff check пройден
 - [x] PR создан: https://github.com/Itosyro/voice-bot/pull/3
 - [x] Планёрные документы (docs/plan.md, docs/progress.md)
+
+### Третья итерация: Глубокий ревью (SocratiCode + Anthropic скиллы)
+
+- [x] Найдена корневая причина rate limit: Whisper + LLM использовали один ключ
+- [x] `config.py`: добавлены `get_all_groq_keys()` и `get_transcription_key()` (round-robin)
+- [x] `llm.py`: ротация ключей при rate limit, `_get_client` → `get_client`
+- [x] `transcribe.py`: ротация ключей при rate limit, исправлен import
+- [x] `voice.py`: транскрипция использует отдельный ключ от LLM
+- [x] `is_rate_limit_error()` — общая функция вместо дублирования в handlers
+- [x] Ревью промптов (polish, prompt_eng, humanizer, translator) — качество высокое
+- [x] ruff check + format пройдены
 - [ ] Локальное тестирование бота
 - [ ] Обновление environment config
 
