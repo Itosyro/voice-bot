@@ -238,3 +238,93 @@ render.yaml     — +1 env var (WEBHOOK_URL)
 
 - Если `WEBHOOK_URL` не задан — бот работает как раньше (long polling). Для локальной разработки ничего не меняется.
 - Health-check endpoint `/health` уже есть — он сохраняется.
+
+## Сессия 9 — Длинные голосовые до 1 часа (chunked streaming)
+
+### Проблема
+
+Лимит `max_voice_duration_sec = 600` (10 мин) — голосовые/audio/кружочки
+дольше 10 мин получали `VOICE_TOO_LONG`. Реальные пользователи присылают
+15-30-минутные записи (лекции, длинные комментарии, кружочки).
+
+### Решение
+
+Отдельный pipeline для voices > 10 мин: ffmpeg режет файл на ~5-минутные
+opus-куски, каждый кусок транскрибируется отдельно, результат стримится в
+чат частями по мере готовности.
+
+Между Groq-вызовами throttle 1.5 сек, чтобы не упирать в rate-limit. На 429
+пауза 25 сек + 1 ретрай. Полный транскрипт кэшируется в `TranscriptionCache`
+по `file_id` — replays того же голосового пропускают STT.
+
+### Ключевые цифры
+
+| Параметр | Значение | Что делает |
+|----------|----------|------------|
+| `max_voice_duration_sec` | 3600 | Абсолютный максимум (1 час) |
+| `chunk_threshold_sec` | 600 | Выше — chunked-режим |
+| `chunk_duration_sec` | 300 | Размер одного чанка (5 мин) |
+| `chunk_throttle_sec` | 1.5 | Пауза между Groq-вызовами |
+| Telegram-лимит сообщения | 4096 | Каждый чанк результата режется при превышении |
+
+### Поведение по режимам
+
+| Режим      | Стратегия                                                |
+|------------|----------------------------------------------------------|
+| polish     | Per-chunk LLM, стримим результат каждой части            |
+| translator | Per-chunk LLM, стримим результат каждой части            |
+| summary    | Collect-all → один LLM-вызов в конце на полный текст     |
+| prompt     | Collect-all → один LLM-вызов в конце на полный текст     |
+| humanizer  | Только текст, неприменимо для voice                      |
+
+### UX
+
+1. Voice > 10 мин →
+   `🕐 Длинное аудио (X мин) — режу на N частей по ~5 мин и расшифровываю
+   по очереди.`
+2. Каждый чанк K/N:
+   - edit прогресса: `🎙 Часть K/N — распознаю…`
+   - после STT: `🛠 Часть K/N — обрабатываю…` *(только polish/translator)*
+   - результат отдельным сообщением:
+     `<b>Часть K/N</b>\n<blockquote><code>...</code></blockquote>`
+     (если > 4096 символов — `[i/n]` подразделы).
+3. После всех чанков:
+   - polish/translator: `✓ Готово — обработано N частей.`
+   - summary/prompt: `✓ Расшифровка готова (Z симв.). Собираю итоговый…` →
+     финальное сообщение через `send_result`.
+4. На rate-limit чанка: `⏳ Сервер перегружен на части K/N — пауза 25с и
+   продолжаю.`
+5. На пустую/упавшую расшифровку чанка: `⚠ Часть K/N не распозналась —
+   пропускаю и иду дальше.`
+
+### Какие файлы меняются
+
+| Файл | Что меняется |
+|------|-------------|
+| `src/config.py` | +`chunk_threshold_sec`, +`chunk_duration_sec`, +`chunk_throttle_sec`, `max_voice_duration_sec` 600 → 3600 |
+| `src/services/transcribe.py` | +`split_audio_to_chunks(audio_bytes, chunk_sec)` — ffmpeg `-f segment` нарезка на opus 64k |
+| `src/ui/messages.py` | +`LONG_VOICE_NOTICE`, `CHUNK_TRANSCRIBING`, `CHUNK_PROCESSING`, `CHUNK_FINAL_PROCESSING`, `CHUNK_RATE_LIMIT_PAUSE`, `LONG_VOICE_PARTIAL`, `LONG_VOICE_DONE`. `VOICE_TOO_LONG` теперь `{max_min}` (минуты) |
+| `src/utils.py` | +`send_chunk(target, header, text, reply_markup)` — посылает один streaming-кусок (одно или несколько сообщений ≤4096 символов с разметкой `[i/n]`) |
+| `src/handlers/voice.py` | +`_process_long_voice` (chunked-pipeline), +`_transcribe_chunk_with_retry`, +`_run_chunk_llm`. `_process_voice` ветвится на `duration > chunk_threshold_sec` |
+
+### Итого
+
+```
+src/config.py            — +3 поля, max 600→3600
+src/services/transcribe.py — +split_audio_to_chunks
+src/ui/messages.py       — +7 шаблонов, VOICE_TOO_LONG переформатирован
+src/utils.py             — +send_chunk
+src/handlers/voice.py    — +_process_long_voice + 2 helper
+docs/progress.md         — Сессия 9
+docs/plan.md             — Сессия 9
+```
+
+### Обратная совместимость
+
+- Voices ≤ 10 мин обрабатываются как раньше (один transcribe + send_result),
+  никаких изменений.
+- Кэш транскрипта (`TranscriptionCache`) расширен: теперь по `file_id`
+  кэшируется и склеенный транскрипт длинного голосового — replays идут мимо
+  STT (один LLM-вызов на финальный transcript для summary/prompt либо стрим
+  per-chunk LLM с уже кэшированным trannskript).
+- ffmpeg уже в Dockerfile — деплой не ломается.
