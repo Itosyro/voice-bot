@@ -10,8 +10,9 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from src.prompts.translator import LANG_NAMES
 from src.ui.design import (
+    BTN_STYLE_ACTION,
     BTN_STYLE_BACK,
-    BTN_STYLE_SETTINGS,
+    BTN_STYLE_MODE,
     BTN_STYLE_STYLE,
     ICON_BACK,
     ICON_DOWNLOAD,
@@ -39,6 +40,7 @@ def _mode_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=f"{icon} {name}" if icon else name,
         callback_data=f"mode:{mode}",
+        style=BTN_STYLE_MODE,
     )
 
 
@@ -63,6 +65,7 @@ def _mode_info_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=f"{icon} {name}" if icon else name,
         callback_data=f"info:{mode}",
+        style=BTN_STYLE_MODE,
     )
 
 
@@ -85,12 +88,10 @@ def mode_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{ICON_SETTINGS} Настройки",
                     callback_data="cmd:settings",
-                    style=BTN_STYLE_SETTINGS,
                 ),
                 InlineKeyboardButton(
                     text=f"{ICON_HISTORY} История",
                     callback_data="cmd:history",
-                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
         ]
@@ -188,20 +189,24 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{ICON_REGEN} Повтор",
                     callback_data="action:regenerate",
+                    style=BTN_STYLE_ACTION,
                 ),
                 InlineKeyboardButton(
                     text=f"{ICON_OTHER} Другой режим",
                     callback_data="action:other_mode",
+                    style=BTN_STYLE_ACTION,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_DOWNLOAD} Скачать .txt",
                     callback_data="action:export",
+                    style=BTN_STYLE_ACTION,
                 ),
                 InlineKeyboardButton(
                     text=f"{ICON_MENU} Меню",
                     callback_data="back:modes",
+                    style=BTN_STYLE_ACTION,
                 ),
             ],
         ]
@@ -218,21 +223,18 @@ def settings_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"{ICON_OTHER} Сменить режим",
                     callback_data="settings:default_mode",
-                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{MODE_ICON['translator']} Язык перевода",
                     callback_data="settings:target_lang",
-                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=f"{ICON_INFO} О режимах",
                     callback_data="settings:mode_info",
-                    style=BTN_STYLE_SETTINGS,
                 ),
             ],
             [

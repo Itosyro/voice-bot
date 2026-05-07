@@ -84,9 +84,10 @@ ICON_DOWNLOAD = "⇩"
 
 # ── Button color styles (Bot API 9.4+) ──
 # Values: "primary" (blue), "success" (green), "danger" (red), None (default/white)
-BTN_STYLE_SETTINGS = "primary"
+BTN_STYLE_MODE = "danger"
+BTN_STYLE_ACTION = "danger"
+BTN_STYLE_STYLE = "primary"
 BTN_STYLE_BACK = "danger"
-BTN_STYLE_STYLE = "success"
 
 # ── Separator ──
 DIV = "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
