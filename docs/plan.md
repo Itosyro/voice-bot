@@ -2,14 +2,15 @@
 
 ## Описание проекта
 
-Telegram-бот для расшифровки голосовых сообщений и обработки текста через 4 режима:
+Telegram-бот для расшифровки голосовых сообщений и обработки текста через 5 режимов:
 
 | # | Режим | Что делает | Вход | Подстили |
 |---|-------|-----------|------|----------|
 | 1 | **Polish** | Транскрипция + полировка текста | голос / текст | raw, default, creative, formal, embellish |
 | 2 | **Prompt Engineer** | Мысль -> профессиональный промпт | голос / текст | general, designer, coder, coder_strict |
 | 3 | **Humanizer** | Удаление AI-маркеров | только текст | lite, strong |
-| 4 | **Translator** | Перевод с сохранением тона | голос / текст | выбор языка (10+) |
+| 4 | **Translator** | Перевод с сохранением тона | голос / текст | выбор языка (14) |
+| 5 | **Summary** | Конденсация текста в ключевые точки | голос / текст | — |
 
 ## Стек
 
@@ -42,8 +43,7 @@ src/
   bot.py              — сборка бота (dispatcher, middlewares, routers)
   main.py             — точка входа
   config.py           — pydantic-settings конфиг
-  states.py           — FSM states
-  utils.py            — общие утилиты (escape_html)
+  utils.py            — общие утилиты (escape_html, send_result)
   logging_config.py   — structlog настройка
 
   handlers/
@@ -56,13 +56,13 @@ src/
     admin.py           — /sync_skills, /stats
 
   services/
-    audio.py           — конвертация аудио (pydub/ffmpeg)
     transcribe.py      — Groq Whisper STT
-    llm.py             — обёртка Groq LLM (complete)
+    llm.py             — обёртка Groq LLM (complete + is_rate_limit_error)
     polish.py          — сервис Polish
     prompt_eng.py      — сервис Prompt Engineer + Skills RAG
     humanizer.py       — сервис Humanizer
     translator.py      — сервис Translator
+    summary.py         — сервис Summary
     skills_db.py       — SkillsDB (BM25 индекс + search)
 
   storage/
@@ -121,28 +121,24 @@ src/
 - Reply-to-voice (частично)
 - Retry + fallback для Groq API
 
-## Сессия 3 — Code Review + Bugfixes (текущая)
+## Сессия 3 — Code Review + Bugfixes
 
 Ветка: `devin/1778145843-review-fixes`
 PR: https://github.com/Itosyro/voice-bot/pull/3
 
 ### Что изменено
 
-1. **`src/handlers/voice.py`** — исправлен порядок хендлеров:
-   - `handle_reply_to_voice` зарегистрирован ПЕРЕД `handle_voice`
-   - Фильтр `F.reply_to_message.voice | F.reply_to_message.audio` ловит ответы на голосовые
-   - Пересланные голосовые обрабатываются через `handle_voice` (F.voice | F.audio ловит и forward)
-
-2. **`src/handlers/callbacks.py`** — фильтр `on_set_default`:
-   - `F.data == "action:set_default:"` -> `F.data.startswith("action:set_default:")`
-   - HTML-экранирование превью истории
-
-3. **`src/handlers/text.py`** — проверка пустого результата LLM
-
-4. **`src/handlers/settings.py`** — HTML-экранирование превью истории
-
-5. **`src/ui/keyboards.py`** — убран невалидный `style` параметр из InlineKeyboardButton
-
-6. **`src/utils.py`** (новый) — общий `escape_html()`, убраны дубликаты из voice.py и text.py
-
-7. **`src/logging_config.py`** — убрана неиспользуемая переменная `log`
+1. **`src/handlers/voice.py`** — порядок хендлеров, ffmpeg таймаут, экспорт в файл, сохранение ошибок
+2. **`src/handlers/callbacks.py`** — фильтр set_default, HTML-экранирование
+3. **`src/handlers/text.py`** — проверка пустого результата, экспорт в файл, сохранение ошибок
+4. **`src/handlers/settings.py`** — валидация /lang, top-level imports
+5. **`src/bot.py`** — Auth/RateLimit middleware на callback_query
+6. **`src/utils.py`** — escape_html + send_result (экспорт в файл при >4096 символов)
+7. **`src/services/llm.py`** — is_rate_limit_error без ложных срабатываний
+8. **`src/services/transcribe.py`** — IntegrityError обработка race condition
+9. **`src/services/summary.py`** — отдельный API ключ через get_groq_key("summary")
+10. **`src/config.py`** — "summary" в key_map
+11. **`src/middlewares/auth.py`** — CallbackQuery ответ с show_alert
+12. **`src/middlewares/rate_limit.py`** — CallbackQuery ответ с show_alert
+13. **`src/states.py`** — удалён (dead code)
+14. **`src/services/audio.py`** — удалён (dead code)

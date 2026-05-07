@@ -85,11 +85,11 @@
 - [x] Ревью промптов (polish, prompt_eng, humanizer, translator) — качество высокое
 - [x] ruff check + format пройдены
 - [x] Локальное тестирование бота
-- [ ] Обновление environment config
+- [x] Обновление environment config
 
 ## Сессия 4: Глубокий ревью + финальные фиксы
 
-### Найденные проблемы
+### Найденные проблемы (первая итерация)
 
 | # | Проблема | Критичность | Статус |
 |---|----------|-------------|--------|
@@ -104,15 +104,67 @@
 - [x] DbSessionMiddleware — `get_session()` уже коммитит через context manager
 - [x] Export callback — `msg.text` корректно извлекает текст без HTML-тегов
 - [x] Порядок роутеров в bot.py — voice перед text, корректно
-- [x] Неиспользуемый код (states.py, audio.py) — dead code, не вредит
 
-### Что было сделано
+### Что было сделано (первая итерация)
 
 - [x] Полный code review всех файлов (handlers, services, ui, config, middlewares, prompts, storage)
 - [x] MODE_ICON: `⚡` → `◇` (prompt), `✍` → `≈` (humanizer)
 - [x] `tempfile.mktemp` → `tempfile.mkstemp` + `os.fdopen` (безопасно)
 - [x] ruff check + ruff format пройдены
 - [x] Коммит и пуш в PR #3
+
+## Сессия 5: Супер-ревью (SocratiCode + Anthropic скиллы) + Self-Review + Тестирование
+
+### Найденные проблемы (10 фиксов)
+
+| # | Проблема | Критичность | Статус |
+|---|----------|-------------|--------|
+| 19 | `is_rate_limit_error` — ложные срабатывания ("rate" есть в "generate", "moderate") | Высокая | [x] Исправлено |
+| 20 | Нет Auth/RateLimit middleware на callback_query — кнопки обходят защиту | Высокая | [x] Исправлено |
+| 21 | Нет таймаута на ffmpeg процесс — может зависнуть навсегда | Средняя | [x] Исправлено |
+| 22 | Текст может превысить лимит Telegram 4096 символов после escape_html | Средняя | [x] Исправлено |
+| 23 | Нет валидации в `/lang` — принимает любой мусор | Средняя | [x] Исправлено |
+| 24 | Race condition в TranscriptionCache (два запроса с тем же file_id) | Средняя | [x] Исправлено |
+| 25 | Summary делит API ключ с Polish | Средняя | [x] Исправлено |
+| 26 | Ошибки не сохраняются в историю запросов | Низкая | [x] Исправлено |
+| 27 | Lazy imports в settings.py | Низкая | [x] Исправлено |
+| 28 | Dead code: states.py, audio.py — не используются | Низкая | [x] Удалено |
+
+### Допфиксы из self-review
+
+| # | Проблема | Статус |
+|---|----------|--------|
+| 29 | Auth/RateLimit middleware не отвечают на CallbackQuery (спиннер зависает) | [x] Исправлено |
+| 30 | Неиспользуемый `_SAFE_TEXT_LIMIT` в utils.py | [x] Удалено |
+
+### Детали фиксов
+
+- **Fix #19**: `is_rate_limit_error()` — теперь проверяет `RateLimitError` из Groq SDK + точные строки `"rate_limit"` / `"rate limit"`
+- **Fix #20**: Auth + RateLimit middleware добавлены на `dp.callback_query`
+- **Fix #21**: ffmpeg таймаут 30 сек через `asyncio.wait_for` + `proc.kill()`
+- **Fix #22**: `send_result()` в `src/utils.py` — если результат > 4096 символов после HTML → отправляет `.txt` файлом со статусом "Текст слишком длинный — отправляю файлом…"
+- **Fix #23**: `/lang` валидация — отклоняет коды не из `LANG_NAMES` и длиннее 5 символов
+- **Fix #24**: `TranscriptionCache` — `try/except IntegrityError` + rollback при дубликате
+- **Fix #25**: Summary использует `get_groq_key("summary")` → fallback ключ
+- **Fix #26**: Ошибки сохраняются в `RequestHistory.error` (в voice.py и text.py)
+- **Fix #27**: Lazy imports перенесены на top-level в settings.py
+- **Fix #28**: Удалены `src/states.py` и `src/services/audio.py`
+- **Fix #29**: Auth/RateLimit middleware — `callback.answer(text, show_alert=True)` при блокировке
+- **Fix #30**: Удалён `_SAFE_TEXT_LIMIT = 3800`
+
+### Тестирование
+
+- [x] Бот запущен локально — стартует чисто, обработал /start без ошибок
+- [x] 7 smoke-тестов пройдены:
+  - `is_rate_limit_error()` нет ложных срабатываний
+  - `escape_html()` корректно экранирует
+  - `_TG_MSG_LIMIT == 4096`
+  - LANG_NAMES валидация работает
+  - `get_groq_key('summary')` возвращает fallback ключ
+  - Dead code файлы удалены
+  - `send_result()` сигнатура корректна
+- [x] ruff check + ruff format — всё чисто
+- [x] Environment config настроен для будущих сессий
 
 ## Отложено на будущее (v1.1)
 
@@ -125,3 +177,7 @@
 - [ ] Voice calibration в Humanizer
 - [ ] Custom system prompts через /prompts/new
 - [ ] Экспорт истории в Notion / Obsidian / .md
+
+## Статус
+
+Все найденные проблемы (30 штук за 5 сессий) исправлены. Код чист, линтер проходит, бот стартует без ошибок.
