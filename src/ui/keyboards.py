@@ -18,6 +18,7 @@ from src.ui.design import (
 
 # ── Helpers ──
 
+
 def _mode_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=MODE_NAME[mode],
@@ -32,7 +33,8 @@ def _style_btn(style_id: str) -> InlineKeyboardButton:
     if len(text) > 64:
         text = text[:61] + "..."
     return InlineKeyboardButton(
-        text=text, callback_data=f"style:{style_id}",
+        text=text,
+        callback_data=f"style:{style_id}",
     )
 
 
@@ -41,6 +43,7 @@ def _back_btn(target: str = "back:modes") -> list[InlineKeyboardButton]:
 
 
 # ── Mode selection (main menu) ──
+
 
 def mode_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -64,6 +67,7 @@ def mode_keyboard() -> InlineKeyboardMarkup:
 
 # ── Reprocess mode selection ──
 
+
 def reprocess_mode_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -76,6 +80,7 @@ def reprocess_mode_keyboard() -> InlineKeyboardMarkup:
 
 
 # ── Polish styles ──
+
 
 def polish_style_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -92,6 +97,7 @@ def polish_style_keyboard() -> InlineKeyboardMarkup:
 
 # ── Prompt styles ──
 
+
 def prompt_style_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -106,6 +112,7 @@ def prompt_style_keyboard() -> InlineKeyboardMarkup:
 
 # ── Humanizer styles ──
 
+
 def humanizer_style_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -117,6 +124,7 @@ def humanizer_style_keyboard() -> InlineKeyboardMarkup:
 
 
 # ── Language picker (translator) ──
+
 
 def lang_keyboard() -> InlineKeyboardMarkup:
     buttons: list[list[InlineKeyboardButton]] = []
@@ -139,6 +147,7 @@ def lang_keyboard() -> InlineKeyboardMarkup:
 
 
 # ── Result actions ──
+
 
 def result_keyboard(mode: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -168,6 +177,7 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
 
 
 # ── Settings ──
+
 
 def settings_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -202,6 +212,7 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 
 
 # ── Mode info (from settings) ──
+
 
 def mode_info_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(

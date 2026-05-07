@@ -53,7 +53,9 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
     kb_fn = STYLE_KEYBOARDS.get(mode)
     if kb_fn:
         await callback.message.edit_text(  # type: ignore[union-attr]
-            style_header(mode), reply_markup=kb_fn(), parse_mode="HTML",
+            style_header(mode),
+            reply_markup=kb_fn(),
+            parse_mode="HTML",
         )
     await callback.answer()
 
@@ -118,10 +120,13 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
 
 # ── Navigation ──
 
+
 @router.callback_query(F.data == "back:modes")
 async def on_back_to_modes(callback: CallbackQuery) -> None:
     await callback.message.edit_text(  # type: ignore[union-attr]
-        CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML",
+        CHOOSE_MODE,
+        reply_markup=mode_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -132,15 +137,21 @@ async def on_back_to_settings(callback: CallbackQuery, session: AsyncSession) ->
         return
     user = await get_or_create_user(session, telegram_user_id=callback.from_user.id)
     text = settings_text(
-        user.default_mode, user.default_style, user.target_lang or "en", user.total_requests,
+        user.default_mode,
+        user.default_style,
+        user.target_lang or "en",
+        user.total_requests,
     )
     await callback.message.edit_text(  # type: ignore[union-attr]
-        text, reply_markup=settings_keyboard(), parse_mode="HTML",
+        text,
+        reply_markup=settings_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
 
 # ── Settings ──
+
 
 @router.callback_query(F.data == "cmd:settings")
 async def on_settings(callback: CallbackQuery, session: AsyncSession) -> None:
@@ -148,10 +159,15 @@ async def on_settings(callback: CallbackQuery, session: AsyncSession) -> None:
         return
     user = await get_or_create_user(session, telegram_user_id=callback.from_user.id)
     text = settings_text(
-        user.default_mode, user.default_style, user.target_lang or "en", user.total_requests,
+        user.default_mode,
+        user.default_style,
+        user.target_lang or "en",
+        user.total_requests,
     )
     await callback.message.edit_text(  # type: ignore[union-attr]
-        text, reply_markup=settings_keyboard(), parse_mode="HTML",
+        text,
+        reply_markup=settings_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -193,9 +209,7 @@ async def on_regenerate(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "action:other_mode")
 async def on_other_mode(callback: CallbackQuery) -> None:
     await callback.message.edit_text(  # type: ignore[union-attr]
-        "<b>Другой режим</b>\n\n"
-        "Выбери режим — отправь тот же голос\n"
-        "или текст ещё раз:",
+        "<b>Другой режим</b>\n\nВыбери режим — отправь тот же голос\nили текст ещё раз:",
         reply_markup=reprocess_mode_keyboard(),
         parse_mode="HTML",
     )
@@ -205,7 +219,9 @@ async def on_other_mode(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "settings:default_mode")
 async def on_settings_default_mode(callback: CallbackQuery) -> None:
     await callback.message.edit_text(  # type: ignore[union-attr]
-        CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML",
+        CHOOSE_MODE,
+        reply_markup=mode_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -213,7 +229,9 @@ async def on_settings_default_mode(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "settings:target_lang")
 async def on_settings_target_lang(callback: CallbackQuery) -> None:
     await callback.message.edit_text(  # type: ignore[union-attr]
-        style_header("translator"), reply_markup=lang_keyboard(), parse_mode="HTML",
+        style_header("translator"),
+        reply_markup=lang_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -235,7 +253,9 @@ async def on_mode_info_page(callback: CallbackQuery) -> None:
     mode = callback.data.split(":", 1)[1]
     text = MODE_INFO.get(mode, "Информация недоступна.")
     await callback.message.edit_text(  # type: ignore[union-attr]
-        text, reply_markup=mode_info_keyboard(), parse_mode="HTML",
+        text,
+        reply_markup=mode_info_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -252,12 +272,15 @@ async def on_settings_reset(callback: CallbackQuery, session: AsyncSession) -> N
         target_lang="en",
     )
     await callback.message.edit_text(  # type: ignore[union-attr]
-        CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML",
+        CHOOSE_MODE,
+        reply_markup=mode_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()
 
 
 # ── History ──
+
 
 @router.callback_query(F.data == "cmd:history")
 async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
@@ -268,7 +291,9 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
 
     if not history:
         await callback.message.edit_text(  # type: ignore[union-attr]
-            "История пуста.", reply_markup=mode_keyboard(), parse_mode="HTML",
+            "История пуста.",
+            reply_markup=mode_keyboard(),
+            parse_mode="HTML",
         )
         await callback.answer()
         return
@@ -280,6 +305,8 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
         lines.append(f"• {mode_name} | {h.input_type} | {escape_html(preview)}...")
 
     await callback.message.edit_text(  # type: ignore[union-attr]
-        "\n".join(lines), reply_markup=mode_keyboard(), parse_mode="HTML",
+        "\n".join(lines),
+        reply_markup=mode_keyboard(),
+        parse_mode="HTML",
     )
     await callback.answer()

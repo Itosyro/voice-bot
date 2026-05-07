@@ -188,15 +188,23 @@ async def _process_voice(
 
 async def _extract_audio_from_video(video_bytes: bytes) -> bytes | None:
     """Extract audio from video_note (circle) using ffmpeg."""
-    in_path = tempfile.mktemp(suffix=".mp4")
-    out_path = tempfile.mktemp(suffix=".ogg")
+    in_fd, in_path = tempfile.mkstemp(suffix=".mp4")
+    out_fd, out_path = tempfile.mkstemp(suffix=".ogg")
     try:
-        with open(in_path, "wb") as f:
+        os.close(out_fd)
+        with os.fdopen(in_fd, "wb") as f:
             f.write(video_bytes)
 
         proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-y", "-i", in_path,
-            "-vn", "-acodec", "libopus", "-b:a", "64k",
+            "ffmpeg",
+            "-y",
+            "-i",
+            in_path,
+            "-vn",
+            "-acodec",
+            "libopus",
+            "-b:a",
+            "64k",
             out_path,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
