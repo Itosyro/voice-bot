@@ -1,4 +1,3 @@
-import html
 import time
 
 import structlog
@@ -16,13 +15,9 @@ from src.storage.history import save_request
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, HUMANIZER_VOICE_ERROR, VOICE_TOO_LONG
+from src.utils import escape_html
 
 log = structlog.get_logger()
-
-
-def _escape_html(text: str) -> str:
-    return html.escape(text, quote=False)
-
 
 router = Router()
 
@@ -165,7 +160,7 @@ async def _process_voice(
 
         final = (
             f"<blockquote>"
-            f"<code>{_escape_html(result_text)}</code>"
+            f"<code>{escape_html(result_text)}</code>"
             f"</blockquote>"
         )
         await progress_msg.edit_text(
@@ -183,18 +178,19 @@ async def _process_voice(
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
 
 
-@router.message(F.voice | F.audio)
-async def handle_voice(
-    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
-) -> None:
-    await _process_voice(message, message, bot, session, skills_db)
-
-
 @router.message(F.reply_to_message.voice | F.reply_to_message.audio)
 async def handle_reply_to_voice(
     message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
 ) -> None:
-    """When user replies to a voice message, process that voice."""
+    """Re-transcribe when user replies to any voice/audio message (own or forwarded)."""
     reply = message.reply_to_message
     if reply and (reply.voice or reply.audio):
         await _process_voice(message, reply, bot, session, skills_db)
+
+
+@router.message(F.voice | F.audio)
+async def handle_voice(
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    """Handle direct and forwarded voice/audio messages."""
+    await _process_voice(message, message, bot, session, skills_db)

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import lang_keyboard, settings_keyboard
 from src.ui.messages import settings_text
+from src.utils import escape_html
 
 router = Router()
 
@@ -63,6 +64,6 @@ async def cmd_history(message: Message, session: AsyncSession) -> None:
     for h in history:
         mode_name = MODE_NAME.get(h.mode, h.mode)
         preview = (h.input_preview or "")[:80]
-        lines.append(f"• {mode_name} | {h.input_type} | {preview}")
+        lines.append(f"• {mode_name} | {h.input_type} | {escape_html(preview)}")
 
     await message.answer("\n".join(lines), parse_mode="HTML")

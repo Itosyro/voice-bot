@@ -17,6 +17,7 @@ from src.ui.keyboards import (
     settings_keyboard,
 )
 from src.ui.messages import CHOOSE_MODE, MODE_INFO, settings_text, style_header
+from src.utils import escape_html
 
 log = structlog.get_logger()
 router = Router()
@@ -141,7 +142,7 @@ async def on_settings(callback: CallbackQuery, session: AsyncSession) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data == "action:set_default:")
+@router.callback_query(F.data.startswith("action:set_default:"))
 async def on_set_default(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.data or not callback.from_user:
         return
@@ -247,8 +248,7 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
     for h in history:
         mode_name = MODE_NAME.get(h.mode, h.mode)
         preview = (h.input_preview or "")[:80]
-        safe_preview = preview.replace("*", "").replace("_", "").replace("`", "").replace("[", "")
-        lines.append(f"• {mode_name} | {h.input_type} | {safe_preview}...")
+        lines.append(f"• {mode_name} | {h.input_type} | {escape_html(preview)}...")
 
     await callback.message.edit_text(  # type: ignore[union-attr]
         "\n".join(lines), reply_markup=mode_keyboard(), parse_mode="HTML",

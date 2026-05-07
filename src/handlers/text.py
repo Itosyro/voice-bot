@@ -1,4 +1,3 @@
-import html
 import time
 
 import structlog
@@ -16,13 +15,9 @@ from src.storage.history import save_request
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
+from src.utils import escape_html
 
 log = structlog.get_logger()
-
-
-def _escape_html(text: str) -> str:
-    return html.escape(text, quote=False)
-
 
 router = Router()
 
@@ -133,6 +128,13 @@ async def _process_text(
             )
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
 
+        if not result_text or not result_text.strip():
+            await progress_msg.edit_text(
+                "⚠ Не удалось обработать текст. Попробуй ещё раз.",
+                reply_markup=mode_keyboard(),
+            )
+            return
+
         total_ms = int((time.monotonic() - started) * 1000)
 
         await save_request(
@@ -155,7 +157,7 @@ async def _process_text(
 
         final = (
             f"<blockquote>"
-            f"<code>{_escape_html(result_text)}</code>"
+            f"<code>{escape_html(result_text)}</code>"
             f"</blockquote>"
         )
         await progress_msg.edit_text(

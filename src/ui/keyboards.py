@@ -2,9 +2,6 @@
 All inline keyboards.
 
 Design rules:
-- Mode buttons: style="danger" (red accent), plain text only
-- Utility buttons (settings, history, back): no style (default/neutral)
-- Sub-style buttons: style="primary" (blue)
 - NO icons/symbols/emoji on buttons — clean text only
 - Callback prefixes: mode:, style:, lang:, back:, cmd:, settings:, info:, action:
 """
@@ -19,19 +16,12 @@ from src.ui.design import (
     STYLE_NAME,
 )
 
-# ── Style constants ──
-
-S_MODE = "danger"
-S_STYLE = "primary"
-
-
 # ── Helpers ──
 
 def _mode_btn(mode: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(
         text=MODE_NAME[mode],
         callback_data=f"mode:{mode}",
-        style=S_MODE,
     )
 
 
@@ -42,7 +32,7 @@ def _style_btn(style_id: str) -> InlineKeyboardButton:
     if len(text) > 64:
         text = text[:61] + "..."
     return InlineKeyboardButton(
-        text=text, callback_data=f"style:{style_id}", style=S_STYLE
+        text=text, callback_data=f"style:{style_id}",
     )
 
 
@@ -135,7 +125,6 @@ def lang_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(
                 text=f"{flag} {code.upper()}",
                 callback_data=f"lang:{code}",
-                style=S_STYLE,
             )
         )
         if len(row) == 4:
@@ -181,21 +170,18 @@ def settings_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="Сменить режим",
                     callback_data="settings:default_mode",
-                    style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text="Язык перевода",
                     callback_data="settings:target_lang",
-                    style=S_STYLE,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text="О режимах",
                     callback_data="settings:mode_info",
-                    style=S_STYLE,
                 ),
             ],
             [
@@ -218,24 +204,20 @@ def mode_info_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=MODE_NAME["polish"],
                     callback_data="info:polish",
-                    style=S_MODE,
                 ),
                 InlineKeyboardButton(
                     text=MODE_NAME["prompt"],
                     callback_data="info:prompt",
-                    style=S_MODE,
                 ),
             ],
             [
                 InlineKeyboardButton(
                     text=MODE_NAME["humanizer"],
                     callback_data="info:humanizer",
-                    style=S_MODE,
                 ),
                 InlineKeyboardButton(
                     text=MODE_NAME["translator"],
                     callback_data="info:translator",
-                    style=S_MODE,
                 ),
             ],
             _back_btn("back:settings"),
