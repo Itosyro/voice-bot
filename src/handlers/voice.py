@@ -55,7 +55,7 @@ async def _process_voice(
         )
 
     if mode == "humanizer":
-        await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard())
+        await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard(), parse_mode="HTML")
         return
 
     voice = voice_message.voice or voice_message.audio
@@ -172,7 +172,7 @@ async def _process_voice(
         error_msg = GROQ_ERROR
         exc_str = str(exc).lower()
         if "rate" in exc_str or "limit" in exc_str:
-            error_msg = "⏳ Лимит Groq API. Подожди минуту и попробуй снова."
+            error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
         elif "model" in exc_str and "not found" in exc_str:
             error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())

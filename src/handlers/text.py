@@ -85,7 +85,8 @@ async def _process_text(
 
     if len(text) > settings.max_text_length:
         await message.answer(
-            TEXT_TOO_LONG.format(max_len=settings.max_text_length)
+            TEXT_TOO_LONG.format(max_len=settings.max_text_length),
+            parse_mode="HTML",
         )
         return
 
@@ -169,7 +170,7 @@ async def _process_text(
         error_msg = GROQ_ERROR
         exc_str = str(exc).lower()
         if "rate" in exc_str or "limit" in exc_str:
-            error_msg = "⏳ Лимит Groq API. Подожди минуту и попробуй снова."
+            error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
         elif "model" in exc_str and "not found" in exc_str:
             error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
