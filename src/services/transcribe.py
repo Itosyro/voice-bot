@@ -117,6 +117,8 @@ async def split_audio_to_chunks(audio_bytes: bytes, chunk_sec: int) -> list[byte
             await asyncio.wait_for(proc.wait(), timeout=_FFMPEG_TIMEOUT_SEC)
         except TimeoutError:
             proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.wait()
             log.error("ffmpeg_split_timeout", timeout=_FFMPEG_TIMEOUT_SEC)
             return []
 
