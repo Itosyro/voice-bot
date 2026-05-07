@@ -129,7 +129,7 @@ def settings_text(
     mode_display = MODE_NAME.get(mode or "", "не выбран")
     style_display = STYLE_NAME.get(style or "", "не выбран")
     return (
-        f"⚙ <b><u>Настройки</u></b>\n"
+        f"⊛ <b><u>Настройки</u></b>\n"
         f"\n"
         f"<b>Режим:</b> {mode_display}\n"
         f"<b>Стиль:</b> {style_display}\n"
