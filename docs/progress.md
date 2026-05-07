@@ -243,6 +243,71 @@ Render Free Tier усыпляет сервис через ~15 минут без 
 1. `WEBHOOK_URL` = `https://voice-polisher-bot.onrender.com` (или фактический URL сервиса).
 2. `WEBHOOK_SECRET` = любая случайная строка (например, `openssl rand -hex 32`) — используется как `X-Telegram-Bot-Api-Secret-Token` для верификации.
 
+## Сессия 9 — Длинные голосовые до 1 часа (chunked streaming)
+
+### Проблема
+
+`max_voice_duration_sec=600`: голосовые/кружочки/audio дольше 10 мин отказ
+`VOICE_TOO_LONG`. Реальные пользователи присылают 15-30-минутные записи.
+
+### Решение
+
+Pipeline для voices > 10 мин: ffmpeg режет на ~5-минутные опус-куски, каждый
+кусок транскрибируется и (для polish/translator) сразу обрабатывается LLM
+со стримингом результата в чат.
+
+### Что сделано
+
+- [x] `src/config.py`:
+  - `max_voice_duration_sec` 600 → 3600 (1 час абсолютный максимум).
+  - `chunk_threshold_sec=600` — выше этого порога включается chunked-режим.
+  - `chunk_duration_sec=300` — длина одного чанка (5 мин).
+  - `chunk_throttle_sec=1.5` — пауза между Groq-вызовами.
+- [x] `src/services/transcribe.py` — `split_audio_to_chunks(audio_bytes, chunk_sec)`:
+  одна вызов ffmpeg с `-f segment -segment_time` нарезает на opus 64k куски.
+- [x] `src/ui/messages.py` — `LONG_VOICE_NOTICE`, `CHUNK_TRANSCRIBING`,
+  `CHUNK_PROCESSING`, `CHUNK_FINAL_PROCESSING`, `CHUNK_RATE_LIMIT_PAUSE`,
+  `LONG_VOICE_PARTIAL`, `LONG_VOICE_DONE`. `VOICE_TOO_LONG` теперь форматируется
+  через `{max_min}` (минуты, не секунды).
+- [x] `src/utils.py` — `send_chunk(target, header, text, reply_markup)`:
+  посылает один streaming-кусок результатом одним или несколькими сообщениями
+  до 4096 символов с разметкой `[i/n]`; reply_markup только на последнем.
+- [x] `src/handlers/voice.py`:
+  - `_process_voice` — branch на `duration > chunk_threshold_sec` →
+    `_process_long_voice`.
+  - `_process_long_voice` — основной chunked-pipeline: cache transcript →
+    download → split → loop по чанкам с прогресс-сообщениями →
+    polish/translator: per-chunk LLM + send_chunk;
+    summary/prompt: collect-all → один LLM-вызов на полный текст в конце.
+  - Кэш транскрипта (`TranscriptionCache`) пишется по полному файлу после
+    нарезки — replays не пере-расшифровывают.
+  - `_transcribe_chunk_with_retry` — на rate-limit пауза 25 сек и одна повторка.
+- [x] `tests/test_edge_cases.py` — обновлён ассерт `{max_min}` вместо
+  `{max_sec}` (тест и так зелёным не был — другие пре-existing failures).
+- [x] `ruff check src/ && ruff format --check src/` — чисто.
+
+### Поведение по режимам (chunked)
+
+| Режим      | Стратегия                                                |
+|------------|----------------------------------------------------------|
+| polish     | Per-chunk LLM, стримим результат каждой части            |
+| translator | Per-chunk LLM, стримим результат каждой части            |
+| summary    | Collect-all → один LLM-вызов в конце на полный текст      |
+| prompt     | Collect-all → один LLM-вызов в конце на полный текст      |
+| humanizer  | Только текст, неприменимо для voice                      |
+
+### UX короткой летописью
+
+1. Voice > 10 мин → `LONG_VOICE_NOTICE` с числом частей и временем.
+2. Каждый чанк: edit прогресса `🎙 Часть K/N — распознаю…` →
+   `🛠 Часть K/N — обрабатываю…` → результат отдельным сообщением
+   `Часть K/N\n<blockquote>...</blockquote>`.
+3. Между чанками `chunk_throttle_sec` пауза.
+4. Для summary/prompt после всех чанков: `✓ Расшифровка готова… Собираю
+   итоговый…` → `send_result` с финальным текстом.
+5. На rate-limit чанка — `⏳ Сервер перегружен на части K/N — пауза 25с` и
+   ретрай.
+
 ## Статус
 
-Все найденные проблемы (30 штук за 5 сессий) исправлены. UI обновлён Unicode-символами и цветными кнопками. Ни одного emoji на кнопках (кроме флагов стран). Код чист, линтер проходит. Сессия 8 (Webhook + Health-check) реализована.
+Все найденные проблемы (30 штук за 5 сессий) исправлены. UI обновлён Unicode-символами и цветными кнопками. Ни одного emoji на кнопках (кроме флагов стран). Код чист, линтер проходит. Сессия 8 (Webhook + Health-check) реализована. Сессия 9 (Long voice → chunked streaming) реализована.

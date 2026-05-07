@@ -1,4 +1,7 @@
 import asyncio
+import contextlib
+import os
+import tempfile
 import time
 
 import structlog
@@ -13,6 +16,7 @@ log = structlog.get_logger()
 
 _STT_MAX_RETRIES = 2
 _STT_RETRY_DELAY = 2.0
+_FFMPEG_TIMEOUT_SEC = 180  # cap ffmpeg time for splitting long audio
 
 
 async def transcribe(
@@ -73,3 +77,68 @@ async def transcribe(
                 await asyncio.sleep(_STT_RETRY_DELAY * (attempt + 1))
 
     raise last_exc  # type: ignore[misc]
+
+
+async def split_audio_to_chunks(audio_bytes: bytes, chunk_sec: int) -> list[bytes]:
+    """Split arbitrary audio into ~chunk_sec slices via ffmpeg segment muxer.
+
+    Returns ogg/opus 64k-encoded byte slices in order. One ffmpeg invocation
+    produces all chunks at once (no per-chunk fork overhead).
+    """
+    in_fd, in_path = tempfile.mkstemp(suffix=".audio")
+    os.close(in_fd)
+    work_dir = tempfile.mkdtemp(prefix="voice_chunks_")
+    pattern = os.path.join(work_dir, "chunk_%04d.ogg")
+    try:
+        with open(in_path, "wb") as f:
+            f.write(audio_bytes)
+
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-y",
+            "-i",
+            in_path,
+            "-vn",
+            "-acodec",
+            "libopus",
+            "-b:a",
+            "64k",
+            "-f",
+            "segment",
+            "-segment_time",
+            str(chunk_sec),
+            "-reset_timestamps",
+            "1",
+            pattern,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=_FFMPEG_TIMEOUT_SEC)
+        except TimeoutError:
+            proc.kill()
+            log.error("ffmpeg_split_timeout", timeout=_FFMPEG_TIMEOUT_SEC)
+            return []
+
+        if proc.returncode != 0:
+            log.error("ffmpeg_split_failed", returncode=proc.returncode)
+            return []
+
+        files = sorted(f for f in os.listdir(work_dir) if f.startswith("chunk_"))
+        chunks: list[bytes] = []
+        for name in files:
+            path = os.path.join(work_dir, name)
+            with open(path, "rb") as f:
+                chunks.append(f.read())
+        return chunks
+    except Exception:
+        log.exception("split_audio_error")
+        return []
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(in_path)
+        for name in os.listdir(work_dir) if os.path.isdir(work_dir) else []:
+            with contextlib.suppress(OSError):
+                os.unlink(os.path.join(work_dir, name))
+        with contextlib.suppress(OSError):
+            os.rmdir(work_dir)

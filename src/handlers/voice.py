@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import math
 import os
 import tempfile
 import time
@@ -7,6 +8,7 @@ import time
 import structlog
 from aiogram import Bot, F, Router
 from aiogram.types import Message
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
@@ -15,17 +17,31 @@ from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
 from src.services.summary import run_summary
-from src.services.transcribe import transcribe
+from src.services.transcribe import split_audio_to_chunks, transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
+from src.storage.models import TranscriptionCache
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import mode_keyboard, result_keyboard
-from src.ui.messages import GROQ_ERROR, HUMANIZER_VOICE_ERROR, VOICE_TOO_LONG
-from src.utils import send_result
+from src.ui.messages import (
+    CHUNK_FINAL_PROCESSING,
+    CHUNK_PROCESSING,
+    CHUNK_RATE_LIMIT_PAUSE,
+    CHUNK_TRANSCRIBING,
+    GROQ_ERROR,
+    HUMANIZER_VOICE_ERROR,
+    LONG_VOICE_DONE,
+    LONG_VOICE_NOTICE,
+    LONG_VOICE_PARTIAL,
+    VOICE_TOO_LONG,
+)
+from src.utils import send_chunk, send_result
 
 log = structlog.get_logger()
 
 router = Router()
+
+_RATE_LIMIT_PAUSE_SEC = 25
 
 
 async def _process_voice(
@@ -73,8 +89,23 @@ async def _process_voice(
     duration = (voice.duration if voice else video_note.duration) or 0
     if duration > settings.max_voice_duration_sec:
         await message.answer(
-            VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec),
+            VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60),
             parse_mode="HTML",
+        )
+        return
+
+    if duration > settings.chunk_threshold_sec:
+        await _process_long_voice(
+            message=message,
+            voice=voice,
+            video_note=video_note,
+            duration=duration,
+            bot=bot,
+            session=session,
+            user=user,
+            mode=mode,
+            style=style,
+            skills_db=skills_db,
         )
         return
 
@@ -191,6 +222,277 @@ async def _process_voice(
         elif "model" in str(exc).lower() and "not found" in str(exc).lower():
             error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
+
+
+async def _process_long_voice(
+    message: Message,
+    voice: object | None,
+    video_note: object | None,
+    duration: int,
+    bot: Bot,
+    session: AsyncSession,
+    user: object,
+    mode: str,
+    style: str | None,
+    skills_db: SkillsDB,
+) -> None:
+    """Chunked pipeline for long voices (> chunk_threshold_sec).
+
+    polish/translator: per-chunk LLM, streamed to user as each chunk completes.
+    summary/prompt: transcribe all chunks first, then a single LLM call on the
+    combined text (these modes need full context).
+    """
+    started = time.monotonic()
+    file_id: str = (
+        voice.file_id if voice else video_note.file_id  # type: ignore[union-attr]
+    )
+
+    chunk_sec = settings.chunk_duration_sec
+    n_planned = max(1, math.ceil(duration / chunk_sec))
+    minutes = max(1, math.ceil(duration / 60))
+    chunk_min = max(1, chunk_sec // 60)
+
+    progress_msg = await message.answer(
+        LONG_VOICE_NOTICE.format(minutes=minutes, n=n_planned, chunk_min=chunk_min),
+        parse_mode="HTML",
+    )
+
+    transcripts: list[str] = []
+    per_chunk_results: list[str] = []
+    final_text = ""
+    final_model = ""
+    cached_hit = False
+
+    try:
+        cached_transcript: str | None = None
+        if file_id and settings.enable_transcription_cache:
+            cached = await session.get(TranscriptionCache, file_id)
+            if cached:
+                cached_transcript = cached.transcript
+                cached_hit = True
+
+        if cached_transcript:
+            transcripts = [cached_transcript]
+        else:
+            file = await bot.get_file(file_id)
+            if not file.file_path:
+                await progress_msg.edit_text("⚠ Не удалось скачать аудио.")
+                return
+            file_bytes = await bot.download_file(file.file_path)
+            if not file_bytes:
+                await progress_msg.edit_text("⚠ Не удалось скачать аудио.")
+                return
+            raw_bytes = file_bytes.read()
+
+            if video_note:
+                audio_bytes = await _extract_audio_from_video(raw_bytes)
+                if not audio_bytes:
+                    await progress_msg.edit_text("⚠ Не удалось извлечь аудио из кружочка.")
+                    return
+            else:
+                audio_bytes = raw_bytes
+
+            chunks = await split_audio_to_chunks(audio_bytes, chunk_sec)
+            if not chunks:
+                await progress_msg.edit_text(
+                    "⚠ Не удалось разрезать аудио. Попробуй короче или другим форматом.",
+                    reply_markup=mode_keyboard(),
+                )
+                return
+
+            n = len(chunks)
+            target_lang = getattr(user, "target_lang", None) or "en"
+
+            for k, chunk_bytes in enumerate(chunks, 1):
+                with contextlib.suppress(Exception):
+                    await progress_msg.edit_text(
+                        CHUNK_TRANSCRIBING.format(k=k, n=n),
+                        parse_mode="HTML",
+                    )
+
+                transcript = await _transcribe_chunk_with_retry(chunk_bytes, k, n, progress_msg)
+                if transcript and transcript.strip():
+                    transcripts.append(transcript.strip())
+                else:
+                    with contextlib.suppress(Exception):
+                        await message.answer(
+                            LONG_VOICE_PARTIAL.format(k=k, n=n),
+                            parse_mode="HTML",
+                        )
+                    if k < n:
+                        await asyncio.sleep(settings.chunk_throttle_sec)
+                    continue
+
+                if mode in ("polish", "translator"):
+                    with contextlib.suppress(Exception):
+                        await progress_msg.edit_text(
+                            CHUNK_PROCESSING.format(k=k, n=n),
+                            parse_mode="HTML",
+                        )
+                    chunk_text = await _run_chunk_llm(
+                        transcript=transcript,
+                        mode=mode,
+                        style=style,
+                        target_lang=target_lang,
+                    )
+                    if chunk_text and chunk_text.strip():
+                        per_chunk_results.append(chunk_text.strip())
+                        is_last = k == n
+                        await send_chunk(
+                            target=message,
+                            header=f"<b>Часть {k}/{n}</b>",
+                            text=chunk_text.strip(),
+                            reply_markup=result_keyboard(mode) if is_last else None,
+                        )
+
+                if k < n:
+                    await asyncio.sleep(settings.chunk_throttle_sec)
+
+            combined_transcript = "\n\n".join(transcripts)
+            if file_id and settings.enable_transcription_cache and combined_transcript.strip():
+                try:
+                    session.add(TranscriptionCache(file_id=file_id, transcript=combined_transcript))
+                    await session.flush()
+                except IntegrityError:
+                    await session.rollback()
+                except Exception:
+                    log.exception("long_voice_cache_failed")
+
+        if mode in ("summary", "prompt"):
+            combined = "\n\n".join(transcripts).strip()
+            if not combined:
+                await progress_msg.edit_text(
+                    "⚠ Не удалось распознать речь. Попробуй чётче.",
+                    reply_markup=mode_keyboard(),
+                )
+                return
+            with contextlib.suppress(Exception):
+                await progress_msg.edit_text(
+                    CHUNK_FINAL_PROCESSING.format(total_chars=len(combined)),
+                    parse_mode="HTML",
+                )
+            try:
+                if mode == "summary":
+                    r4 = await run_summary(combined)
+                    final_text, final_model = r4.text, r4.model
+                else:
+                    r2 = await run_prompt_eng(
+                        combined,
+                        sub_style=style or "prompt_general",
+                        skills_db=skills_db,
+                    )
+                    final_text, final_model = r2.text, r2.model
+            except Exception:
+                log.exception("long_voice_final_llm_failed")
+                await progress_msg.edit_text(GROQ_ERROR, reply_markup=mode_keyboard())
+                return
+
+            if not final_text or not final_text.strip():
+                await progress_msg.edit_text(
+                    "⚠ Не удалось обработать текст.",
+                    reply_markup=mode_keyboard(),
+                )
+                return
+
+            await send_result(progress_msg, final_text, result_keyboard(mode), mode)
+        else:
+            n_done = len(per_chunk_results)
+            if n_done == 0:
+                await progress_msg.edit_text(
+                    "⚠ Ни одну часть не удалось обработать. Попробуй ещё раз.",
+                    reply_markup=mode_keyboard(),
+                )
+                return
+            with contextlib.suppress(Exception):
+                await progress_msg.edit_text(
+                    LONG_VOICE_DONE.format(n=n_done),
+                    parse_mode="HTML",
+                )
+
+        total_ms = int((time.monotonic() - started) * 1000)
+        combined_transcript = "\n\n".join(transcripts)
+        result_text = (
+            "\n\n".join(per_chunk_results) if mode in ("polish", "translator") else final_text
+        )
+        with contextlib.suppress(Exception):
+            await save_request(
+                session,
+                user_id=user.id,  # type: ignore[attr-defined]
+                mode=mode,
+                style=style or "default",
+                input_type="video_note" if video_note else "voice",
+                input_length=duration,
+                input_preview=combined_transcript[:200],
+                output_text=result_text[:5000],
+                output_length=len(result_text),
+                llm_model=final_model or settings.llm_model_default,
+                transcription_ms=0 if cached_hit else total_ms,
+                llm_ms=0,
+                total_ms=total_ms,
+            )
+
+    except Exception as exc:
+        log.exception("long_voice_error")
+        with contextlib.suppress(Exception):
+            await save_request(
+                session,
+                user_id=user.id,  # type: ignore[attr-defined]
+                mode=mode,
+                style=style or "default",
+                input_type="video_note" if video_note else "voice",
+                input_length=duration,
+                total_ms=int((time.monotonic() - started) * 1000),
+                error=str(exc)[:500],
+            )
+        error_msg = GROQ_ERROR
+        if is_rate_limit_error(exc):
+            error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
+        with contextlib.suppress(Exception):
+            await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
+
+
+async def _transcribe_chunk_with_retry(
+    chunk_bytes: bytes, k: int, n: int, progress_msg: Message
+) -> str:
+    """Transcribe one audio chunk; on rate limit, pause once and retry."""
+    try:
+        text, _ = await transcribe(chunk_bytes, api_key=settings.get_transcription_key())
+        return text
+    except Exception as exc:
+        log.warning("long_voice_chunk_stt_failed", chunk=k, error=str(exc))
+        if not is_rate_limit_error(exc):
+            return ""
+        with contextlib.suppress(Exception):
+            await progress_msg.edit_text(
+                CHUNK_RATE_LIMIT_PAUSE.format(k=k, n=n, pause=_RATE_LIMIT_PAUSE_SEC),
+                parse_mode="HTML",
+            )
+        await asyncio.sleep(_RATE_LIMIT_PAUSE_SEC)
+        try:
+            text, _ = await transcribe(chunk_bytes, api_key=settings.get_transcription_key())
+            return text
+        except Exception:
+            log.exception("long_voice_chunk_stt_retry_failed", chunk=k)
+            return ""
+
+
+async def _run_chunk_llm(
+    transcript: str,
+    mode: str,
+    style: str | None,
+    target_lang: str,
+) -> str:
+    """Run a per-chunk LLM call for streaming modes (polish, translator)."""
+    try:
+        if mode == "polish":
+            r = await run_polish(transcript, sub_style=style or "polish_default")
+            return r.text
+        if mode == "translator":
+            r3 = await run_translator(transcript, target_lang=target_lang)
+            return r3.text
+    except Exception:
+        log.exception("long_voice_chunk_llm_failed", mode=mode)
+    return ""
 
 
 async def _extract_audio_from_video(video_bytes: bytes) -> bytes | None:

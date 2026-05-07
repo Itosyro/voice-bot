@@ -20,14 +20,14 @@ def _wrap(text: str) -> str:
     return f"<blockquote><code>{text}</code></blockquote>"
 
 
-def _split_escaped(escaped: str) -> list[str]:
+def _split_escaped(escaped: str, limit: int = _CHUNK_LIMIT) -> list[str]:
     """Split escaped HTML text into chunks that fit in Telegram messages."""
-    if len(escaped) <= _CHUNK_LIMIT:
+    if len(escaped) <= limit:
         return [escaped]
     chunks: list[str] = []
     while escaped:
-        chunks.append(escaped[:_CHUNK_LIMIT])
-        escaped = escaped[_CHUNK_LIMIT:]
+        chunks.append(escaped[:limit])
+        escaped = escaped[limit:]
     return chunks
 
 
@@ -75,6 +75,35 @@ async def send_result(
         is_last = i == n
         await progress_msg.answer(
             f"[{i}/{n}]\n{_wrap(chunk)}",
+            parse_mode="HTML",
+            reply_markup=reply_markup if is_last else None,  # type: ignore[arg-type]
+        )
+
+
+async def send_chunk(
+    target: Message,
+    header: str,
+    text: str,
+    reply_markup: object | None = None,
+) -> None:
+    """Send one streaming chunk's text as new message(s).
+
+    `header` is HTML-formatted and prepended to the first message. If the
+    text exceeds Telegram's per-message limit, it is split into [i/n] parts.
+    `reply_markup` is attached to the LAST sub-message only.
+    """
+    escaped = escape_html(text)
+    # Reserve room for header line + worst-case " [99/99]" suffix.
+    reserved = len(header) + 1 + len(" [99/99]")
+    body_limit = max(200, _CHUNK_LIMIT - reserved)
+    chunks = _split_escaped(escaped, limit=body_limit)
+    n = len(chunks)
+    for i, chunk in enumerate(chunks, 1):
+        is_last = i == n
+        label = f"{header} [{i}/{n}]" if n > 1 else header
+        body = f"{label}\n{_wrap(chunk)}" if label else _wrap(chunk)
+        await target.answer(
+            body,
             parse_mode="HTML",
             reply_markup=reply_markup if is_last else None,  # type: ignore[arg-type]
         )
