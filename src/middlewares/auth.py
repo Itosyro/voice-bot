@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject
+from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from src.config import settings
 from src.ui.messages import NOT_ALLOWED
@@ -25,4 +25,6 @@ class AuthMiddleware(BaseMiddleware):
 
         if isinstance(event, Message):
             await event.answer(NOT_ALLOWED)
+        elif isinstance(event, CallbackQuery):
+            await event.answer(NOT_ALLOWED, show_alert=True)
         return None

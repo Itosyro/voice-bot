@@ -1,4 +1,4 @@
-import html
+import contextlib
 import time
 
 import structlog
@@ -8,21 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.services.humanizer import run_humanizer
+from src.services.llm import is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
+from src.services.summary import run_summary
 from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
+from src.utils import send_result
 
 log = structlog.get_logger()
-
-
-def _escape_html(text: str) -> str:
-    return html.escape(text, quote=False)
-
 
 router = Router()
 
@@ -37,9 +35,7 @@ def _extract_text(message: Message) -> str | None:
 
 
 @router.message(F.text & ~F.text.startswith("/"))
-async def handle_text(
-    message: Message, session: AsyncSession, skills_db: SkillsDB
-) -> None:
+async def handle_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
     await _process_text(message, session, skills_db)
 
 
@@ -51,15 +47,11 @@ async def handle_forwarded_text(
 
 
 @router.message(F.caption & ~(F.voice | F.audio))
-async def handle_caption(
-    message: Message, session: AsyncSession, skills_db: SkillsDB
-) -> None:
+async def handle_caption(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
     await _process_text(message, session, skills_db)
 
 
-async def _process_text(
-    message: Message, session: AsyncSession, skills_db: SkillsDB
-) -> None:
+async def _process_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
     user_tg = message.from_user
     if not user_tg:
         return
@@ -90,7 +82,8 @@ async def _process_text(
 
     if len(text) > settings.max_text_length:
         await message.answer(
-            TEXT_TOO_LONG.format(max_len=settings.max_text_length)
+            TEXT_TOO_LONG.format(max_len=settings.max_text_length),
+            parse_mode="HTML",
         )
         return
 
@@ -100,10 +93,9 @@ async def _process_text(
         "prompt": "Создаю промпт",
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
+        "summary": "Создаю саммари",
     }
-    progress_msg = await message.answer(
-        f"{mode_label.get(mode, 'Обрабатываю')}…"
-    )
+    progress_msg = await message.answer(f"{mode_label.get(mode, 'Обрабатываю')}…")
 
     try:
         result_text = ""
@@ -111,9 +103,7 @@ async def _process_text(
         model_used = ""
 
         if mode == "polish":
-            r = await run_polish(
-                text, sub_style=style or "polish_default"
-            )
+            r = await run_polish(text, sub_style=style or "polish_default")
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
@@ -123,15 +113,21 @@ async def _process_text(
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
         elif mode == "humanizer":
-            r3 = await run_humanizer(
-                text, sub_style=style or "humanize_lite"
-            )
+            r3 = await run_humanizer(text, sub_style=style or "humanize_lite")
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
         elif mode == "translator":
-            r4 = await run_translator(
-                text, target_lang=user.target_lang or "en"
-            )
+            r4 = await run_translator(text, target_lang=user.target_lang or "en")
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
+        elif mode == "summary":
+            r5 = await run_summary(text)
+            result_text, llm_ms, model_used = r5.text, r5.llm_ms, r5.model
+
+        if not result_text or not result_text.strip():
+            await progress_msg.edit_text(
+                "⚠ Не удалось обработать текст. Попробуй ещё раз.",
+                reply_markup=mode_keyboard(),
+            )
+            return
 
         total_ms = int((time.monotonic() - started) * 1000)
 
@@ -150,24 +146,24 @@ async def _process_text(
             total_ms=total_ms,
         )
 
-        if len(result_text) > 3900:
-            result_text = result_text[:3900] + "\n\n… (обрезано)"
-
-        final = (
-            f"<blockquote>"
-            f"<code>{_escape_html(result_text)}</code>"
-            f"</blockquote>"
-        )
-        await progress_msg.edit_text(
-            final, reply_markup=result_keyboard(mode), parse_mode="HTML"
-        )
+        await send_result(progress_msg, result_text, result_keyboard(mode), mode)
 
     except Exception as exc:
         log.exception("text_handler_error")
+        total_ms = int((time.monotonic() - started) * 1000)
+        with contextlib.suppress(Exception):
+            await save_request(
+                session,
+                user_id=user.id,
+                mode=mode,
+                style=style or "default",
+                input_type="text",
+                total_ms=total_ms,
+                error=str(exc)[:500],
+            )
         error_msg = GROQ_ERROR
-        exc_str = str(exc).lower()
-        if "rate" in exc_str or "limit" in exc_str:
-            error_msg = "⏳ Лимит Groq API. Подожди минуту и попробуй снова."
-        elif "model" in exc_str and "not found" in exc_str:
+        if is_rate_limit_error(exc):
+            error_msg = "⏳ Сервер перегружен. Подожди минуту и попробуй снова."
+        elif "model" in str(exc).lower() and "not found" in str(exc).lower():
             error_msg = "⚠ Модель временно недоступна. Попробуй другой режим."
         await progress_msg.edit_text(error_msg, reply_markup=mode_keyboard())
