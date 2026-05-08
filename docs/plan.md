@@ -399,3 +399,74 @@ README под продукт, сделать большой design-doc по ар
 - API Whisper Large v3 принимает те же файлы opus, что и turbo.
 - Никаких миграций БД — модель указывается параметром API-вызова.
 - На Render деплой автоматически подтянет новый коммит.
+
+---
+
+## Сессия 11 — Data retention + автоматическая очистка БД
+
+### Контекст / зачем
+
+На Render free tier у Postgres лимит **500 МБ - 1 ГБ**. Юзер задал
+правильный вопрос: «голосовые много весят, мы их где-то храним?
+если да — надо удалять через день».
+
+Реальное положение дел:
+
+- **Голосовые/аудио/видео-нот файлы НЕ хранятся** ни на диске, ни в БД.
+  Скачанные байты живут в памяти процесса, временные ffmpeg-чанки —
+  в `/tmp/voice_chunks_*` и удаляются в `finally` блоках. На Render
+  контейнер ephemeral — рестарт стирает всё.
+- **В БД лежат только текстовые артефакты:**
+  `users` (~200 байт/строка), `request_history` (превью + результат,
+  ~6 КБ/строка), `transcription_cache` (текст транскрипта),
+  `skills_index` (статика).
+- **Но:** `request_history` и `transcription_cache` росли без
+  ограничений — `DELETE`-ов не было нигде в коде.
+
+### Решение
+
+Добавить TTL-очистку как фоновую задачу. По умолчанию:
+
+- `transcription_cache` — TTL **1 день** (как просил юзер).
+- `request_history` — TTL **30 дней** (стандарт для логов).
+- Запускается каждые **24 часа**, через 5 минут после старта.
+
+Параметры конфигурируются через env (`src/config.py`).
+
+### Что меняем
+
+| Файл | Что |
+|------|-----|
+| `src/storage/cleanup.py` | **Новый.** Функция `cleanup_old_records(session, transcription_ttl_days, history_ttl_days)` — два DELETE с фильтром по `created_at`. |
+| `src/config.py` | +4 поля: `transcription_cache_ttl_days=1`, `request_history_ttl_days=30`, `cleanup_interval_hours=24`, `cleanup_initial_delay_sec=300`. TTL=0 — отключает удаление. |
+| `src/main.py` | Функция `_cleanup_loop()` — `await asyncio.sleep(initial_delay)`, цикл `while True`: открыть session, вызвать cleanup, лог `cleanup_run`, sleep `interval_hours*3600`. Хэндлится `CancelledError`, `Exception` → лог `cleanup_failed`, цикл продолжается. Запускается в обоих режимах (webhook, polling), отменяется в `finally`. |
+| `.env.example` | Блок «Retention / cleanup» с дефолтами. |
+| `render.yaml` | Те же 4 env (`value:`, не `sync: false` — дефолты явные). |
+| `docs/architecture.md` | Раздел «Retention / автоматическая очистка» в §9 «Хранилище». Включает алгоритм, env-таблицу, оценку размеров. |
+| `docs/plan.md` | Этот раздел. |
+| `docs/progress.md` | Чеклист Сессии 11. |
+
+### Что НЕ меняем
+
+- Запись в `request_history` / `transcription_cache` остаётся.
+  Cleanup — это фоновая задача, не изменение pipeline.
+- Webhook + self-ping (Сессия 8) и chunked-pipeline (Сессия 9) не
+  трогаем.
+- Миграции БД не нужны — `created_at` уже есть, индексы по нему не
+  обязательны (DELETE по диапазону на ~10К строк норм).
+
+### Безопасность по edge-cases
+
+- TTL=0 — пропускаем DELETE для этой таблицы (выкл).
+- `interval_sec = max(60, hours*3600)` — нельзя крутить чаще раза в минуту, защита от опечатки.
+- `cleanup_initial_delay_sec=300` — даёт сервису поднять Postgres-соединение и пройти миграции до первой очистки.
+- Исключения внутри цикла не валят задачу — лог + продолжаем.
+- Cancel'нуть task в `finally` — не оставляем зомби-coroutine.
+
+### Обратная совместимость
+
+- Поведение по умолчанию: TTL включён со здравыми дефолтами. Никакого
+  ручного шага после деплоя не нужно — env-vars в `render.yaml`
+  применяются автоматически.
+- Локальная разработка: те же дефолты через `.env.example`. Никаких
+  миграций.

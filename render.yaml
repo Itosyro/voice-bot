@@ -35,6 +35,14 @@ services:
         sync: false
       - key: SKILLS_AUTO_SYNC_ON_STARTUP
         value: "true"
+      - key: TRANSCRIPTION_CACHE_TTL_DAYS
+        value: "1"
+      - key: REQUEST_HISTORY_TTL_DAYS
+        value: "30"
+      - key: CLEANUP_INTERVAL_HOURS
+        value: "24"
+      - key: CLEANUP_INITIAL_DELAY_SEC
+        value: "300"
       - key: LOG_LEVEL
         value: INFO
       - key: LOG_FORMAT

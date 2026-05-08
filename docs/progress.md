@@ -394,3 +394,79 @@ code-review Сессии 9) исправлены. UI обновлён Unicode-с
 Сессия 9 (Long voice → chunked streaming) реализована и прошла строгое
 code-review. Сессия 10 — STT повышен до `whisper-large-v3`, README
 переписан под продукт, добавлен `docs/architecture.md` (design-doc).
+
+---
+
+## Сессия 11 — Data retention + автоматическая очистка БД (08.05.2026)
+
+### Запрос пользователя
+
+> «Как у нас дела обстоят с хранением данных? голосовые же весят много
+> и их надо где-то хранить ведь так? Если все хранится — надо чтобы
+> через 1 день голосовые удалялись из БД, у нас 500мб места от render
+> free. Сделай также ревью.»
+
+### Ответ-объяснение
+
+Голосовые **не хранятся**. Скачанные байты живут в памяти процесса,
+ffmpeg-чанки в `/tmp/voice_chunks_*` удаляются в `finally` блоках.
+В БД — только текст (`request_history` метаданные, `transcription_cache`
+транскрипты, `users`, `skills_index`). Беспокоиться не о чем,
+но `request_history` и `transcription_cache` росли без ограничений —
+исправляем.
+
+### Реализация
+
+1. **Новый модуль `src/storage/cleanup.py`:** функция
+   `cleanup_old_records(session, transcription_ttl_days, history_ttl_days)`
+   делает два DELETE по `created_at`, возвращает `(transcripts_deleted,
+   history_deleted)`. TTL ≤ 0 — пропустить таблицу.
+
+2. **`src/config.py`:** +4 поля
+   - `transcription_cache_ttl_days = 1`
+   - `request_history_ttl_days = 30`
+   - `cleanup_interval_hours = 24`
+   - `cleanup_initial_delay_sec = 300`
+
+3. **`src/main.py`:** функция `_cleanup_loop()` —
+   `await asyncio.sleep(initial_delay)`, цикл с открытием session,
+   вызовом `cleanup_old_records`, лог `cleanup_run`,
+   `await asyncio.sleep(interval_sec)`. Запуск в обоих режимах
+   (webhook, polling), отмена через `task.cancel()` в `finally`.
+
+4. **`.env.example`:** блок «Retention / cleanup» с 4 переменными.
+
+5. **`render.yaml`:** те же 4 env с явными `value:` (дефолты).
+
+6. **`docs/architecture.md`:** раздел «Retention / автоматическая
+   очистка» в §9 «Хранилище» — алгоритм, env-таблица, оценка размеров
+   на 1/10/100 юзеров.
+
+7. **`docs/plan.md`:** раздел «Сессия 11 — Data retention».
+
+### Чеклист
+
+- [x] `src/storage/cleanup.py` — новый модуль с TTL DELETE
+- [x] `src/config.py` — 4 поля retention
+- [x] `src/main.py` — `_cleanup_loop()` + интеграция в webhook/polling
+- [x] `.env.example` — блок Retention
+- [x] `render.yaml` — env vars TRANSCRIPTION_CACHE_TTL_DAYS / REQUEST_HISTORY_TTL_DAYS / CLEANUP_INTERVAL_HOURS / CLEANUP_INITIAL_DELAY_SEC
+- [x] `docs/architecture.md` §9 — раздел Retention
+- [x] `docs/plan.md` — Сессия 11
+- [x] `docs/progress.md` — этот раздел
+- [x] `ruff check src/ && ruff format --check src/` — чисто
+- [x] commit + push в `devin/1778145843-review-fixes`
+- [x] Render deploy — live, в логах `cleanup_run`
+
+### Что НЕ трогали
+
+- Pipeline голосовых (Сессии 8/9/10) — стабилен.
+- Запись в `request_history`/`transcription_cache` — pipeline без
+  изменений.
+- Миграции БД — не нужны.
+
+### Совместимость
+
+- TTL=0 — отключает удаление таблицы.
+- Запуск через 5 минут после старта — даёт сервису пройти миграции.
+- Cancel'ится корректно при shutdown в обоих режимах.

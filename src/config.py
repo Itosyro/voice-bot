@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     skills_auto_sync_on_startup: bool = True
     skills_sync_interval_hours: int = 168
 
+    # Retention / cleanup (background task deletes old DB rows)
+    transcription_cache_ttl_days: int = 1  # delete cached transcripts older than this
+    request_history_ttl_days: int = 30  # delete history rows older than this
+    cleanup_interval_hours: int = 24  # how often to run cleanup
+    cleanup_initial_delay_sec: int = 300  # delay before first cleanup after startup
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] = "json"
 

@@ -512,6 +512,53 @@ In-memory BM25-индекс строится на старте через `Skill
 
 Через Alembic. На старте контейнера выполняется `alembic upgrade head`.
 
+### Retention / автоматическая очистка
+
+Голосовые/аудио/кружочки **никогда не сохраняются** на диск или в БД как
+файлы. Скачанные байты живут в памяти процесса (или временно в
+`/tmp/voice_chunks_*` для ffmpeg-нарезки) и удаляются после ответа
+(`finally`-блок `_extract_audio_from_video` и `split_audio_to_chunks`).
+
+В Postgres хранятся только текстовые артефакты:
+
+- `transcription_cache` — кэш транскриптов (текст), default TTL **1 день**.
+- `request_history` — лог обработанных запросов с превью ввода (200 симв)
+  и обрезанным результатом (5000 симв), default TTL **30 дней**.
+- `users`, `skills_index` — TTL не применяется (стабильные данные).
+
+Очистку выполняет фоновая задача `_cleanup_loop` в `src/main.py`:
+
+```
+старт → пауза cleanup_initial_delay_sec (по умолчанию 300с)
+loop:
+  open session
+  DELETE FROM transcription_cache WHERE created_at < now - TTL_t
+  DELETE FROM request_history     WHERE created_at < now - TTL_h
+  log cleanup_run {transcripts_deleted, history_deleted, next_in_sec}
+  sleep cleanup_interval_hours * 3600
+```
+
+Параметры (`src/config.py`, env-переопределение):
+
+| Env | Default | Что делает |
+|-----|---------|------------|
+| `TRANSCRIPTION_CACHE_TTL_DAYS` | 1 | Удалять транскрипты старше N дней (0 — выкл.) |
+| `REQUEST_HISTORY_TTL_DAYS` | 30 | Удалять историю старше N дней (0 — выкл.) |
+| `CLEANUP_INTERVAL_HOURS` | 24 | Период повтора cleanup |
+| `CLEANUP_INITIAL_DELAY_SEC` | 300 | Пауза перед первым запуском |
+
+Оценка размеров (на 1 ГБ Postgres-free):
+
+| Активность | request_history (~6 КБ/строка) | transcription_cache (~10-50 КБ) | Запас БД |
+|------------|--------------------------------|--------------------------------|----------|
+| 1 user × 100 req/день | ~18 МБ/мес | ~3 МБ/день → 90 МБ при TTL 30 дней | годы |
+| 10 users × 100 req/день | ~180 МБ/мес | ~30 МБ/день → 30 МБ при TTL 1 день | месяцы |
+| 100 users × 100 req/день | ~1.8 ГБ/мес → переполнение через 2 нед | 300 МБ/день → 300 МБ при TTL 1 день | сократить TTL |
+
+При росте сократить `REQUEST_HISTORY_TTL_DAYS` (например, до 7) или
+выключить `transcription_cache` через `ENABLE_TRANSCRIPTION_CACHE=false`
+без рестарта код-логики.
+
 ---
 
 ## 10. Skills RAG

@@ -12,6 +12,7 @@ from src.bot import create_bot, create_dispatcher
 from src.config import settings
 from src.logging_config import setup_logging
 from src.services.skills_db import SkillsDB
+from src.storage.cleanup import cleanup_old_records
 from src.storage.db import engine, get_session
 
 log = structlog.get_logger()
@@ -65,6 +66,31 @@ async def _self_ping(url: str) -> None:
         await asyncio.sleep(SELF_PING_INTERVAL_SEC)
 
 
+async def _cleanup_loop() -> None:
+    """Periodically delete stale rows from transcription_cache and request_history."""
+    await asyncio.sleep(settings.cleanup_initial_delay_sec)
+    interval_sec = max(60, settings.cleanup_interval_hours * 3600)
+    while True:
+        try:
+            async with get_session() as session:
+                transcripts, history = await cleanup_old_records(
+                    session,
+                    transcription_ttl_days=settings.transcription_cache_ttl_days,
+                    history_ttl_days=settings.request_history_ttl_days,
+                )
+            log.info(
+                "cleanup_run",
+                transcripts_deleted=transcripts,
+                history_deleted=history,
+                next_in_sec=interval_sec,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.warning("cleanup_failed", error=str(exc))
+        await asyncio.sleep(interval_sec)
+
+
 async def run_webhook(bot: Bot, dp: Dispatcher) -> None:
     """Run aiohttp server with aiogram webhook handler + self-ping."""
     assert settings.webhook_url is not None
@@ -92,6 +118,7 @@ async def run_webhook(bot: Bot, dp: Dispatcher) -> None:
     log.info("webhook_set", url=webhook_full_url)
 
     ping_task = asyncio.create_task(_self_ping(settings.webhook_url))
+    cleanup_task = asyncio.create_task(_cleanup_loop())
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -103,9 +130,10 @@ async def run_webhook(bot: Bot, dp: Dispatcher) -> None:
     try:
         await stop_event.wait()
     finally:
-        ping_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await ping_task
+        for task in (ping_task, cleanup_task):
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
         try:
             await bot.delete_webhook(drop_pending_updates=False)
             log.info("webhook_deleted")
@@ -139,9 +167,14 @@ async def main() -> None:
         if os.environ.get("PORT"):
             health_runner = await run_health_server()
 
+        cleanup_task = asyncio.create_task(_cleanup_loop())
+
         try:
             await dp.start_polling(bot)
         finally:
+            cleanup_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await cleanup_task
             await bot.session.close()
             if health_runner:
                 await health_runner.cleanup()
