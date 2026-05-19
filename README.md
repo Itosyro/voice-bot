@@ -1,153 +1,82 @@
 # Voice Polisher Bot
 
-Telegram-бот для обработки голосовых сообщений и текста с использованием Groq AI.
+Telegram-бот, который превращает голосовые и текстовые сообщения в чистый
+полезный текст: расшифровывает речь, полирует её, переводит, конденсирует
+в саммари, превращает идеи в готовые промпты и убирает «AI-привкус» с
+любого текста.
 
-## Возможности
+## Что умеет
 
-### 4 режима обработки
+5 режимов обработки. Один бот — пять разных задач.
 
-| Режим | Вход | Что делает |
-|-------|------|------------|
-| **Polish** | Голос / текст | Убирает слова-паразиты, расставляет пунктуацию, исправляет грамматику |
-| **Prompt Engineer** | Голос / текст | Превращает идею в структурированный промпт для LLM |
-| **Humanizer** | Только текст | Убирает признаки AI-генерации (em-dash, шаблонные фразы, идеальная структура) |
-| **Translator** | Голос / текст | Перевод с сохранением тона (14 языков) |
+| Режим | Что делает | Принимает |
+|-------|------------|-----------|
+| **Polish** | Расшифровывает голос и убирает слова-паразиты, расставляет пунктуацию, чинит грамматику. Сохраняет интонацию автора. | голос, аудио, кружочек, текст |
+| **Prompt Engineer** | Любую сырую идею превращает в структурированный промпт для LLM. Внутри — RAG по 8 репозиториям с ~200 промпт-skills. | голос, аудио, кружочек, текст |
+| **Humanizer** | Убирает AI-маркеры (длинные тире, шаблонные обороты, искусственно ровную структуру). Чтобы текст не пах нейронкой. | только текст |
+| **Translator** | Перевод между 14 языками с сохранением тона и регистра. | голос, аудио, кружочек, текст |
+| **Summary** | Конденсирует длинный текст или голос в ключевые тезисы. | голос, аудио, кружочек, текст |
 
-### Подстили
+## Подстили
 
-- **Polish**: Default, Creative, Formal, Embellish
-- **Prompt Engineer**: General, Designer, Coder, Coder Strict
-- **Humanizer**: Lite, Strong
-- **Translator**: EN, RU, ES, FR, DE, ZH, JA, KO, AR, TR, PT, IT, PL, UK
+- **Polish** — Default, Creative, Formal, Embellish
+- **Prompt Engineer** — General, Designer, Coder, Coder Strict
+- **Humanizer** — Lite, Strong
+- **Translator** — EN, RU, ES, FR, DE, ZH, JA, KO, AR, TR, PT, IT, PL, UK
 
-### Skills RAG
+## Длинные голосовые
 
-Режим Prompt Engineer использует BM25-поиск по 8 skill-репозиториям для обогащения промптов релевантными знаниями.
+Длиннее 10 минут? Не проблема. Бот режет аудио на 5-минутные фрагменты,
+расшифровывает их по очереди и присылает результат частями по мере
+готовности — не нужно ждать конца обработки. Лимит: до 1 часа на одно
+сообщение.
 
-## Быстрый старт
+Для polish и translator каждая часть приходит отдельным сообщением сразу
+после обработки. Для summary и prompt бот сначала транскрибирует всё, потом
+пишет один итоговый ответ — этим режимам нужен полный контекст.
 
-### 1. Клонируй и настрой
+## Качество
 
-```bash
-git clone <repo-url>
-cd voice-bot
-cp .env.example .env
-```
+- **STT** — Groq Whisper Large v3 (полная модель, без turbo). Точно
+  распознаёт акценты, мат, редкую лексику. Ничего не цензурирует.
+- **LLM** — Llama 3.3 70B по умолчанию, GPT-OSS 120B для строгого режима
+  Coder Strict, Llama 3.1 8B Instant — для лёгких операций.
+- **RAG** — BM25-поиск по 8 репозиториям skills (Anthropic, prompts.chat,
+  dair-ai/Prompt-Engineering-Guide и др.) обогащает Prompt Engineer
+  релевантным контекстом без зависимости от внешних API.
 
-### 2. Заполни `.env`
+## Команды
 
-Минимально необходимые переменные:
-
-```
-TELEGRAM_BOT_TOKEN=<от @BotFather>
-GROQ_API_KEY_FALLBACK=<ключ с console.groq.com>
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/voicebot
-```
-
-Для полного функционала — отдельный Groq ключ на каждый режим:
-
-```
-GROQ_API_KEY_POLISH=gsk_...
-GROQ_API_KEY_PROMPT=gsk_...
-GROQ_API_KEY_HUMANIZER=gsk_...
-GROQ_API_KEY_TRANSLATOR=gsk_...
-```
-
-### 3. Запусти через Docker
-
-```bash
-docker compose up --build
-```
-
-Бот автоматически:
-1. Поднимет PostgreSQL
-2. Применит миграции (`alembic upgrade head`)
-3. Синхронизирует skills из 8 репозиториев
-4. Запустит polling
-
-### Альтернатива: локально
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-# Postgres должен быть запущен
-export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/voicebot
-alembic upgrade head
-python scripts/sync_skills.py
-python -m src.main
-```
-
-## Команды бота
-
-| Команда | Описание |
-|---------|----------|
+| Команда | Что делает |
+|---------|------------|
 | `/start` | Приветствие + выбор режима |
-| `/help` | Справка |
-| `/modes` | Выбор режима |
-| `/settings` | Настройки |
-| `/lang <код>` | Сменить язык перевода |
+| `/help` | Краткая справка |
+| `/modes` | Сменить режим |
+| `/settings` | Настройки (язык перевода, стили) |
+| `/lang <код>` | Сменить язык перевода (`en`, `ru`, `es`, …) |
 | `/history` | Последние 10 запросов |
-| `/cancel` | Отменить действие |
-| `/sync_skills` | Синхронизировать skills (admin) |
-| `/stats` | Статистика (admin) |
+| `/cancel` | Отменить текущее действие |
 
-## Получение ключей
+## Безопасность
 
-### Telegram Bot Token
-1. Открой [@BotFather](https://t.me/BotFather) в Telegram
-2. `/newbot` → следуй инструкциям
-3. Скопируй токен
+- Все Groq-вызовы — через серверные ключи, токены никогда не покидают
+  бэкенд.
+- ALLOWED_USER_IDS позволяет ограничить доступ к боту белым списком
+  Telegram-ID.
+- Rate-limit: 20 запросов/мин на пользователя.
+- Webhook-режим с `secret_token` — только Telegram может вызывать
+  endpoint.
+- Транскрипты кэшируются в БД по `file_id` Telegram (replays того же
+  голосового не дёргают STT повторно).
 
-### Groq API Keys
-1. Зарегистрируйся на [console.groq.com](https://console.groq.com)
-2. Создай 4 API ключа (один на каждый режим)
-3. Бесплатный тир включает достаточно запросов
+## Документация для разработчиков
 
-## Стек
-
-- **Python 3.11+**, aiogram 3
-- **Groq API** (Whisper + LLM)
-- **PostgreSQL 16** + SQLAlchemy 2.0 + Alembic
-- **BM25** для skills search
-- **Docker Compose** для деплоя
-
-## Ограничения
-
-- Аудио до 10 минут
-- Текст до 10000 символов
-- 20 запросов в минуту на пользователя
-- Humanizer работает только с текстом (не голосом)
-- Зависит от Groq API (бесплатный тир имеет rate limits)
-
-## Деплой
-
-### Render (рекомендуется)
-
-1. Подключи GitHub репозиторий на [dashboard.render.com](https://dashboard.render.com)
-2. Выбери «Blueprint» → используй `render.yaml` из репо
-3. Задай env variables (Telegram token, Groq keys)
-4. Регион: Frankfurt (единый для сервиса и БД)
-
-Или вручную:
-- Создай PostgreSQL (Free план)
-- Создай Web Service (Docker), укажи этот репо
-- DATABASE_URL подставится автоматически через `render.yaml`
-
-### Fly.io
-
-```bash
-fly auth login
-fly launch --config fly.toml
-fly secrets set TELEGRAM_BOT_TOKEN=... GROQ_API_KEY_FALLBACK=...
-fly deploy
-```
-
-### Railway
-
-Подключи GitHub репозиторий, добавь PostgreSQL addon, задай env variables.
+- [`docs/architecture.md`](docs/architecture.md) — design-doc: цели,
+  стек, поток данных, схема БД, режимы, deployment.
+- [`docs/plan.md`](docs/plan.md) — план работ по сессиям.
+- [`docs/progress.md`](docs/progress.md) — летопись изменений.
+- [`.env.example`](.env.example) — все настройки и комментарии к ним.
 
 ## Лицензия
 
-MIT
+MIT.

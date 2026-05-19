@@ -30,6 +30,8 @@ def create_dispatcher() -> Dispatcher:
     dp.message.middleware(AuthMiddleware())
     dp.message.middleware(RateLimitMiddleware())
     dp.message.middleware(DbSessionMiddleware())
+    dp.callback_query.middleware(AuthMiddleware())
+    dp.callback_query.middleware(RateLimitMiddleware())
     dp.callback_query.middleware(DbSessionMiddleware())
 
     # Routers
