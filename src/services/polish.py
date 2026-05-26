@@ -24,10 +24,10 @@ async def run_polish(transcript: str, sub_style: str = "polish_default") -> Poli
     if sub_style not in POLISH_PROMPTS:
         sub_style = "polish_default"
 
-    system = POLISH_PROMPTS[sub_style].format(transcript=transcript)
+    system = POLISH_PROMPTS[sub_style]
     text, ms = await complete(
         system_prompt=system,
-        user_message=transcript,
+        user_message=f"<user_input>{transcript}</user_input>",
         api_key=settings.get_groq_key("polish"),
         model=settings.llm_model_default,
         temperature=TEMPERATURE_MAP.get(sub_style, 0.3),

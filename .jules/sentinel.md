@@ -1,0 +1,4 @@
+## 2025-05-26 - Prompt Injection via direct un-delimited formatting in Prompt Engineer
+**Vulnerability:** Untrusted user input (`transcript`) is directly formatted into the system prompt in `src/services/prompt_eng.py` without proper delimiters. This allows an attacker to execute an indirect prompt injection attack to bypass the system prompt instructions.
+**Learning:** When writing system prompts that include user data, the user data should be isolated using delimiters like XML tags. Additionally, any untrusted user content should ideally be passed in the user message instead of the system prompt to avoid LLM confusion, if the architecture permits.
+**Prevention:** Always structure LLM interactions by either providing clear XML tags separating system instructions from data injected into the system prompt, or pass user content within the user role messages exclusively.

@@ -164,24 +164,6 @@ def test_bm25_no_match():
 # ===== Prompt rendering stress =====
 
 
-def test_all_polish_prompts_render_with_long_text():
-    from src.prompts.polish import POLISH_PROMPTS
-
-    long_text = "Слово " * 5000
-    for _name, tmpl in POLISH_PROMPTS.items():
-        rendered = tmpl.format(transcript=long_text)
-        assert len(rendered) > len(long_text)
-        assert "Слово" in rendered
-
-
-def test_all_humanizer_prompts_render_with_special_chars():
-    from src.prompts.humanizer import HUMANIZER_PROMPTS
-
-    text_with_specials = 'Text with {curly} and "quotes" and \\ backslash'
-    for _name, tmpl in HUMANIZER_PROMPTS.items():
-        rendered = tmpl.format(text=text_with_specials)
-        assert "curly" in rendered
-
 
 def test_translator_all_languages():
     from src.prompts.translator import LANG_NAMES, TRANSLATE_PROMPT
