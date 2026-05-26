@@ -50,7 +50,9 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # Allow Cyrillic characters in strings
 
 [tool.ruff.lint.per-file-ignores]
-"src/prompts/*.py" = ["E501"]  # Prompt templates have long Russian text lines
+"src/prompts/*.py" = ["E501"]
+"migrations/versions/*.py" = ["E501"]
+"migrations/env.py" = ["E402"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

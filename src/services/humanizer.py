@@ -22,10 +22,10 @@ async def run_humanizer(text: str, sub_style: str = "humanize_lite") -> Humanize
     if sub_style not in HUMANIZER_PROMPTS:
         sub_style = "humanize_lite"
 
-    system = HUMANIZER_PROMPTS[sub_style].format(text=text)
+    system = HUMANIZER_PROMPTS[sub_style]
     result, ms = await complete(
         system_prompt=system,
-        user_message=text,
+        user_message=f"<user_input>{text}</user_input>",
         api_key=settings.get_groq_key("humanizer"),
         model=settings.llm_model_default,
         temperature=TEMPERATURE_MAP.get(sub_style, 0.5),

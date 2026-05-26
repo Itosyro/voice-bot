@@ -22,12 +22,11 @@ async def run_translator(
     system = TRANSLATE_PROMPT.format(
         target_lang_name=lang_name,
         target_lang_code=target_lang,
-        transcript=transcript,
     )
 
     text, ms = await complete(
         system_prompt=system,
-        user_message=transcript,
+        user_message=f"<user_input>{transcript}</user_input>",
         api_key=settings.get_groq_key("translator"),
         model=settings.llm_model_default,
         temperature=0.3,

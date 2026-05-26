@@ -27,7 +27,6 @@ async def run_prompt_eng(
     skills_context = SkillsDB.format_for_prompt(relevant)
 
     system = PROMPT_ENG_PROMPTS[sub_style].format(
-        transcript=transcript,
         skills_context=skills_context,
     )
 
@@ -41,7 +40,7 @@ async def run_prompt_eng(
 
     text, ms = await complete(
         system_prompt=system,
-        user_message=transcript,
+        user_message=f"<user_input>{transcript}</user_input>",
         api_key=settings.get_groq_key("prompt"),
         model=model,
         temperature=temperature,
