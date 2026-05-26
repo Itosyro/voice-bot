@@ -6,7 +6,10 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY . .
+RUN addgroup --system appgroup && adduser --system --group appuser
+
+COPY --chown=appuser:appgroup . .
 RUN pip install --no-cache-dir -e .
+USER appuser
 
 CMD ["sh", "-c", "alembic upgrade head && python scripts/sync_skills.py && python -m src.main"]

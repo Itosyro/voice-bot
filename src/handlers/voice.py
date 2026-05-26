@@ -67,7 +67,18 @@ async def handle_voice(
         if not file_bytes:
             await progress_msg.edit_text("⚠️ Не удалось скачать аудио.")
             return
-        audio_bytes = file_bytes.read()
+
+        max_bytes = 20 * 1024 * 1024  # 20MB limit
+        audio_bytes = b""
+        chunk_size = 8192
+        while True:
+            chunk = file_bytes.read(chunk_size)
+            if not chunk:
+                break
+            audio_bytes += chunk
+            if len(audio_bytes) > max_bytes:
+                await progress_msg.edit_text("⚠️ Файл слишком большой.")
+                return
 
         groq_key = settings.get_groq_key(mode)
         transcript, stt_ms = await transcribe(
