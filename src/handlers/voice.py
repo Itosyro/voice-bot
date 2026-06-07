@@ -55,6 +55,14 @@ async def handle_voice(
         await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
         return
 
+    # Guard against oversized payloads before downloading into memory.
+    # Telegram's getFile already caps downloads at 20 MB, but a spoofed short
+    # duration could still point at a large file — reject early using metadata.
+    max_bytes = settings.max_voice_file_mb * 1024 * 1024
+    if voice.file_size and voice.file_size > max_bytes:
+        await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
+        return
+
     started = time.monotonic()
     progress_msg = await message.answer(f"🎙️ Распознаю аудио ({duration} сек)…")
 

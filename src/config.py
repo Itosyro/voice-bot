@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     # Limits
     max_voice_duration_sec: int = 600
+    max_voice_file_mb: int = 20
     max_text_length: int = 10000
     rate_limit_per_user_per_min: int = 20
 
