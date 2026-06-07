@@ -126,11 +126,11 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
             await progress_msg.edit_text(parts[0] + skills_info + timing, reply_markup=kb)
         else:
             total_parts = len(parts)
-            await progress_msg.edit_text(f"📝 Часть 1/{total_parts}:\n\n{parts[0]}")
-            for i, part in enumerate(parts[1:-1], 2):
-                await message.answer(f"📝 Часть {i}/{total_parts}:\n\n{part}")
+            await progress_msg.edit_text(f"📋 Длинный ответ — {total_parts} части:")
+            for i, part in enumerate(parts[:-1], 1):
+                await message.answer(f"📝 {i}/{total_parts}:\n\n{part}")
             await message.answer(
-                f"📝 Часть {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
+                f"📝 {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
                 reply_markup=kb,
             )
 

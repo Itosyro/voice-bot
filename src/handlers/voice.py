@@ -2,7 +2,6 @@ import time
 
 import structlog
 from aiogram import Bot, F, Router
-from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +13,7 @@ from src.services.transcribe import transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.users import get_or_create_user
-from src.ui.keyboards import mode_keyboard, result_voice_keyboard
+from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import GROQ_ERROR, HUMANIZER_VOICE_ERROR, VOICE_TOO_LONG
 
 log = structlog.get_logger()
@@ -48,7 +47,7 @@ def _split_text(text: str) -> list[str]:
 
 @router.message(F.voice | F.audio)
 async def handle_voice(
-    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB, state: FSMContext
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
 ) -> None:
     user_tg = message.from_user
     if not user_tg:
@@ -105,9 +104,6 @@ async def handle_voice(
             audio_bytes, api_key=groq_key, file_id=voice.file_id, session=session
         )
 
-        # Remember file_id so "Retranscribe" button can clear the cache entry later
-        await state.update_data(last_voice_file_id=voice.file_id)
-
         mode_label = {"polish": "Полирую", "prompt": "Создаю промпт", "translator": "Перевожу"}
         await progress_msg.edit_text(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
 
@@ -151,17 +147,19 @@ async def handle_voice(
         timing = f"\n\n⏱ STT: {stt_ms}ms | LLM: {llm_ms}ms | Total: {total_ms}ms"
 
         parts = _split_text(result_text)
-        kb = result_voice_keyboard(mode)
+        kb = result_keyboard(mode)
 
         if len(parts) == 1:
             await progress_msg.edit_text(parts[0] + skills_info + timing, reply_markup=kb)
         else:
+            # Send all parts as NEW messages so they all appear at the bottom of the chat.
+            # Editing the progress_msg (which sits higher up) would hide part 1 from view.
             total_parts = len(parts)
-            await progress_msg.edit_text(f"📝 Часть 1/{total_parts}:\n\n{parts[0]}")
-            for i, part in enumerate(parts[1:-1], 2):
-                await message.answer(f"📝 Часть {i}/{total_parts}:\n\n{part}")
+            await progress_msg.edit_text(f"📋 Длинный ответ — {total_parts} части:")
+            for i, part in enumerate(parts[:-1], 1):
+                await message.answer(f"📝 {i}/{total_parts}:\n\n{part}")
             await message.answer(
-                f"📝 Часть {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
+                f"📝 {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
                 reply_markup=kb,
             )
 

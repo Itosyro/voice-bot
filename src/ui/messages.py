@@ -59,11 +59,6 @@ GROQ_ERROR = "⚠️ Сервер AI временно недоступен, по
 
 NOT_ALLOWED = "🔒 У тебя нет доступа к этому боту."
 
-RETRANSCRIBE_PROMPT = (
-    "🎙️ Кэш очищен. Отправь то же голосовое сообщение ещё раз — "
-    "расшифрую заново с нуля."
-)
-
 MODE_NAMES = {
     "polish": "✨ Polish",
     "prompt": "🧠 Prompt Engineer",

@@ -1,12 +1,9 @@
 import structlog
 from aiogram import F, Router
-from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.services.transcribe import transcribe as _transcribe_fn  # noqa: F401 — for cache clear
 from src.storage.history import get_user_history
-from src.storage.models import TranscriptionCache
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.keyboards import (
     humanizer_style_keyboard,
@@ -16,7 +13,7 @@ from src.ui.keyboards import (
     prompt_style_keyboard,
     settings_keyboard,
 )
-from src.ui.messages import MODE_NAMES, RETRANSCRIBE_PROMPT, STYLE_NAMES
+from src.ui.messages import MODE_NAMES, STYLE_NAMES
 
 log = structlog.get_logger()
 router = Router()
@@ -129,20 +126,6 @@ async def on_set_default(callback: CallbackQuery, session: AsyncSession) -> None
 @router.callback_query(F.data == "action:regenerate")
 async def on_regenerate(callback: CallbackQuery) -> None:
     await callback.answer("Отправь сообщение ещё раз для перегенерации.")
-
-
-@router.callback_query(F.data == "action:retranscribe")
-async def on_retranscribe(callback: CallbackQuery, session: AsyncSession, state: FSMContext) -> None:
-    """Clear the cached transcription for the last voice message so next send re-runs Whisper."""
-    data = await state.get_data()
-    file_id = data.get("last_voice_file_id")
-    if file_id:
-        cached = await session.get(TranscriptionCache, file_id)
-        if cached:
-            await session.delete(cached)
-            await session.commit()
-    await callback.message.answer(RETRANSCRIBE_PROMPT)  # type: ignore[union-attr]
-    await callback.answer()
 
 
 @router.callback_query(F.data == "cmd:settings")

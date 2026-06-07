@@ -104,7 +104,6 @@ def lang_keyboard() -> InlineKeyboardMarkup:
 
 
 def result_keyboard(mode: str) -> InlineKeyboardMarkup:
-    """Keyboard for text processing results."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -114,26 +113,6 @@ def result_keyboard(mode: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(
                     text="💾 Сделать default", callback_data=f"action:set_default:{mode}"
-                ),
-            ],
-        ]
-    )
-
-
-def result_voice_keyboard(mode: str) -> InlineKeyboardMarkup:
-    """Keyboard for voice processing results — includes retranscribe button."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔄 Перегенерировать", callback_data="action:regenerate"),
-                InlineKeyboardButton(text="🔀 Сменить режим", callback_data="back:modes"),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="💾 Сделать default", callback_data=f"action:set_default:{mode}"
-                ),
-                InlineKeyboardButton(
-                    text="🎙️ Перетранскрибировать", callback_data="action:retranscribe"
                 ),
             ],
         ]
