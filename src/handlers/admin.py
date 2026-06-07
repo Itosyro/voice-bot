@@ -1,5 +1,6 @@
 import asyncio
 import subprocess
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from aiogram import Router
@@ -52,9 +53,18 @@ async def cmd_stats(message: Message, session: AsyncSession) -> None:
         await message.answer("Только для администраторов.")
         return
 
+    week_ago = datetime.now(UTC) - timedelta(days=7)
+
     users_count = (await session.execute(select(func.count(User.id)))).scalar() or 0
     requests_count = (await session.execute(select(func.count(RequestHistory.id)))).scalar() or 0
     skills_count = (await session.execute(select(func.count(SkillIndex.id)))).scalar() or 0
+    active_week = (
+        await session.execute(
+            select(func.count(func.distinct(RequestHistory.user_id))).where(
+                RequestHistory.created_at >= week_ago
+            )
+        )
+    ).scalar() or 0
 
     repo_stats = await session.execute(
         select(SkillIndex.source_repo, func.count(SkillIndex.id)).group_by(SkillIndex.source_repo)
@@ -68,8 +78,9 @@ async def cmd_stats(message: Message, session: AsyncSession) -> None:
 
     stats_text = (
         f"**Статистика:**\n\n"
-        f"Пользователей: {users_count}\n"
-        f"Запросов: {requests_count}\n"
+        f"Пользователей всего: {users_count}\n"
+        f"Активных за 7 дней: {active_week}\n"
+        f"Запросов всего: {requests_count}\n"
         f"Skills: {skills_count}\n\n"
         f"**Skills по репозиториям:**\n"
         + "\n".join(repo_lines or ["  (пусто)"])

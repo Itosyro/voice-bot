@@ -1,4 +1,5 @@
 from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
@@ -16,15 +17,26 @@ async def get_or_create_user(
     user = (await session.execute(stmt)).scalar_one_or_none()
     if user:
         return user
-    user = User(
-        telegram_user_id=telegram_user_id,
-        username=username,
-        first_name=first_name,
-        language_code=language_code,
+
+    # Atomic insert: if a concurrent request already inserted this user
+    # (e.g. several messages sent in quick succession), do nothing instead of
+    # raising IntegrityError, then re-fetch the guaranteed-present row.
+    insert_stmt = (
+        pg_insert(User)
+        .values(
+            telegram_user_id=telegram_user_id,
+            username=username,
+            first_name=first_name,
+            language_code=language_code,
+        )
+        .on_conflict_do_nothing(index_elements=["telegram_user_id"])
     )
-    session.add(user)
+    await session.execute(insert_stmt)
     await session.flush()
-    return user
+
+    return (
+        await session.execute(select(User).where(User.telegram_user_id == telegram_user_id))
+    ).scalar_one()
 
 
 async def update_user_settings(

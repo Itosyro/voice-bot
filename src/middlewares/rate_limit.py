@@ -29,10 +29,15 @@ class RateLimitMiddleware(BaseMiddleware):
         window = 60.0
         limit = settings.rate_limit_per_user_per_min
 
-        # Clean old entries
-        self._user_requests[user_id] = [t for t in self._user_requests[user_id] if now - t < window]
+        # Clean old entries; drop the key entirely when a user goes idle so the
+        # dict cannot grow unbounded with one entry per user_id ever seen.
+        recent = [t for t in self._user_requests[user_id] if now - t < window]
+        if not recent:
+            self._user_requests.pop(user_id, None)
+        else:
+            self._user_requests[user_id] = recent
 
-        if len(self._user_requests[user_id]) >= limit:
+        if len(recent) >= limit:
             if isinstance(event, Message):
                 await event.answer(RATE_LIMIT_ERROR)
             return None

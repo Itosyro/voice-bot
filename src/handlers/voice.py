@@ -2,6 +2,7 @@ import time
 
 import structlog
 from aiogram import Bot, F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,16 +14,41 @@ from src.services.transcribe import transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.users import get_or_create_user
-from src.ui.keyboards import mode_keyboard, result_keyboard
+from src.ui.keyboards import mode_keyboard, result_voice_keyboard
 from src.ui.messages import GROQ_ERROR, HUMANIZER_VOICE_ERROR, VOICE_TOO_LONG
 
 log = structlog.get_logger()
 router = Router()
 
+_CHUNK = 3800  # max chars per Telegram message (limit is 4096, leave room for headers)
+
+
+def _split_text(text: str) -> list[str]:
+    """Split text into Telegram-sized chunks at paragraph → sentence → hard boundaries."""
+    if len(text) <= _CHUNK:
+        return [text]
+    parts: list[str] = []
+    while text:
+        if len(text) <= _CHUNK:
+            parts.append(text)
+            break
+        # Prefer splitting at a blank line (paragraph break)
+        split_at = text.rfind("\n\n", 0, _CHUNK)
+        if split_at == -1:
+            # Fall back to sentence end
+            split_at = text.rfind(". ", 0, _CHUNK)
+        if split_at == -1:
+            split_at = _CHUNK
+        else:
+            split_at += 1
+        parts.append(text[:split_at])
+        text = text[split_at:].lstrip()
+    return parts
+
 
 @router.message(F.voice | F.audio)
 async def handle_voice(
-    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB, state: FSMContext
 ) -> None:
     user_tg = message.from_user
     if not user_tg:
@@ -55,6 +81,11 @@ async def handle_voice(
         await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
         return
 
+    max_bytes = settings.max_voice_file_mb * 1024 * 1024
+    if voice.file_size and voice.file_size > max_bytes:
+        await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
+        return
+
     started = time.monotonic()
     progress_msg = await message.answer(f"🎙️ Распознаю аудио ({duration} сек)…")
 
@@ -73,6 +104,9 @@ async def handle_voice(
         transcript, stt_ms = await transcribe(
             audio_bytes, api_key=groq_key, file_id=voice.file_id, session=session
         )
+
+        # Remember file_id so "Retranscribe" button can clear the cache entry later
+        await state.update_data(last_voice_file_id=voice.file_id)
 
         mode_label = {"polish": "Полирую", "prompt": "Создаю промпт", "translator": "Перевожу"}
         await progress_msg.edit_text(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
@@ -113,17 +147,23 @@ async def handle_voice(
             total_ms=total_ms,
         )
 
-        skills_info = ""
-        if used_skills:
-            skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}"
-
+        skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
         timing = f"\n\n⏱ STT: {stt_ms}ms | LLM: {llm_ms}ms | Total: {total_ms}ms"
 
-        final_text = result_text + skills_info + timing
-        if len(final_text) > 4000:
-            final_text = result_text[:3900] + "\n\n… (обрезано)" + timing
+        parts = _split_text(result_text)
+        kb = result_voice_keyboard(mode)
 
-        await progress_msg.edit_text(final_text, reply_markup=result_keyboard(mode))
+        if len(parts) == 1:
+            await progress_msg.edit_text(parts[0] + skills_info + timing, reply_markup=kb)
+        else:
+            total_parts = len(parts)
+            await progress_msg.edit_text(f"📝 Часть 1/{total_parts}:\n\n{parts[0]}")
+            for i, part in enumerate(parts[1:-1], 2):
+                await message.answer(f"📝 Часть {i}/{total_parts}:\n\n{part}")
+            await message.answer(
+                f"📝 Часть {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
+                reply_markup=kb,
+            )
 
     except Exception:
         log.exception("voice_handler_error")

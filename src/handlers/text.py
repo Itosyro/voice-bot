@@ -19,6 +19,29 @@ from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
 log = structlog.get_logger()
 router = Router()
 
+_CHUNK = 3800
+
+
+def _split_text(text: str) -> list[str]:
+    """Split text into Telegram-sized chunks at paragraph → sentence → hard boundaries."""
+    if len(text) <= _CHUNK:
+        return [text]
+    parts: list[str] = []
+    while text:
+        if len(text) <= _CHUNK:
+            parts.append(text)
+            break
+        split_at = text.rfind("\n\n", 0, _CHUNK)
+        if split_at == -1:
+            split_at = text.rfind(". ", 0, _CHUNK)
+        if split_at == -1:
+            split_at = _CHUNK
+        else:
+            split_at += 1
+        parts.append(text[:split_at])
+        text = text[split_at:].lstrip()
+    return parts
+
 
 @router.message(F.text & ~F.text.startswith("/"))
 async def handle_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
@@ -93,17 +116,23 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
             total_ms=total_ms,
         )
 
-        skills_info = ""
-        if used_skills:
-            skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}"
-
+        skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
         timing = f"\n\n⏱ LLM: {llm_ms}ms | Total: {total_ms}ms"
+        kb = result_keyboard(mode)
 
-        final_text = result_text + skills_info + timing
-        if len(final_text) > 4000:
-            final_text = result_text[:3900] + "\n\n… (обрезано)" + timing
+        parts = _split_text(result_text)
 
-        await progress_msg.edit_text(final_text, reply_markup=result_keyboard(mode))
+        if len(parts) == 1:
+            await progress_msg.edit_text(parts[0] + skills_info + timing, reply_markup=kb)
+        else:
+            total_parts = len(parts)
+            await progress_msg.edit_text(f"📝 Часть 1/{total_parts}:\n\n{parts[0]}")
+            for i, part in enumerate(parts[1:-1], 2):
+                await message.answer(f"📝 Часть {i}/{total_parts}:\n\n{part}")
+            await message.answer(
+                f"📝 Часть {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
+                reply_markup=kb,
+            )
 
     except Exception:
         log.exception("text_handler_error")
