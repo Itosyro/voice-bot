@@ -7,6 +7,7 @@ import pytest
 from src.config import Settings
 from src.services.skills_db import SkillsDB
 from src.storage.models import SkillIndex
+from tests.conftest import make_groq_stream_response
 
 # ===== Config edge cases =====
 
@@ -164,7 +165,6 @@ def test_bm25_no_match():
 # ===== Prompt rendering stress =====
 
 
-
 def test_translator_all_languages():
     from src.prompts.translator import LANG_NAMES, TRANSLATE_PROMPT
 
@@ -187,13 +187,9 @@ def mock_groq_client():
         client = AsyncMock()
         mock.return_value = client
 
-        choice = AsyncMock()
-        choice.message.content = "Mocked output"
-
-        response = AsyncMock()
-        response.choices = [choice]
-
-        client.chat.completions.create = AsyncMock(return_value=response)
+        client.chat.completions.create = AsyncMock(
+            return_value=make_groq_stream_response("Mocked output")
+        )
         yield client
 
 

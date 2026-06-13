@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.config import settings
 from src.prompts.polish import POLISH_PROMPTS
-from src.services.llm import complete
+from src.services.llm import OnDelta, complete
 
 
 @dataclass
@@ -20,7 +20,9 @@ TEMPERATURE_MAP = {
 }
 
 
-async def run_polish(transcript: str, sub_style: str = "polish_default") -> PolishResult:
+async def run_polish(
+    transcript: str, sub_style: str = "polish_default", on_delta: OnDelta | None = None
+) -> PolishResult:
     if sub_style not in POLISH_PROMPTS:
         sub_style = "polish_default"
 
@@ -31,5 +33,6 @@ async def run_polish(transcript: str, sub_style: str = "polish_default") -> Poli
         api_key=settings.get_groq_key("polish"),
         model=settings.llm_model_default,
         temperature=TEMPERATURE_MAP.get(sub_style, 0.3),
+        on_delta=on_delta,
     )
     return PolishResult(text=text.strip(), llm_ms=ms, model=settings.llm_model_default)

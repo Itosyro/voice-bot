@@ -4,6 +4,7 @@ import pytest
 
 from src.services.skills_db import SkillsDB
 from src.storage.models import SkillIndex
+from tests.conftest import make_groq_stream_response
 
 
 @pytest.fixture
@@ -12,13 +13,9 @@ def mock_groq():
         client = AsyncMock()
         mock.return_value = client
 
-        choice = AsyncMock()
-        choice.message.content = "Mocked response text"
-
-        response = AsyncMock()
-        response.choices = [choice]
-
-        client.chat.completions.create = AsyncMock(return_value=response)
+        client.chat.completions.create = AsyncMock(
+            return_value=make_groq_stream_response("Mocked response text")
+        )
         yield client
 
 

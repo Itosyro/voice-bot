@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from src.config import settings
 from src.prompts.prompt_eng import PROMPT_ENG_PROMPTS
-from src.services.llm import complete
+from src.services.llm import OnDelta, complete
 from src.services.skills_db import SkillsDB
 
 
@@ -18,6 +18,7 @@ async def run_prompt_eng(
     transcript: str,
     sub_style: str,
     skills_db: SkillsDB,
+    on_delta: OnDelta | None = None,
 ) -> PromptResult:
     if sub_style not in PROMPT_ENG_PROMPTS:
         sub_style = "prompt_general"
@@ -30,13 +31,9 @@ async def run_prompt_eng(
         skills_context=skills_context,
     )
 
-    model = (
-        settings.llm_model_strict
-        if sub_style == "prompt_coder_strict"
-        else settings.llm_model_default
-    )
-
-    temperature = 0.3 if sub_style == "prompt_coder_strict" else 0.4
+    is_strict = sub_style == "prompt_coder_strict"
+    model = settings.llm_model_strict if is_strict else settings.llm_model_default
+    temperature = 0.3 if is_strict else 0.4
 
     text, ms = await complete(
         system_prompt=system,
@@ -45,6 +42,8 @@ async def run_prompt_eng(
         model=model,
         temperature=temperature,
         max_tokens=8000,
+        reasoning_effort="low" if is_strict else None,
+        on_delta=on_delta,
     )
     return PromptResult(
         text=text.strip(),
