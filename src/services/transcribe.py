@@ -37,7 +37,7 @@ async def transcribe(
     started = time.monotonic()
     last_exc: Exception | None = None
 
-    for attempt in range(2):
+    for attempt in range(3):
         try:
             result = await client.audio.transcriptions.create(
                 file=("voice.ogg", audio_bytes),
@@ -56,7 +56,7 @@ async def transcribe(
             return text, elapsed_ms
         except Exception as e:
             last_exc = e
-            if attempt == 0:
-                await asyncio.sleep(2)
+            if attempt < 2:
+                await asyncio.sleep(2 * (attempt + 1))
 
     raise last_exc  # type: ignore[misc]

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.config import settings
 from src.prompts.translator import LANG_NAMES, TRANSLATE_PROMPT
-from src.services.llm import complete
+from src.services.llm import OnDelta, complete
 
 
 @dataclass
@@ -16,6 +16,7 @@ class TranslatorResult:
 async def run_translator(
     transcript: str,
     target_lang: str = "en",
+    on_delta: OnDelta | None = None,
 ) -> TranslatorResult:
     lang_name = LANG_NAMES.get(target_lang, target_lang)
 
@@ -30,6 +31,7 @@ async def run_translator(
         api_key=settings.get_groq_key("translator"),
         model=settings.llm_model_default,
         temperature=0.3,
+        on_delta=on_delta,
     )
     return TranslatorResult(
         text=text.strip(),

@@ -136,3 +136,25 @@ def settings_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="◀️ Назад", callback_data="back:modes")],
         ]
     )
+
+
+def admin_user_keyboard(telegram_user_id: int, is_blocked: bool) -> InlineKeyboardMarkup:
+    """Ban/unban toggle for a single user's admin card."""
+    if is_blocked:
+        action_btn = InlineKeyboardButton(
+            text="✅ Разблокировать", callback_data=f"admin:unban:{telegram_user_id}"
+        )
+    else:
+        action_btn = InlineKeyboardButton(
+            text="🚫 Заблокировать", callback_data=f"admin:ban:{telegram_user_id}"
+        )
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [action_btn],
+            [
+                InlineKeyboardButton(
+                    text="🔄 Обновить", callback_data=f"admin:user:{telegram_user_id}"
+                )
+            ],
+        ]
+    )

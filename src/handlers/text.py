@@ -1,11 +1,12 @@
 import time
 
 import structlog
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
+from src.handlers._reply import make_draft_callback, send_result
 from src.services.humanizer import run_humanizer
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
@@ -19,32 +20,11 @@ from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
 log = structlog.get_logger()
 router = Router()
 
-_CHUNK = 3800
-
-
-def _split_text(text: str) -> list[str]:
-    """Split text into Telegram-sized chunks at paragraph → sentence → hard boundaries."""
-    if len(text) <= _CHUNK:
-        return [text]
-    parts: list[str] = []
-    while text:
-        if len(text) <= _CHUNK:
-            parts.append(text)
-            break
-        split_at = text.rfind("\n\n", 0, _CHUNK)
-        if split_at == -1:
-            split_at = text.rfind(". ", 0, _CHUNK)
-        if split_at == -1:
-            split_at = _CHUNK
-        else:
-            split_at += 1
-        parts.append(text[:split_at])
-        text = text[split_at:].lstrip()
-    return parts
-
 
 @router.message(F.text & ~F.text.startswith("/"))
-async def handle_text(message: Message, session: AsyncSession, skills_db: SkillsDB) -> None:
+async def handle_text(
+    message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
     user_tg = message.from_user
     if not user_tg or not message.text:
         return
@@ -78,25 +58,27 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
     progress_msg = await message.answer(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
 
     try:
+        on_delta = make_draft_callback(bot, message.chat.id)
+
         result_text = ""
         llm_ms = 0
         model_used = ""
         used_skills: list[str] = []
 
         if mode == "polish":
-            r = await run_polish(text, sub_style=style or "polish_default")
+            r = await run_polish(text, sub_style=style or "polish_default", on_delta=on_delta)
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
-                text, sub_style=style or "prompt_general", skills_db=skills_db
+                text, sub_style=style or "prompt_general", skills_db=skills_db, on_delta=on_delta
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
             used_skills = r2.used_skills
         elif mode == "humanizer":
-            r3 = await run_humanizer(text, sub_style=style or "humanize_lite")
+            r3 = await run_humanizer(text, sub_style=style or "humanize_lite", on_delta=on_delta)
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
         elif mode == "translator":
-            r4 = await run_translator(text, target_lang=user.target_lang or "en")
+            r4 = await run_translator(text, target_lang=user.target_lang or "en", on_delta=on_delta)
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
 
         total_ms = int((time.monotonic() - started) * 1000)
@@ -120,19 +102,7 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         timing = f"\n\n⏱ LLM: {llm_ms}ms | Total: {total_ms}ms"
         kb = result_keyboard(mode)
 
-        parts = _split_text(result_text)
-
-        if len(parts) == 1:
-            await progress_msg.edit_text(parts[0] + skills_info + timing, reply_markup=kb)
-        else:
-            total_parts = len(parts)
-            await progress_msg.edit_text(f"📋 Длинный ответ — {total_parts} части:")
-            for i, part in enumerate(parts[:-1], 1):
-                await message.answer(f"📝 {i}/{total_parts}:\n\n{part}")
-            await message.answer(
-                f"📝 {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
-                reply_markup=kb,
-            )
+        await send_result(message, progress_msg, result_text, skills_info, timing, kb)
 
     except Exception:
         log.exception("text_handler_error")

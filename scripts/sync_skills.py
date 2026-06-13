@@ -1,4 +1,4 @@
-"""Clones 8 skill/prompt repositories and loads them into PostgreSQL."""
+"""Clones skill/prompt repositories and loads them into PostgreSQL."""
 
 from __future__ import annotations
 
@@ -15,6 +15,10 @@ from sqlalchemy import delete
 
 from src.storage.db import get_session
 from src.storage.models import SkillIndex
+
+# Some repos (e.g. f/awesome-chatgpt-prompts) have CSV fields larger than the
+# default 128 KB limit, which raises "field larger than field limit". Raise it.
+_csv.field_size_limit(10_000_000)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "skill_repos"
 
@@ -69,6 +73,16 @@ REPOS = [
         url="https://github.com/davila7/claude-code-templates.git",
         parser="skill_md",
     ),
+    RepoConfig(
+        name="Leonxlnx/taste-skill",
+        url="https://github.com/Leonxlnx/taste-skill.git",
+        parser="skill_md",
+    ),
+    RepoConfig(
+        name="pbakaus/impeccable",
+        url="https://github.com/pbakaus/impeccable.git",
+        parser="skill_md_claude_only",
+    ),
 ]
 
 
@@ -110,6 +124,34 @@ def _parse_skill_md(repo_path: Path, repo_name: str) -> list[SkillIndex]:
     """Parse repos with SKILL.md files (anthropics/skills, alirezarezvani, davila7)."""
     out: list[SkillIndex] = []
     for skill_md in repo_path.rglob("SKILL.md"):
+        content = skill_md.read_text(encoding="utf-8", errors="replace")
+        fm, body = _parse_yaml_frontmatter(content)
+        name = fm.get("name") or skill_md.parent.name
+        description = fm.get("description") or ""
+        out.append(
+            SkillIndex(
+                source_repo=repo_name,
+                skill_name=name,
+                description=description[:500],
+                body=body[:20000],
+                file_path=str(skill_md.relative_to(repo_path)),
+                tags=fm.get("tags", "").split(",") if fm.get("tags") else None,
+            )
+        )
+    return out
+
+
+def _parse_skill_md_claude_only(repo_path: Path, repo_name: str) -> list[SkillIndex]:
+    """pbakaus/impeccable: same SKILL.md duplicated under .claude/, .cursor/, .gemini/, etc.
+
+    Only index the .claude/ copy to avoid near-identical duplicates.
+    """
+    matches = list(repo_path.glob(".claude/skills/*/SKILL.md"))
+    if not matches:
+        matches = list(repo_path.rglob("SKILL.md"))[:1]
+
+    out: list[SkillIndex] = []
+    for skill_md in matches:
         content = skill_md.read_text(encoding="utf-8", errors="replace")
         fm, body = _parse_yaml_frontmatter(content)
         name = fm.get("name") or skill_md.parent.name
@@ -335,6 +377,7 @@ def _parse_uiux_pro_max(repo_path: Path, repo_name: str) -> list[SkillIndex]:
 
 PARSERS = {
     "skill_md": _parse_skill_md,
+    "skill_md_claude_only": _parse_skill_md_claude_only,
     "humanizer_md": _parse_humanizer_md,
     "prompts_csv": _parse_prompts_csv,
     "mdx_files": _parse_mdx_files,

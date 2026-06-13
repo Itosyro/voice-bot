@@ -9,9 +9,6 @@ def test_prompt_eng_prompts_have_placeholders():
         assert "{skills_context}" in tmpl, f"{name} missing {{skills_context}}"
 
 
-
-
-
 def test_translator_prompt_has_placeholders():
     assert "{target_lang_name}" in TRANSLATE_PROMPT
     assert "{target_lang_code}" in TRANSLATE_PROMPT
@@ -23,9 +20,7 @@ def test_polish_renders():
 
 
 def test_prompt_eng_renders():
-    rendered = PROMPT_ENG_PROMPTS["prompt_general"].format(
-        skills_context="<no skills>"
-    )
+    rendered = PROMPT_ENG_PROMPTS["prompt_general"].format(skills_context="<no skills>")
     assert "<no skills>" in rendered
 
 
@@ -35,8 +30,6 @@ def test_humanizer_renders():
 
 
 def test_translator_renders():
-    rendered = TRANSLATE_PROMPT.format(
-        target_lang_name="English", target_lang_code="en"
-    )
+    rendered = TRANSLATE_PROMPT.format(target_lang_name="English", target_lang_code="en")
     assert "English" in rendered
     assert "en" in rendered
