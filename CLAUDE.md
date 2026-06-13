@@ -62,8 +62,13 @@ python -m src.main                 # запустить бота
 ## Команды бота (для тебя как админа)
 
 - `/stats` — статистика: юзеры, запросы, активные за 7 дней, режимы
+- `/users` — список пользователей (кто, username, кол-во запросов, последняя активность, статус)
+- `/user <id>` — карточка пользователя + inline-кнопки бан/разбан
+- `/ban <id>` / `/unban <id>` — блокировка/разблокировка по telegram_id
 - `/sync_skills` — перезалить skills из GitHub репозиториев
 - `/history` — последние 10 запросов
+
+Бан хранится в колонке `users.is_blocked`; `AuthMiddleware` проверяет её (своя короткая сессия), админов забанить нельзя.
 
 ## Текущий статус / roadmap
 
@@ -77,5 +82,7 @@ python -m src.main                 # запустить бота
 - [x] Стриминг превью (sendMessageDraft) во всех режимах, файл .txt для очень длинных ответов
 - [x] Фикс Prompt Engineer / coder_strict (gpt-oss-120b reasoning params) и усиленный retry Groq
 - [x] Дизайнерские скиллы Taste-Skill (Leonxlnx/taste-skill) и Impeccable (pbakaus/impeccable)
+- [x] Фикс парсинга f/awesome-chatgpt-prompts (csv.field_size_limit)
+- [x] Админ-дашборд в Telegram: /users, /user, /ban, /unban + бан через AuthMiddleware
 - [ ] Webhook вместо polling (нужен публичный HTTPS URL — Render даёт его бесплатно)
 - [ ] Redis для rate-limit при масштабировании >1 реплики

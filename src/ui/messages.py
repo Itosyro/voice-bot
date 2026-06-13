@@ -59,6 +59,8 @@ GROQ_ERROR = "⚠️ Сервер AI временно недоступен, по
 
 NOT_ALLOWED = "🔒 У тебя нет доступа к этому боту."
 
+USER_BLOCKED = "🚫 Ты заблокирован администратором."
+
 MODE_NAMES = {
     "polish": "✨ Polish",
     "prompt": "🧠 Prompt Engineer",

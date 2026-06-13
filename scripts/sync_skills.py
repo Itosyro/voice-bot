@@ -1,4 +1,4 @@
-"""Clones 8 skill/prompt repositories and loads them into PostgreSQL."""
+"""Clones skill/prompt repositories and loads them into PostgreSQL."""
 
 from __future__ import annotations
 
@@ -15,6 +15,10 @@ from sqlalchemy import delete
 
 from src.storage.db import get_session
 from src.storage.models import SkillIndex
+
+# Some repos (e.g. f/awesome-chatgpt-prompts) have CSV fields larger than the
+# default 128 KB limit, which raises "field larger than field limit". Raise it.
+_csv.field_size_limit(10_000_000)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "skill_repos"
 

@@ -1,9 +1,12 @@
+from datetime import datetime
+
+from sqlalchemy import func as sa_func
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
-from src.storage.models import User
+from src.storage.models import RequestHistory, User
 
 
 async def get_or_create_user(
@@ -52,3 +55,50 @@ async def update_user_settings(
         .values(**kwargs, updated_at=func.now())
     )
     await session.execute(stmt)
+
+
+async def get_user_by_telegram_id(session: AsyncSession, telegram_user_id: int) -> User | None:
+    return (
+        await session.execute(select(User).where(User.telegram_user_id == telegram_user_id))
+    ).scalar_one_or_none()
+
+
+async def set_user_blocked(session: AsyncSession, telegram_user_id: int, blocked: bool) -> bool:
+    """Set the block flag for a user. Returns True if a row was updated."""
+    result = await session.execute(
+        update(User)
+        .where(User.telegram_user_id == telegram_user_id)
+        .values(is_blocked=blocked, updated_at=func.now())
+    )
+    return (result.rowcount or 0) > 0
+
+
+async def is_user_blocked(session: AsyncSession, telegram_user_id: int) -> bool:
+    blocked = (
+        await session.execute(
+            select(User.is_blocked).where(User.telegram_user_id == telegram_user_id)
+        )
+    ).scalar_one_or_none()
+    return bool(blocked)
+
+
+async def list_users_with_activity(
+    session: AsyncSession, limit: int = 50
+) -> list[tuple[User, datetime | None]]:
+    """Return users with their last request time, most-active first."""
+    last_activity = (
+        select(
+            RequestHistory.user_id,
+            sa_func.max(RequestHistory.created_at).label("last_at"),
+        )
+        .group_by(RequestHistory.user_id)
+        .subquery()
+    )
+    stmt = (
+        select(User, last_activity.c.last_at)
+        .outerjoin(last_activity, last_activity.c.user_id == User.id)
+        .order_by(User.total_requests.desc(), User.created_at.desc())
+        .limit(limit)
+    )
+    rows = await session.execute(stmt)
+    return [(user, last_at) for user, last_at in rows]

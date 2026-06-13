@@ -1,13 +1,21 @@
 """Edge case and stress tests for all components."""
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aiogram.types import Message
 
 from src.config import Settings
 from src.services.skills_db import SkillsDB
 from src.storage.models import SkillIndex
 from tests.conftest import make_groq_stream_response
+
+
+@asynccontextmanager
+async def _fake_session():
+    yield MagicMock()
+
 
 # ===== Config edge cases =====
 
@@ -336,8 +344,13 @@ async def test_auth_middleware_allows_when_no_restriction(monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "x")
     monkeypatch.setenv("DATABASE_URL", "x")
     monkeypatch.setenv("ALLOWED_USER_IDS", "")
+    monkeypatch.setenv("ADMIN_USER_IDS", "")
 
+    import src.middlewares.auth as auth_mod
     from src.middlewares.auth import AuthMiddleware
+
+    monkeypatch.setattr(auth_mod, "get_session", _fake_session)
+    monkeypatch.setattr(auth_mod, "is_user_blocked", AsyncMock(return_value=False))
 
     middleware = AuthMiddleware()
     handler = AsyncMock(return_value="ok")
@@ -348,6 +361,32 @@ async def test_auth_middleware_allows_when_no_restriction(monkeypatch):
 
     result = await middleware(handler, event, data)
     assert result == "ok"
+
+
+async def test_auth_middleware_blocks_banned_user(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "x")
+    monkeypatch.setenv("DATABASE_URL", "x")
+    monkeypatch.setenv("ALLOWED_USER_IDS", "")
+    monkeypatch.setenv("ADMIN_USER_IDS", "")
+
+    import src.middlewares.auth as auth_mod
+    from src.middlewares.auth import AuthMiddleware
+
+    monkeypatch.setattr(auth_mod, "get_session", _fake_session)
+    monkeypatch.setattr(auth_mod, "is_user_blocked", AsyncMock(return_value=True))
+
+    middleware = AuthMiddleware()
+    handler = AsyncMock(return_value="ok")
+    event = MagicMock(spec=Message)
+    event.answer = AsyncMock()
+    user = MagicMock()
+    user.id = 12345
+    data = {"event_from_user": user}
+
+    result = await middleware(handler, event, data)
+    assert result is None
+    handler.assert_not_called()
+    event.answer.assert_awaited_once()
 
 
 # ===== UI keyboards =====
