@@ -104,7 +104,7 @@ async def handle_text(
         )
 
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
-        timing = f"\n\n⏱ LLM: {llm_ms}ms | Total: {total_ms}ms"
+        timing = ""
         kb = result_keyboard(mode)
 
         await send_result(message, progress_msg, result_text, skills_info, timing, kb)

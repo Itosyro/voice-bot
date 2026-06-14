@@ -19,6 +19,7 @@ from src.storage.users import get_or_create_user
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import (
     CHUNK_TRANSCRIBING,
+    EMPTY_TRANSCRIPT,
     GROQ_ERROR,
     HUMANIZER_VOICE_ERROR,
     VOICE_TOO_LONG,
@@ -166,6 +167,10 @@ async def handle_voice(
 
             transcript = "\n\n".join(transcript_parts)
 
+        if not transcript.strip():
+            await progress_msg.edit_text(EMPTY_TRANSCRIPT, reply_markup=mode_keyboard())
+            return
+
         await progress_msg.edit_text(f"✨ {MODE_LABEL.get(mode, 'Обрабатываю')}…")
 
         on_delta = make_draft_callback(bot, message.chat.id)
@@ -193,7 +198,7 @@ async def handle_voice(
         )
 
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
-        timing = f"\n\n⏱ STT: {stt_ms}ms | LLM: {llm_ms}ms | Total: {total_ms}ms"
+        timing = ""
         kb = result_keyboard(mode)
 
         await send_result(message, progress_msg, result_text, skills_info, timing, kb)
