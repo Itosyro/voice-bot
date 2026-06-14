@@ -2,9 +2,17 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable
 
-from groq import AsyncGroq
+from groq import AsyncGroq, RateLimitError
 
 OnDelta = Callable[[str], Awaitable[None]]
+
+
+def is_rate_limit_error(exc: Exception) -> bool:
+    """Return True if the exception indicates a Groq rate-limit (429) response."""
+    if isinstance(exc, RateLimitError):
+        return True
+    status = getattr(exc, "status_code", None)
+    return status == 429
 
 
 async def complete(
