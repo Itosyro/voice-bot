@@ -1,8 +1,12 @@
 import structlog
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.handlers._last import get_last
+from src.handlers.text import regenerate_text
+from src.handlers.voice import regenerate_voice
+from src.services.skills_db import SkillsDB
 from src.storage.history import get_user_history
 from src.storage.users import get_or_create_user, update_user_settings
 from src.ui.design import MODE_NAME, STYLE_NAME
@@ -201,8 +205,25 @@ async def on_export(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "action:regenerate")
-async def on_regenerate(callback: CallbackQuery) -> None:
-    await callback.answer("Отправь сообщение ещё раз для перегенерации.")
+async def on_regenerate(
+    callback: CallbackQuery, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    """Re-run the last request from scratch (fresh transcription + fresh generation)."""
+    if not callback.from_user or not callback.message:
+        return
+    await callback.answer("Перегенерирую…")
+
+    last = get_last(callback.from_user.id)
+    if last is None:
+        await callback.message.answer(  # type: ignore[union-attr]
+            "Нечего повторять — отправь голос или текст ещё раз."
+        )
+        return
+
+    if last.input_type == "voice":
+        await regenerate_voice(callback.message, bot, session, skills_db, last)  # type: ignore[arg-type]
+    else:
+        await regenerate_text(callback.message, session, skills_db, last)  # type: ignore[arg-type]
 
 
 @router.callback_query(F.data == "action:other_mode")
