@@ -66,3 +66,19 @@ async def test_run_translator(mock_groq):
     result = await run_translator("Hello world", target_lang="ru")
     assert result.text == "Mocked response text"
     assert result.target_lang == "ru"
+
+
+async def test_run_polish_raw(mock_groq):
+    from src.services.polish import run_polish
+
+    result = await run_polish("test transcript", sub_style="polish_raw")
+    assert result.text == "Mocked response text"
+    assert result.llm_ms >= 0
+
+
+async def test_run_summary(mock_groq):
+    from src.services.summary import run_summary
+
+    result = await run_summary("test transcript")
+    assert result.text == "Mocked response text"
+    assert result.llm_ms >= 0

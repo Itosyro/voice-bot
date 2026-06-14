@@ -1,6 +1,7 @@
 from src.prompts.humanizer import HUMANIZER_PROMPTS
 from src.prompts.polish import POLISH_PROMPTS
 from src.prompts.prompt_eng import PROMPT_ENG_PROMPTS
+from src.prompts.summary import SUMMARY_PROMPT
 from src.prompts.translator import TRANSLATE_PROMPT
 
 
@@ -17,6 +18,16 @@ def test_translator_prompt_has_placeholders():
 def test_polish_renders():
     rendered = POLISH_PROMPTS["polish_default"]
     assert "ТВОЯ ЗАДАЧА:" in rendered
+
+
+def test_polish_raw_renders():
+    rendered = POLISH_PROMPTS["polish_raw"]
+    assert "НЕ редактируй содержание" in rendered
+
+
+def test_summary_prompt_renders():
+    assert "•" in SUMMARY_PROMPT
+    assert "Задачи:" in SUMMARY_PROMPT
 
 
 def test_prompt_eng_renders():

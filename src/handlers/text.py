@@ -6,11 +6,12 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.handlers._reply import make_draft_callback, send_result
+from src.handlers._reply import send_result
 from src.services.humanizer import run_humanizer
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
+from src.services.summary import run_summary
 from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.users import get_or_create_user
@@ -45,7 +46,9 @@ async def handle_text(
 
     text = message.text
     if len(text) > settings.max_text_length:
-        await message.answer(TEXT_TOO_LONG.format(max_len=settings.max_text_length))
+        await message.answer(
+            TEXT_TOO_LONG.format(max_len=settings.max_text_length), parse_mode="HTML"
+        )
         return
 
     started = time.monotonic()
@@ -54,11 +57,14 @@ async def handle_text(
         "prompt": "Создаю промпт",
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
+        "summary": "Делаю саммари",
     }
     progress_msg = await message.answer(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
 
     try:
-        on_delta = make_draft_callback(bot, message.chat.id)
+        # No live streaming preview — sendMessageDraft leaves orphaned ephemeral
+        # bubbles in the chat. We show progress, then deliver the final result.
+        on_delta = None
 
         result_text = ""
         llm_ms = 0
@@ -80,6 +86,9 @@ async def handle_text(
         elif mode == "translator":
             r4 = await run_translator(text, target_lang=user.target_lang or "en", on_delta=on_delta)
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
+        elif mode == "summary":
+            r5 = await run_summary(text, on_delta=on_delta)
+            result_text, llm_ms, model_used = r5.text, r5.llm_ms, r5.model
 
         total_ms = int((time.monotonic() - started) * 1000)
 
@@ -99,7 +108,7 @@ async def handle_text(
         )
 
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
-        timing = f"\n\n⏱ LLM: {llm_ms}ms | Total: {total_ms}ms"
+        timing = ""
         kb = result_keyboard(mode)
 
         await send_result(message, progress_msg, result_text, skills_info, timing, kb)
