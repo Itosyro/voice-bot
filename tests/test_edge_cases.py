@@ -456,10 +456,10 @@ def test_message_constants_exist():
     assert len(START_MESSAGE) > 0
     assert len(HELP_MESSAGE) > 0
     assert len(HUMANIZER_VOICE_ERROR) > 0
-    assert "{max_sec}" in VOICE_TOO_LONG
+    assert "{max_min}" in VOICE_TOO_LONG
     assert "{max_len}" in TEXT_TOO_LONG
-    assert len(MODE_NAMES) == 4
-    assert len(STYLE_NAMES) == 10
+    assert len(MODE_NAMES) == 5
+    assert len(STYLE_NAMES) == 11
 
 
 # ===== FSM states =====

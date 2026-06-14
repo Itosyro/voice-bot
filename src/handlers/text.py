@@ -11,6 +11,7 @@ from src.services.humanizer import run_humanizer
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
+from src.services.summary import run_summary
 from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.users import get_or_create_user
@@ -54,6 +55,7 @@ async def handle_text(
         "prompt": "Создаю промпт",
         "humanizer": "Очеловечиваю",
         "translator": "Перевожу",
+        "summary": "Делаю саммари",
     }
     progress_msg = await message.answer(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
 
@@ -80,6 +82,9 @@ async def handle_text(
         elif mode == "translator":
             r4 = await run_translator(text, target_lang=user.target_lang or "en", on_delta=on_delta)
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
+        elif mode == "summary":
+            r5 = await run_summary(text, on_delta=on_delta)
+            result_text, llm_ms, model_used = r5.text, r5.llm_ms, r5.model
 
         total_ms = int((time.monotonic() - started) * 1000)
 

@@ -13,6 +13,7 @@ class PolishResult:
 
 
 TEMPERATURE_MAP = {
+    "polish_raw": 0.0,
     "polish_default": 0.2,
     "polish_creative": 0.7,
     "polish_formal": 0.3,

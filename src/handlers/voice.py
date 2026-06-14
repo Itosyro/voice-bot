@@ -10,6 +10,7 @@ from src.handlers._reply import make_draft_callback, send_result
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
+from src.services.summary import run_summary
 from src.services.transcribe import transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
@@ -53,12 +54,12 @@ async def handle_voice(
 
     duration = voice.duration or 0
     if duration > settings.max_voice_duration_sec:
-        await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
+        await message.answer(VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60))
         return
 
     max_bytes = settings.max_voice_file_mb * 1024 * 1024
     if voice.file_size and voice.file_size > max_bytes:
-        await message.answer(VOICE_TOO_LONG.format(max_sec=settings.max_voice_duration_sec))
+        await message.answer(VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60))
         return
 
     started = time.monotonic()
@@ -80,7 +81,12 @@ async def handle_voice(
             audio_bytes, api_key=groq_key, file_id=voice.file_id, session=session
         )
 
-        mode_label = {"polish": "Полирую", "prompt": "Создаю промпт", "translator": "Перевожу"}
+        mode_label = {
+            "polish": "Полирую",
+            "prompt": "Создаю промпт",
+            "translator": "Перевожу",
+            "summary": "Делаю саммари",
+        }
         await progress_msg.edit_text(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
 
         on_delta = make_draft_callback(bot, message.chat.id)
@@ -107,6 +113,9 @@ async def handle_voice(
                 transcript, target_lang=user.target_lang or "en", on_delta=on_delta
             )
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
+        elif mode == "summary":
+            r4 = await run_summary(transcript, on_delta=on_delta)
+            result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
 
         total_ms = int((time.monotonic() - started) * 1000)
 

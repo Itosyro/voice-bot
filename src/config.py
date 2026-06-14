@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     groq_api_key_prompt: str | None = None
     groq_api_key_humanizer: str | None = None
     groq_api_key_translator: str | None = None
+    groq_api_key_summary: str | None = None
     groq_api_key_fallback: str | None = None
 
     # Models
@@ -58,6 +59,7 @@ class Settings(BaseSettings):
             "prompt": self.groq_api_key_prompt,
             "humanizer": self.groq_api_key_humanizer,
             "translator": self.groq_api_key_translator,
+            "summary": self.groq_api_key_summary,
         }
         key = key_map.get(mode) or self.groq_api_key_fallback
         if not key:
