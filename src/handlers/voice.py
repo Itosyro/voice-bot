@@ -28,12 +28,36 @@ from src.ui.messages import (
 log = structlog.get_logger()
 router = Router()
 
+# Media may arrive directly, forwarded, or as the message a user replies to.
+_HAS_MEDIA = F.voice | F.audio | F.video_note | F.video
+_REPLY_HAS_MEDIA = (
+    F.reply_to_message.voice
+    | F.reply_to_message.audio
+    | F.reply_to_message.video_note
+    | F.reply_to_message.video
+)
+
 MODE_LABEL = {
     "polish": "Полирую",
     "prompt": "Создаю промпт",
     "translator": "Перевожу",
     "summary": "Делаю саммари",
 }
+
+
+def _pick_media(msg: Message | None):
+    """Return (media, is_video) from a message's voice/audio/video_note/video, or (None, False)."""
+    if msg is None:
+        return None, False
+    if msg.voice:
+        return msg.voice, False
+    if msg.audio:
+        return msg.audio, False
+    if msg.video_note:
+        return msg.video_note, True
+    if msg.video:
+        return msg.video, True
+    return None, False
 
 
 async def _run_mode(
@@ -68,7 +92,7 @@ async def _run_mode(
     return "", 0, "", used_skills
 
 
-@router.message(F.voice | F.audio | F.video_note | F.video)
+@router.message(_HAS_MEDIA | _REPLY_HAS_MEDIA)
 async def handle_voice(
     message: Message, bot: Bot, session: AsyncSession, skills_db: SkillsDB
 ) -> None:
@@ -94,11 +118,12 @@ async def handle_voice(
         await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard(), parse_mode="HTML")
         return
 
-    media = message.voice or message.audio or message.video_note or message.video
-    if not media:
+    # Direct/forwarded media first; otherwise the message the user replied to.
+    media, is_video = _pick_media(message)
+    if media is None:
+        media, is_video = _pick_media(message.reply_to_message)
+    if media is None:
         return
-
-    is_video = bool(message.video_note or message.video)
 
     duration = media.duration or 0
     if duration > settings.max_voice_duration_sec:
