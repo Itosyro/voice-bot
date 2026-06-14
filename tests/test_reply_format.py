@@ -5,10 +5,10 @@ import pytest
 from src.handlers._reply import _block, send_result, split_text
 
 
-def test_block_is_copyable_quote_and_escapes_html():
+def test_block_is_copyable_code_and_escapes_html():
     out = _block('say <hi> & "bye"')
-    assert out.startswith("<blockquote><code>")
-    assert out.endswith("</code></blockquote>")
+    assert out.startswith("<code>")
+    assert out.endswith("</code>")
     # HTML-breaking chars are escaped so parse_mode=HTML can't choke on LLM output.
     assert "&lt;hi&gt;" in out
     assert "&amp;" in out
@@ -30,7 +30,7 @@ async def test_send_result_single_part_uses_html_copy_block():
 
     progress.edit_text.assert_awaited_once()
     sent_text = progress.edit_text.call_args.args[0]
-    assert "<blockquote><code>polished text</code></blockquote>" in sent_text
+    assert "<code>polished text</code>" in sent_text
     assert progress.edit_text.call_args.kwargs.get("parse_mode") == "HTML"
 
 

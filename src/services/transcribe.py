@@ -9,12 +9,22 @@ from groq import AsyncGroq
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.services.llm import is_rate_limit_error
+from src.services.llm import is_auth_error, is_rate_limit_error
 from src.storage.models import TranscriptionCache
 
 log = structlog.get_logger()
 
 _FFMPEG_TIMEOUT_SEC = 180  # cap ffmpeg time for splitting long audio
+
+# Biases Whisper toward natural code-switching: keep English technical terms
+# (prompt, API, backend, etc.) as normal lowercase words inline, not as
+# separate all-caps tokens, and use the speaker's actual language for output.
+_TRANSCRIBE_PROMPT_HINT = (
+    "Распознавай речь как есть. Если говорящий вставляет английские технические "
+    "термины (prompt, API, backend, JSON и т.п.) в русскую речь — пиши их "
+    "обычными словами на английском, в обычном регистре, как часть фразы. "
+    "Если говорящий говорит целиком на английском — транскрибируй на английском."
+)
 
 
 async def transcribe(
@@ -55,6 +65,7 @@ async def transcribe(
             result = await client.audio.transcriptions.create(
                 file=("voice.ogg", audio_bytes),
                 model=model or settings.whisper_model,
+                prompt=_TRANSCRIBE_PROMPT_HINT,
             )
             elapsed_ms = int((time.monotonic() - started) * 1000)
             text = result.text
@@ -70,19 +81,25 @@ async def transcribe(
         except Exception as e:
             last_exc = e
             rate_limited = is_rate_limit_error(e)
+            auth_error = is_auth_error(e)
             log.warning(
                 "stt_retry",
                 attempt=attempt + 1,
                 error=str(e),
                 rate_limited=rate_limited,
+                auth_error=auth_error,
             )
             if attempt < 2:
-                if rate_limited:
+                if rate_limited or auth_error:
                     alt_keys = [k for k in settings.get_all_groq_keys() if k != current_key]
                     if alt_keys:
                         current_key = alt_keys[attempt % len(alt_keys)]
                         client = AsyncGroq(api_key=current_key)
-                        log.info("stt_key_rotation", attempt=attempt + 1)
+                        log.info(
+                            "stt_key_rotation",
+                            attempt=attempt + 1,
+                            reason="auth" if auth_error else "rate_limit",
+                        )
                 await asyncio.sleep(2 * (attempt + 1))
 
     raise last_exc  # type: ignore[misc]

@@ -17,6 +17,20 @@ def is_rate_limit_error(exc: Exception) -> bool:
     return status == 429
 
 
+def is_auth_error(exc: Exception) -> bool:
+    """Return True if the exception indicates an invalid/revoked Groq API key (401).
+
+    A single bad key shouldn't permanently break a mode if other keys are
+    configured — rotation also kicks in for this case, not just 429.
+    """
+    if getattr(exc, "status_code", None) == 401:
+        return True
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        return body.get("error", {}).get("code") == "invalid_api_key"
+    return False
+
+
 async def complete(
     system_prompt: str,
     user_message: str,
@@ -71,7 +85,7 @@ async def complete(
             last_exc = RuntimeError("Groq returned empty response")
         except Exception as e:
             last_exc = e
-            if is_rate_limit_error(e):
+            if is_rate_limit_error(e) or is_auth_error(e):
                 alt_keys = [k for k in settings.get_all_groq_keys() if k != current_key]
                 if alt_keys:
                     current_key = alt_keys[attempt % len(alt_keys)]
