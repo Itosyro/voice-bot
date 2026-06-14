@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     llm_model_default: str = "llama-3.3-70b-versatile"
     llm_model_fast: str = "llama-3.1-8b-instant"
     llm_model_strict: str = "openai/gpt-oss-120b"
-    whisper_model: str = "whisper-large-v3-turbo"  # turbo: ~2x faster STT, near-equal accuracy
+    # large-v3 (НЕ turbo) — выбран осознанно: качество распознавания важнее скорости.
+    # turbo быстрее, но заметно хуже на сложной речи/акцентах/матах. Не менять на turbo.
+    whisper_model: str = "whisper-large-v3"
 
     # Database
     database_url: str
