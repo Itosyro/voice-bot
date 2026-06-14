@@ -6,7 +6,7 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.handlers._reply import make_draft_callback, send_result
+from src.handlers._reply import send_result
 from src.services.humanizer import run_humanizer
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
@@ -46,7 +46,9 @@ async def handle_text(
 
     text = message.text
     if len(text) > settings.max_text_length:
-        await message.answer(TEXT_TOO_LONG.format(max_len=settings.max_text_length))
+        await message.answer(
+            TEXT_TOO_LONG.format(max_len=settings.max_text_length), parse_mode="HTML"
+        )
         return
 
     started = time.monotonic()
@@ -60,7 +62,9 @@ async def handle_text(
     progress_msg = await message.answer(f"✨ {mode_label.get(mode, 'Обрабатываю')}…")
 
     try:
-        on_delta = make_draft_callback(bot, message.chat.id)
+        # No live streaming preview — sendMessageDraft leaves orphaned ephemeral
+        # bubbles in the chat. We show progress, then deliver the final result.
+        on_delta = None
 
         result_text = ""
         llm_ms = 0

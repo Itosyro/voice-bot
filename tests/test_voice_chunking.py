@@ -51,7 +51,6 @@ def common_mocks(monkeypatch):
     bot.download_file = AsyncMock(return_value=file_bytes)
 
     monkeypatch.setattr(voice, "save_request", AsyncMock())
-    monkeypatch.setattr(voice, "make_draft_callback", lambda *a, **k: AsyncMock())
 
     return {"session": session, "skills_db": skills_db, "bot": bot}
 

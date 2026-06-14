@@ -7,7 +7,7 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.handlers._reply import make_draft_callback, send_result
+from src.handlers._reply import send_result
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -91,7 +91,7 @@ async def handle_voice(
         return
 
     if mode == "humanizer":
-        await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard())
+        await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard(), parse_mode="HTML")
         return
 
     media = message.voice or message.audio or message.video_note or message.video
@@ -102,12 +102,18 @@ async def handle_voice(
 
     duration = media.duration or 0
     if duration > settings.max_voice_duration_sec:
-        await message.answer(VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60))
+        await message.answer(
+            VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60),
+            parse_mode="HTML",
+        )
         return
 
     max_bytes = settings.max_voice_file_mb * 1024 * 1024
     if media.file_size and media.file_size > max_bytes:
-        await message.answer(VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60))
+        await message.answer(
+            VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60),
+            parse_mode="HTML",
+        )
         return
 
     started = time.monotonic()
@@ -157,7 +163,7 @@ async def handle_voice(
             transcript_parts: list[str] = []
             stt_ms = 0
             for k, chunk_bytes in enumerate(chunks, 1):
-                await progress_msg.edit_text(CHUNK_TRANSCRIBING.format(k=k, n=n))
+                await progress_msg.edit_text(CHUNK_TRANSCRIBING.format(k=k, n=n), parse_mode="HTML")
                 chunk_text, chunk_ms = await transcribe(chunk_bytes, api_key=groq_key)
                 stt_ms += chunk_ms
                 if chunk_text and chunk_text.strip():
@@ -173,7 +179,9 @@ async def handle_voice(
 
         await progress_msg.edit_text(f"✨ {MODE_LABEL.get(mode, 'Обрабатываю')}…")
 
-        on_delta = make_draft_callback(bot, message.chat.id)
+        # No live streaming preview — sendMessageDraft leaves orphaned ephemeral
+        # bubbles in the chat. We show progress, then deliver the final result.
+        on_delta = None
 
         result_text, llm_ms, model_used, used_skills = await _run_mode(
             transcript, mode, style, target_lang, skills_db, on_delta
