@@ -163,6 +163,34 @@ async def test_voice_exceeding_max_duration_is_rejected(common_mocks, monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_reply_to_voice_transcribes_the_replied_media(common_mocks, monkeypatch):
+    """Replying to (or forwarding) a voice should transcribe that media, not the reply text."""
+    user = _make_user(mode="polish")
+    monkeypatch.setattr(voice, "get_or_create_user", AsyncMock(return_value=user))
+
+    transcribe_mock = AsyncMock(return_value=("replied transcript", 100))
+    monkeypatch.setattr(voice, "transcribe", transcribe_mock)
+    monkeypatch.setattr(voice, "split_audio_to_chunks", AsyncMock())
+
+    run_polish_result = MagicMock(text="polished", llm_ms=50, model="m")
+    monkeypatch.setattr(voice, "run_polish", AsyncMock(return_value=run_polish_result))
+
+    # The message itself carries no media; the replied-to message does.
+    message = _make_message()
+    message.reply_to_message = _make_message(voice_obj=_make_media(duration=15, file_id="replied"))
+    message.answer = AsyncMock(return_value=MagicMock(edit_text=AsyncMock()))
+
+    with patch.object(voice, "send_result", new=AsyncMock()):
+        await voice.handle_voice(
+            message, common_mocks["bot"], common_mocks["session"], common_mocks["skills_db"]
+        )
+
+    transcribe_mock.assert_awaited_once()
+    assert transcribe_mock.call_args.kwargs.get("file_id") == "replied"
+    voice.run_polish.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_video_note_dispatches_through_same_pipeline(common_mocks, monkeypatch):
     """video_note messages should extract audio and go through the same transcribe pipeline."""
     user = _make_user(mode="translator")

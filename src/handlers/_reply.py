@@ -1,6 +1,10 @@
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, Message
 
-_CHUNK = 3800  # max chars per Telegram message (limit is 4096, leave room for headers)
+from src.utils import escape_html
+
+# Rendered text limit is 4096; HTML tags don't count toward it, but emojis cost
+# 2 UTF-16 units, so keep a comfortable margin.
+_CHUNK = 3500
 _MAX_PARTS = 10  # beyond this, send the full text as a .txt file instead
 
 
@@ -25,6 +29,11 @@ def split_text(text: str) -> list[str]:
     return parts
 
 
+def _block(text: str) -> str:
+    """Wrap text in a quoted, tap-to-copy block (monospace, copies on tap)."""
+    return f"<blockquote><code>{escape_html(text)}</code></blockquote>"
+
+
 async def send_result(
     message: Message,
     progress_msg: Message,
@@ -33,7 +42,7 @@ async def send_result(
     timing: str,
     kb: InlineKeyboardMarkup,
 ) -> None:
-    """Send the final result, splitting into parts or falling back to a .txt file."""
+    """Send the final result as a copyable quote block, splitting or filing if long."""
     if not result_text or not result_text.strip():
         # Never edit a message to empty text — Telegram rejects it and the user
         # would see a blank reply. Surface a clear error instead.
@@ -41,9 +50,11 @@ async def send_result(
         return
 
     parts = split_text(result_text)
+    # Footer (skills/timing) goes outside the copy block as plain text.
+    footer = escape_html(skills_info + timing)
 
     if len(parts) == 1:
-        await progress_msg.edit_text(parts[0] + skills_info + timing, reply_markup=kb)
+        await progress_msg.edit_text(_block(parts[0]) + footer, reply_markup=kb, parse_mode="HTML")
         return
 
     if len(parts) > _MAX_PARTS:
@@ -59,8 +70,9 @@ async def send_result(
     total_parts = len(parts)
     await progress_msg.edit_text(f"📋 Длинный ответ — {total_parts} части:")
     for i, part in enumerate(parts[:-1], 1):
-        await message.answer(f"📝 {i}/{total_parts}:\n\n{part}")
+        await message.answer(f"<b>{i}/{total_parts}</b>\n{_block(part)}", parse_mode="HTML")
     await message.answer(
-        f"📝 {total_parts}/{total_parts}:\n\n{parts[-1]}{skills_info}{timing}",
+        f"<b>{total_parts}/{total_parts}</b>\n{_block(parts[-1])}{footer}",
         reply_markup=kb,
+        parse_mode="HTML",
     )

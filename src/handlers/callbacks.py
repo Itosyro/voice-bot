@@ -34,6 +34,7 @@ STYLE_KEYBOARDS = {
 async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.data or not callback.from_user:
         return
+    await callback.answer()  # ack immediately so the button stops spinning
     mode = callback.data.split(":", 1)[1]
 
     if mode == "summary":
@@ -47,7 +48,6 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
             "∑ <b>САММАРИ</b>\n\nОтправь голос или текст",
             parse_mode="HTML",
         )
-        await callback.answer()
         return
 
     kb_fn = STYLE_KEYBOARDS.get(mode)
@@ -57,13 +57,13 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
             reply_markup=kb_fn(),
             parse_mode="HTML",
         )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("style:"))
 async def on_style_selected(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.data or not callback.from_user:
         return
+    await callback.answer()  # ack immediately so the button stops spinning
     style = callback.data.split(":", 1)[1]
 
     mode_map = {
@@ -94,13 +94,13 @@ async def on_style_selected(callback: CallbackQuery, session: AsyncSession) -> N
         f"{mode_name} · {style_name}\n\nОтправь голос или текст",
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("lang:"))
 async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.data or not callback.from_user:
         return
+    await callback.answer()  # ack immediately so the button stops spinning
     lang = callback.data.split(":", 1)[1]
 
     await update_user_settings(
@@ -115,7 +115,6 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
         f"ПЕРЕВОД → {lang.upper()}\n\nОтправь голос или текст",
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 # ── Navigation ──
@@ -123,12 +122,12 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
 
 @router.callback_query(F.data == "back:modes")
 async def on_back_to_modes(callback: CallbackQuery) -> None:
+    await callback.answer()  # ack immediately so the button stops spinning
     await callback.message.edit_text(  # type: ignore[union-attr]
         CHOOSE_MODE,
         reply_markup=mode_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "back:settings")
@@ -208,12 +207,12 @@ async def on_regenerate(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data == "action:other_mode")
 async def on_other_mode(callback: CallbackQuery) -> None:
+    await callback.answer()  # ack immediately so the button stops spinning
     await callback.message.edit_text(  # type: ignore[union-attr]
         "<b>Другой режим</b>\n\nВыбери режим — отправь тот же голос\nили текст ещё раз:",
         reply_markup=reprocess_mode_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "settings:default_mode")

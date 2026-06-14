@@ -4,6 +4,8 @@ from collections.abc import Awaitable, Callable
 
 from groq import AsyncGroq, RateLimitError
 
+from src.config import settings
+
 OnDelta = Callable[[str], Awaitable[None]]
 
 
@@ -27,11 +29,12 @@ async def complete(
 ) -> tuple[str, int]:
     """Call Groq LLM via streaming. Returns (response_text, elapsed_ms).
 
-    If on_delta is given, it's called with the accumulated text after each
-    chunk — used to stream a live preview via sendMessageDraft.
-    Retries up to 3 times with backoff on transient errors or empty output.
+    If on_delta is given, it's called with the accumulated text after each chunk.
+    Retries up to 3 times with backoff on transient errors or empty output; on
+    rate-limit (429) it rotates through other configured Groq keys to spread load.
     """
-    client = AsyncGroq(api_key=api_key)
+    current_key = api_key
+    client = AsyncGroq(api_key=current_key)
     started = time.monotonic()
     last_exc: Exception | None = None
 
@@ -68,6 +71,11 @@ async def complete(
             last_exc = RuntimeError("Groq returned empty response")
         except Exception as e:
             last_exc = e
+            if is_rate_limit_error(e):
+                alt_keys = [k for k in settings.get_all_groq_keys() if k != current_key]
+                if alt_keys:
+                    current_key = alt_keys[attempt % len(alt_keys)]
+                    client = AsyncGroq(api_key=current_key)
 
         if attempt < 2:
             await asyncio.sleep(2 * (attempt + 1))
