@@ -30,8 +30,8 @@ def split_text(text: str) -> list[str]:
 
 
 def _block(text: str) -> str:
-    """Wrap text in a quoted, tap-to-copy block (monospace, copies on tap)."""
-    return f"<blockquote><code>{escape_html(text)}</code></blockquote>"
+    """Wrap text in a tap-to-copy monospace block (no quote framing)."""
+    return f"<code>{escape_html(text)}</code>"
 
 
 async def send_result(
@@ -69,10 +69,10 @@ async def send_result(
 
     total_parts = len(parts)
     await progress_msg.edit_text(f"📋 Длинный ответ — {total_parts} части:")
-    for i, part in enumerate(parts[:-1], 1):
-        await message.answer(f"<b>{i}/{total_parts}</b>\n{_block(part)}", parse_mode="HTML")
+    for part in parts[:-1]:
+        await message.answer(_block(part), parse_mode="HTML")
     await message.answer(
-        f"<b>{total_parts}/{total_parts}</b>\n{_block(parts[-1])}{footer}",
+        _block(parts[-1]) + footer,
         reply_markup=kb,
         parse_mode="HTML",
     )
