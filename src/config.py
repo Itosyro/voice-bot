@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     allowed_user_ids: str = ""
     admin_user_ids: str = ""
 
+    # Webhook (Render deploy) — если не задан webhook_url, используется long-polling
+    webhook_url: str | None = None
+    webhook_secret: str | None = None
+
     # Groq keys
     groq_api_key_polish: str | None = None
     groq_api_key_prompt: str | None = None
@@ -40,6 +44,12 @@ class Settings(BaseSettings):
     enable_transcription_cache: bool = True
     skills_auto_sync_on_startup: bool = True
     skills_sync_interval_hours: int = 168
+
+    # Retention / cleanup (фоновая задача удаляет старые строки из БД)
+    transcription_cache_ttl_days: int = 1  # удалять кэш транскриптов старше N дней (0 — выкл.)
+    request_history_ttl_days: int = 30  # удалять историю запросов старше N дней (0 — выкл.)
+    cleanup_interval_hours: int = 24  # как часто запускать cleanup
+    cleanup_initial_delay_sec: int = 300  # пауза перед первым запуском после старта
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "text"] = "json"
