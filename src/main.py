@@ -55,6 +55,9 @@ async def main() -> None:
         await run_health_server()
 
     try:
+        # Ensure no webhook is registered - a leftover webhook from a previous
+        # deploy makes Telegram reject getUpdates with TelegramConflictError.
+        await bot.delete_webhook(drop_pending_updates=False)
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
