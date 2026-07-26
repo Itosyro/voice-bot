@@ -172,6 +172,7 @@ async def _process_media(
                 file_id=media.file_id,
                 session=session,
                 force_retranscribe=force_retranscribe,
+                duration_sec=duration,
             )
         else:
             # Long audio — chunked pipeline. Транскрипт кэшируется по file_id:
@@ -247,7 +248,11 @@ async def _process_media(
                 if transcript.strip() and settings.enable_transcription_cache:
                     with contextlib.suppress(Exception):
                         session.add(
-                            TranscriptionCache(file_id=media.file_id, transcript=transcript)
+                            TranscriptionCache(
+                                file_id=media.file_id,
+                                transcript=transcript,
+                                duration_sec=duration,
+                            )
                         )
                         await session.commit()
 

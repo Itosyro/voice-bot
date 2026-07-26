@@ -24,6 +24,7 @@ async def transcribe(
     session: AsyncSession | None = None,
     model: str | None = None,
     force_retranscribe: bool = False,
+    duration_sec: int | None = None,
 ) -> tuple[str, int]:
     """Transcribe audio bytes via Groq Whisper. Returns (text, elapsed_ms).
 
@@ -77,7 +78,11 @@ async def transcribe(
                     if existing:
                         existing.transcript = text
                     else:
-                        session.add(TranscriptionCache(file_id=file_id, transcript=text))
+                        session.add(
+                            TranscriptionCache(
+                                file_id=file_id, transcript=text, duration_sec=duration_sec
+                            )
+                        )
                 except Exception as exc:
                     # Транскрипт уже получен — падение записи кэша не должно
                     # уводить нас на повторный прогон Whisper.
