@@ -14,7 +14,7 @@ from src.config import settings
 from src.logging_config import setup_logging
 from src.services.skills_db import SkillsDB
 from src.storage.cleanup import cleanup_old_records
-from src.storage.db import engine, get_session
+from src.storage.db import engine, get_session, init_db
 
 log = structlog.get_logger()
 
@@ -156,6 +156,12 @@ async def run_webhook(bot: Bot, dp: Dispatcher) -> None:
 async def main() -> None:
     setup_logging()
     log.info("starting_bot", log_level=settings.log_level)
+
+    # Self-hosted (SQLite): создаём схему сами — alembic-миграции под Postgres.
+    try:
+        await init_db()
+    except Exception as exc:
+        log.error("db_init_failed_starting_anyway", error=str(exc))
 
     skills_db = await load_skills()
 

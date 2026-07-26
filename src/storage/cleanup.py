@@ -4,6 +4,7 @@ import structlog
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.storage.db import IS_SQLITE
 from src.storage.models import RequestHistory, TranscriptionCache
 
 log = structlog.get_logger()
@@ -20,12 +21,19 @@ async def cleanup_old_records(
     skip a particular table (cleanup disabled for it).
     """
     now = datetime.now(UTC)
+    # SQLite не хранит таймзону: CURRENT_TIMESTAMP пишет наивное UTC-время, и
+    # сравнение с aware-датой падает («can't compare offset-naive and
+    # offset-aware datetimes»). Для файловой базы сравниваем наивным UTC.
+    if IS_SQLITE:
+        now = now.replace(tzinfo=None)
 
     transcripts_deleted = 0
     if transcription_ttl_days > 0:
         cutoff = now - timedelta(days=transcription_ttl_days)
         result = await session.execute(
-            delete(TranscriptionCache).where(TranscriptionCache.created_at < cutoff)
+            delete(TranscriptionCache)
+            .where(TranscriptionCache.created_at < cutoff)
+            .execution_options(synchronize_session=False)
         )
         transcripts_deleted = result.rowcount or 0
 
@@ -33,7 +41,9 @@ async def cleanup_old_records(
     if history_ttl_days > 0:
         cutoff = now - timedelta(days=history_ttl_days)
         result = await session.execute(
-            delete(RequestHistory).where(RequestHistory.created_at < cutoff)
+            delete(RequestHistory)
+            .where(RequestHistory.created_at < cutoff)
+            .execution_options(synchronize_session=False)
         )
         history_deleted = result.rowcount or 0
 

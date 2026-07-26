@@ -3,10 +3,16 @@ from datetime import datetime
 from sqlalchemy import func as sa_func
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
+from src.storage.db import IS_SQLITE
 from src.storage.models import RequestHistory, User
+
+# INSERT ... ON CONFLICT DO NOTHING есть и в Postgres, и в SQLite, но
+# конструкторы разные: бот одинаково работает и на Supabase, и на файле.
+_insert = sqlite_insert if IS_SQLITE else pg_insert
 
 
 async def get_or_create_user(
@@ -30,7 +36,7 @@ async def get_or_create_user(
     # (e.g. several messages sent in quick succession), do nothing instead of
     # raising IntegrityError, then re-fetch the guaranteed-present row.
     insert_stmt = (
-        pg_insert(User)
+        _insert(User)
         .values(
             telegram_user_id=telegram_user_id,
             username=username,

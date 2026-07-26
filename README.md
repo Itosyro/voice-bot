@@ -56,6 +56,39 @@ GROQ_API_KEY_TRANSLATOR=gsk_...
 GROQ_API_KEY_SUMMARY=gsk_...
 ```
 
+## 🚀 Вариант Б: свой сервер (рекомендуется)
+
+Никаких внешних сервисов: ни Supabase, ни Render. База — файл SQLite внутри
+docker-тома, нужен только **токен бота** и **бесплатный ключ Groq**.
+
+```bash
+git clone https://github.com/Itosyro/voice-bot.git
+cd voice-bot
+bash scripts/install-server.sh
+```
+
+Скрипт проверит Docker и место на диске, спросит токен и ключ, соберёт образ
+и поднимет контейнер с автозапуском после перезагрузки сервера.
+
+**Команды на каждый день** (из папки проекта):
+
+| Что | Команда |
+|---|---|
+| Логи | `make logs` |
+| Статус | `make status` |
+| Перезапуск | `make restart` |
+| Обновиться с GitHub | `make update` |
+| Бэкап базы | `make backup` |
+| Остановить | `make down` |
+
+Без `make` — то же самое через `docker compose -f docker-compose.server.yml …`.
+
+**Сколько занимает:** образ ~600 МБ, база растёт медленно (TTL чистит старое
+автоматически). Если места мало — `docker system prune -a` освободит
+неиспользуемые образы.
+
+---
+
 ### 3. Запусти через Docker
 
 ```bash

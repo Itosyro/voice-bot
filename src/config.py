@@ -55,8 +55,10 @@ class Settings(BaseSettings):
     # Выключен по умолчанию: включать после проверки вживую (см. грабли №1).
     enable_draft_streaming: bool = False
 
-    # Database
-    database_url: str
+    # Database. По умолчанию — локальный файл SQLite: self-hosted режим не
+    # требует ни Supabase, ни отдельного контейнера Postgres. Для managed
+    # Postgres достаточно задать DATABASE_URL=postgresql+asyncpg://…
+    database_url: str = "sqlite+aiosqlite:///data/voicebot.db"
 
     # Limits
     max_voice_duration_sec: int = 3600  # 1 hour absolute cap (chunked beyond chunk_threshold)
