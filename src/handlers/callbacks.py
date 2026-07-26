@@ -16,8 +16,8 @@ from src.handlers._last import (
     get_recent_transcripts,
     get_result_for_message,
 )
-from src.handlers._queue import is_busy, user_lock
-from src.handlers._reply import send_result
+from src.handlers._queue import acquire_or_none
+from src.handlers._reply import send_result, tg_len
 from src.handlers.text import error_message_for, regenerate_text
 from src.handlers.voice import regenerate_voice
 from src.services.skills_db import SkillsDB
@@ -157,7 +157,16 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
 
 
 def _holds_result(msg) -> bool:
-    """True, если в сообщении лежит результат (копи-блок) — его нельзя затирать."""
+    """True, если сообщение нельзя перезаписывать навигацией.
+
+    Это и результат в копи-блоке, и .txt-фолбэк (у document нет text — edit_text
+    на нём падает «there is no text in the message to edit», юзер видел
+    бесполезный тост «Ошибка»).
+    """
+    if getattr(msg, "document", None) is not None:
+        return True
+    if not getattr(msg, "text", None):
+        return True
     entities = getattr(msg, "entities", None) or []
     return any(e.type in ("blockquote", "expandable_blockquote", "code", "pre") for e in entities)
 
@@ -240,31 +249,38 @@ async def on_rerun_in_mode(
     """
     if not callback.data or not callback.from_user or not callback.message:
         return
-    if is_busy(callback.from_user.id):
-        await callback.answer("⏳ Уже обрабатываю — секунду.")
-        return
     mode = callback.data.split(":", 1)[1]
-
     last = get_last(callback.from_user.id)
-    # Режим запоминаем в любом случае — это ожидаемый сайд-эффект выбора.
-    await save_user_settings(session, callback.from_user.id, default_mode=mode, reset_style=True)
 
-    if last is None:
-        await callback.answer()
-        await callback.message.answer(  # type: ignore[union-attr]
-            "Режим переключил. Отправь голос или текст — обработаю.",
-        )
-        return
-
-    if mode == "humanizer" and last.input_type == "voice":
+    # Проверка ДО сохранения режима: иначе отказ показан, а humanizer уже
+    # записан в настройки — и все следующие голосовые бьются об ошибку.
+    if mode == "humanizer" and last is not None and last.input_type == "voice":
         await callback.answer()
         await callback.message.answer(  # type: ignore[union-attr]
             HUMANIZER_VOICE_ERROR, parse_mode="HTML"
         )
         return
 
-    await callback.answer("Прогоняю в новом режиме…")
-    async with user_lock(callback.from_user.id):
+    lock = await acquire_or_none(callback.from_user.id)
+    if lock is None:
+        await callback.answer("⏳ Уже обрабатываю — секунду.")
+        return
+    try:
+        await save_user_settings(
+            session, callback.from_user.id, default_mode=mode, reset_style=True
+        )
+
+        if last is None:
+            await callback.answer()
+            await callback.message.answer(  # type: ignore[union-attr]
+                "Режим переключил. Отправь голос или текст — обработаю.",
+            )
+            return
+
+        await callback.answer("Прогоняю в новом режиме…")
+        # «Ещё вариант» под новым результатом должен повторять НОВЫЙ режим.
+        last.mode = mode
+        last.style = None
         if last.input_type == "voice":
             await _process_media_cb(callback, bot, session, skills_db, last, mode)
         else:
@@ -280,6 +296,8 @@ async def on_rerun_in_mode(
                 target_lang=last.target_lang,
                 db_user_id=last.db_user_id,
             )
+    finally:
+        lock.release()
 
 
 async def _process_media_cb(callback, bot, session, skills_db, last, mode: str) -> None:
@@ -311,8 +329,18 @@ async def on_transcript(callback: CallbackQuery) -> None:
     if not transcript:
         await msg.answer("Транскрипта нет — пришли голосовое ещё раз.")  # type: ignore[union-attr]
         return
+
+    if tg_len(transcript) > 3500:
+        # Часовой транскрипт — десятки тысяч символов. Раньше молча резался
+        # до 7% без единого намёка; отдаём файлом целиком.
+        doc = BufferedInputFile(transcript.encode("utf-8"), filename="transcript.txt")
+        await msg.answer_document(  # type: ignore[union-attr]
+            doc, caption=f"🎙 Дословный транскрипт ({len(transcript)} симв.)"
+        )
+        return
+
     header = "🎙 <b>Дословный транскрипт</b>\n"
-    body = escape_html(transcript[:3500])
+    body = escape_html(transcript)
     await msg.answer(  # type: ignore[union-attr]
         f"{header}<blockquote expandable><code>{body}</code></blockquote>",
         parse_mode="HTML",
@@ -331,13 +359,15 @@ async def on_merge_prev(
     """
     if not callback.from_user or not callback.message:
         return
-    if is_busy(callback.from_user.id):
-        await callback.answer("⏳ Уже обрабатываю — секунду.")
-        return
 
     texts = get_recent_transcripts(callback.message.chat.id, settings.voice_merge_window_sec)
     if len(texts) < 2:
         await callback.answer("Нечего склеивать — рядом только одно голосовое.", show_alert=True)
+        return
+
+    lock = await acquire_or_none(callback.from_user.id)
+    if lock is None:
+        await callback.answer("⏳ Уже обрабатываю — секунду.")
         return
 
     last = get_last(callback.from_user.id)
@@ -351,7 +381,7 @@ async def on_merge_prev(
     progress = await callback.message.answer(  # type: ignore[union-attr]
         f"✨ Обрабатываю {len(texts)} голосовых как один текст…"
     )
-    async with user_lock(callback.from_user.id):
+    try:
         try:
             from src.handlers.voice import _run_mode
 
@@ -370,6 +400,8 @@ async def on_merge_prev(
         except Exception as exc:
             log.exception("merge_prev_failed")
             await progress.edit_text(error_message_for(exc), reply_markup=mode_keyboard())
+    finally:
+        lock.release()
 
 
 @router.callback_query(F.data == "action:regenerate")
@@ -379,24 +411,28 @@ async def on_regenerate(
     """Re-run the last request from scratch (fresh transcription + fresh generation)."""
     if not callback.from_user or not callback.message:
         return
-    if is_busy(callback.from_user.id):
-        # Даблтап: раньше два конкурирующих прогона дрались за row-lock кэша.
+    # Захват ДО любых await: иначе два быстрых тапа проходят проверку оба
+    # и запускают двойной Whisper + двойной LLM (TOCTOU).
+    lock = await acquire_or_none(callback.from_user.id)
+    if lock is None:
         await callback.answer("⏳ Уже генерирую — секунду.")
         return
-    await callback.answer("Перегенерирую…")
+    try:
+        await callback.answer("Перегенерирую…")
 
-    last = get_last(callback.from_user.id)
-    if last is None:
-        await callback.message.answer(  # type: ignore[union-attr]
-            "Нечего повторять — отправь голос или текст ещё раз."
-        )
-        return
+        last = get_last(callback.from_user.id)
+        if last is None:
+            await callback.message.answer(  # type: ignore[union-attr]
+                "Нечего повторять — отправь голос или текст ещё раз."
+            )
+            return
 
-    async with user_lock(callback.from_user.id):
         if last.input_type == "voice":
             await regenerate_voice(callback.message, bot, session, skills_db, last)  # type: ignore[arg-type]
         else:
             await regenerate_text(callback.message, session, skills_db, last)  # type: ignore[arg-type]
+    finally:
+        lock.release()
 
 
 @router.callback_query(F.data == "action:other_mode")

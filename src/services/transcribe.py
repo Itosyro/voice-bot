@@ -45,7 +45,14 @@ async def transcribe(
             else:
                 cached = await session.get(TranscriptionCache, file_id)
                 if cached:
-                    return cached.transcript, 0
+                    text = cached.transcript
+                    # Коммитим сразу: иначе открытая транзакция удерживает
+                    # коннект из пула (5+5) на всё время дальнейшей обработки.
+                    with contextlib.suppress(Exception):
+                        await session.commit()
+                    return text, 0
+            with contextlib.suppress(Exception):
+                await session.commit()
         except Exception as exc:
             # Кэш — оптимизация; мёртвая БД не должна ломать распознавание.
             log.warning("transcription_cache_unavailable", error=str(exc))
@@ -83,6 +90,9 @@ async def transcribe(
                                 file_id=file_id, transcript=text, duration_sec=duration_sec
                             )
                         )
+                    # Б7: без коммита кэш откатывался вместе с упавшей записью
+                    # истории — и следующий прогон снова гонял Whisper.
+                    await session.commit()
                 except Exception as exc:
                     # Транскрипт уже получен — падение записи кэша не должно
                     # уводить нас на повторный прогон Whisper.

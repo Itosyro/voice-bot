@@ -3,6 +3,12 @@
 Один пользователь = один прогон за раз: 5 голосовых подряд раньше запускали
 5 конкурирующих пайплайнов, дерущихся за пул БД и лимиты Groq. Замок в памяти
 процесса (бот — одна реплика).
+
+Замки НЕ вычищаются по таймеру специально: у ожидающего в очереди сообщения
+уже есть ссылка на объект замка, и удаление его из словаря создало бы
+«осиротевший» замок — новое сообщение получило бы другой объект, и два
+пайплайна одного юзера пошли бы параллельно. Полсотни asyncio.Lock — это
+несколько килобайт, чистить нечего.
 """
 
 import asyncio
@@ -22,7 +28,16 @@ def is_busy(telegram_user_id: int) -> bool:
     return lock is not None and lock.locked()
 
 
-def cleanup_idle_locks() -> None:
-    """Выкидываем свободные замки, чтобы dict не рос вечно (зовётся из cleanup-цикла)."""
-    for uid in [uid for uid, lock in _locks.items() if not lock.locked()]:
-        _locks.pop(uid, None)
+async def acquire_or_none(telegram_user_id: int) -> asyncio.Lock | None:
+    """Захватить замок без ожидания; None — пользователь уже занят.
+
+    Проверка и захват идут подряд без единого await между ними: свободный
+    asyncio.Lock захватывается синхронно, управление не отдаётся. Раньше между
+    `is_busy()` и `async with lock` стоял `callback.answer()` (сетевой вызов) —
+    два быстрых тапа успевали пройти проверку оба и запускали двойной прогон.
+    """
+    lock = user_lock(telegram_user_id)
+    if lock.locked():
+        return None
+    await lock.acquire()
+    return lock

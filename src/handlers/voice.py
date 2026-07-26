@@ -183,6 +183,8 @@ async def _process_media(
                     row = await session.get(TranscriptionCache, media.file_id)
                     if row:
                         cached_transcript = row.transcript
+                    # Коммит сразу после чтения — не держим коннект весь прогон.
+                    await session.commit()
             if force_retranscribe and settings.enable_transcription_cache:
                 with contextlib.suppress(Exception):
                     row = await session.get(TranscriptionCache, media.file_id)
@@ -232,7 +234,13 @@ async def _process_media(
             for i, res in enumerate(results):
                 if isinstance(res, BaseException):
                     log.warning("chunk_retry_after_failure", chunk=i + 1, error=str(res))
-                    fixed.append(await transcribe(chunks[i], api_key=groq_key))
+                    try:
+                        fixed.append(await transcribe(chunks[i], api_key=groq_key))
+                    except Exception as exc:
+                        # Провал одного куска не должен обнулять час распознанной
+                        # речи — помечаем пропуск и продолжаем.
+                        log.error("chunk_permanently_failed", chunk=i + 1, error=str(exc))
+                        fixed.append((f"[…часть {i + 1} не распозналась…]", 0))
                 else:
                     fixed.append(res)
             stt_ms = sum(ms for _text, ms in fixed)
@@ -339,10 +347,11 @@ async def handle_voice(
     mode = ctx.default_mode or "polish"
     style = ctx.default_style
 
-    if mode == "humanizer":
-        # Голос Humanizer не поддерживает. Но если юзер НАПИСАЛ текст, реплайнув
-        # на чьё-то медиа, — обрабатываем его текст, а не ругаемся.
-        if message.text and _pick_media(message)[0] is None:
+    # Юзер НАПИСАЛ текст реплаем на чужое голосовое: он хочет обработать свои
+    # слова, а не чужой звук. Раньше текст молча выбрасывался во всех режимах,
+    # кроме humanizer, и бот заново прогонял голос.
+    if message.text and _pick_media(message)[0] is None:
+        async with user_lock(user_tg.id):
             await _process_text(
                 message,
                 session,
@@ -353,7 +362,9 @@ async def handle_voice(
                 target_lang=ctx.target_lang,
                 db_user_id=ctx.db_user_id,
             )
-            return
+        return
+
+    if mode == "humanizer":
         await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard(), parse_mode="HTML")
         return
 

@@ -86,18 +86,23 @@ def test_tg_len_counts_emoji_as_two():
 
 
 def test_result_message_detection():
-    """Меню не должно затирать сообщения с результатом (blockquote/code entities)."""
+    """Навигация не должна затирать результат и не должна падать на .txt-файле."""
     from src.handlers.callbacks import _holds_result
 
-    result_msg = MagicMock()
+    result_msg = MagicMock(document=None, text="результат")
     result_msg.entities = [MagicMock(type="blockquote"), MagicMock(type="code")]
     assert _holds_result(result_msg) is True
 
-    nav_msg = MagicMock()
+    # .txt-фолбэк: у document нет text — edit_text на нём падает
+    document_msg = MagicMock(document=MagicMock(), text=None)
+    document_msg.entities = None
+    assert _holds_result(document_msg) is True
+
+    nav_msg = MagicMock(document=None, text="Выбери режим")
     nav_msg.entities = [MagicMock(type="bold")]
     assert _holds_result(nav_msg) is False
 
-    plain_msg = MagicMock()
+    plain_msg = MagicMock(document=None, text="обычный текст")
     plain_msg.entities = None
     assert _holds_result(plain_msg) is False
 
@@ -123,7 +128,7 @@ def test_result_by_message_store_caps_growth():
 
 @pytest.mark.asyncio
 async def test_user_lock_serializes_and_reports_busy():
-    from src.handlers._queue import cleanup_idle_locks, is_busy, user_lock
+    from src.handlers._queue import is_busy, user_lock
 
     uid = 777
     assert is_busy(uid) is False
@@ -131,8 +136,23 @@ async def test_user_lock_serializes_and_reports_busy():
     async with lock:
         assert is_busy(uid) is True
     assert is_busy(uid) is False
-    cleanup_idle_locks()
-    assert is_busy(uid) is False  # после чистки замок пересоздаётся по требованию
+
+
+@pytest.mark.asyncio
+async def test_acquire_or_none_is_atomic_against_double_tap():
+    """Даблтап по кнопке: второй захват обязан вернуть None СРАЗУ, без await-окна,
+    в котором оба тапа успевали пройти проверку (TOCTOU)."""
+    from src.handlers._queue import acquire_or_none
+
+    uid = 778
+    first = await acquire_or_none(uid)
+    assert first is not None
+    second = await acquire_or_none(uid)
+    assert second is None  # второй тап отбит
+    first.release()
+    third = await acquire_or_none(uid)
+    assert third is not None
+    third.release()
 
 
 @pytest.mark.asyncio
@@ -284,3 +304,68 @@ async def test_merge_prev_refuses_with_single_voice():
     callback.message.answer.assert_not_awaited()
     assert "Нечего склеивать" in callback.answer.call_args.args[0]
     _transcripts.clear()
+
+
+# ── находки критика раунда 3 ──
+
+
+@pytest.mark.asyncio
+async def test_chunk_permanent_failure_keeps_other_chunks(monkeypatch):
+    """Устойчиво падающий чанк помечается, но час распознанной речи не теряется."""
+    from src.handlers import voice as voice_mod
+
+    monkeypatch.setattr(voice_mod, "split_audio_to_chunks", AsyncMock(return_value=[b"a", b"b"]))
+    monkeypatch.setattr(voice_mod, "save_request", AsyncMock())
+    monkeypatch.setattr(voice_mod.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(
+        voice_mod,
+        "run_polish",
+        AsyncMock(return_value=MagicMock(text="ok", llm_ms=1, model="m")),
+    )
+    # Первый чанк ок, второй падает и на ретрае тоже.
+    monkeypatch.setattr(
+        voice_mod,
+        "transcribe",
+        AsyncMock(side_effect=[("часть один", 10), RuntimeError("429"), RuntimeError("429")]),
+    )
+
+    session = MagicMock()
+    session.get = AsyncMock(return_value=None)
+    session.commit = AsyncMock()
+    bot = MagicMock()
+    bot.get_file = AsyncMock(return_value=MagicMock(file_path="v.ogg"))
+    bot.download_file = AsyncMock(return_value=MagicMock(read=MagicMock(return_value=b"x")))
+
+    media = MagicMock(duration=1200, file_id="f", file_size=1000)
+    message = MagicMock()
+    message.chat.id = 3
+    message.answer = AsyncMock(return_value=MagicMock(edit_text=AsyncMock()))
+
+    with patch.object(voice_mod, "send_result", new=AsyncMock()):
+        ok = await voice_mod._process_media(
+            message,
+            bot,
+            session,
+            MagicMock(),
+            media=media,
+            is_video=False,
+            mode="polish",
+            style=None,
+            target_lang="en",
+            db_user_id=1,
+            force_retranscribe=False,
+        )
+
+    assert ok is True
+    transcript = voice_mod.run_polish.call_args.args[0]
+    assert "часть один" in transcript
+    assert "не распозналась" in transcript  # пропуск помечен явно
+
+
+def test_request_too_large_raised_on_413_even_if_estimate_missed():
+    """413 всегда даёт честную ошибку, а не «сервер недоступен, попробуй позже»."""
+    from src.handlers.text import error_message_for
+    from src.services.llm import RequestTooLargeError
+    from src.ui.messages import REQUEST_TOO_LARGE
+
+    assert error_message_for(RequestTooLargeError("413")) == REQUEST_TOO_LARGE

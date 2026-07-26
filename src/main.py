@@ -11,7 +11,6 @@ from aiohttp import web
 
 from src.bot import create_bot, create_dispatcher
 from src.config import settings
-from src.handlers._queue import cleanup_idle_locks
 from src.logging_config import setup_logging
 from src.services.skills_db import SkillsDB
 from src.storage.cleanup import cleanup_old_records
@@ -82,7 +81,6 @@ async def _cleanup_loop() -> None:
     interval_sec = max(60, settings.cleanup_interval_hours * 3600)
     while True:
         try:
-            cleanup_idle_locks()  # per-user замки обработки не должны копиться
             async with get_session() as session:
                 transcripts, history = await cleanup_old_records(
                     session,

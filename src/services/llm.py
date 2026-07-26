@@ -316,10 +316,14 @@ async def complete(
         raise ModelUnavailableError(
             f"All models unavailable: {', '.join(models_to_try)}"
         ) from last_exc
+    if last_exc is not None and getattr(last_exc, "status_code", None) == 413:
+        # 413 = запрос не влез в тариф. Оценка токенов приблизительна, поэтому
+        # ловим и те запросы, которые проскочили мимо предварительной проверки.
+        raise RequestTooLargeError(str(last_exc)) from last_exc
     if (
         last_exc is not None
         and long_request_without_provider
-        and getattr(last_exc, "status_code", None) in (400, 413, 429)
+        and getattr(last_exc, "status_code", None) in (400, 429)
     ):
         # 413/429 на заведомо длинном запросе — это не «сервер недоступен»,
         # а лимит тарифа: совет «попробуй через минуту» здесь враньё.
