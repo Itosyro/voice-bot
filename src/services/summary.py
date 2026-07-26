@@ -13,7 +13,7 @@ class SummaryResult:
 
 
 async def run_summary(transcript: str, on_delta: OnDelta | None = None) -> SummaryResult:
-    text, ms = await complete(
+    r = await complete(
         system_prompt=SUMMARY_PROMPT,
         user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("summary"),
@@ -21,4 +21,4 @@ async def run_summary(transcript: str, on_delta: OnDelta | None = None) -> Summa
         temperature=0.3,
         on_delta=on_delta,
     )
-    return SummaryResult(text=text.strip(), llm_ms=ms, model=settings.llm_model_default)
+    return SummaryResult(text=r.text.strip(), llm_ms=r.elapsed_ms, model=r.model)

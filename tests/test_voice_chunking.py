@@ -6,8 +6,11 @@ from aiogram.types import Message
 from src.handlers import voice
 
 
-def _make_message(*, voice_obj=None, audio=None, video_note=None, video=None, user_id=1):
+def _make_message(*, voice_obj=None, audio=None, video_note=None, video=None, user_id=1, text=None):
     message = MagicMock(spec=Message)
+    # У голосового/видео-сообщения text отсутствует — иначе бот справедливо
+    # решит, что юзер написал текст реплаем, и обработает именно текст.
+    message.text = text
     message.voice = voice_obj
     message.audio = audio
     message.video_note = video_note

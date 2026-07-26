@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     chunk_duration_sec: int = 300  # size of a single audio chunk (5 min)
     chunk_throttle_sec: float = 1.5  # stagger between chunk launches (rate-limit friendly)
     chunk_parallelism: int = 3  # сколько чанков транскрибируем одновременно
+    # Окно, в котором соседние голосовые считаются одной мыслью и могут быть
+    # склеены кнопкой «Склеить с предыдущими» (владелец часто наговаривает
+    # длинную мысль двумя-тремя сообщениями подряд).
+    voice_merge_window_sec: int = 900
     max_voice_file_mb: int = 20
     max_text_length: int = 10000
     rate_limit_per_user_per_min: int = 20

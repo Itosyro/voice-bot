@@ -44,6 +44,9 @@ async def save_request(
         values["total_voice_seconds"] = User.total_voice_seconds + input_length
     stmt = update(User).where(User.id == user_id).values(**values)
     await session.execute(stmt)
+    # Коммитим здесь: если оставить финальному коммиту middleware, его падение
+    # покажет юзеру «Внутренняя ошибка» уже ПОСЛЕ успешно доставленного ответа.
+    await session.commit()
 
     return record
 

@@ -203,7 +203,9 @@ def lang_keyboard() -> InlineKeyboardMarkup:
 # ── Result actions ──
 
 
-def result_keyboard(mode: str, with_transcript: bool = False) -> InlineKeyboardMarkup:
+def result_keyboard(
+    mode: str, with_transcript: bool = False, with_merge: bool = False
+) -> InlineKeyboardMarkup:
     rows = [
         [
             InlineKeyboardButton(
@@ -231,18 +233,30 @@ def result_keyboard(mode: str, with_transcript: bool = False) -> InlineKeyboardM
             ),
         ],
     ]
+    extra: list[list[InlineKeyboardButton]] = []
+    if with_merge:
+        # Появляется, только если рядом есть предыдущее голосовое — иначе
+        # кнопка была бы обещанием, которое некому выполнить.
+        extra.append(
+            [
+                InlineKeyboardButton(
+                    text="➕ Склеить с предыдущими",
+                    callback_data="action:merge_prev",
+                    style=BTN_STYLE_ACTION,
+                )
+            ]
+        )
     if with_transcript:
-        rows.insert(
-            1,
+        extra.append(
             [
                 InlineKeyboardButton(
                     text="🎙 Транскрипт — что я сказал дословно",
                     callback_data="action:transcript",
                     style=BTN_STYLE_ACTION,
                 )
-            ],
+            ]
         )
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(inline_keyboard=rows[:1] + extra + rows[1:])
 
 
 # ── Settings ──

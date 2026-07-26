@@ -8,7 +8,12 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.handlers._last import LastRequest, save_last, save_last_transcript
+from src.handlers._last import (
+    LastRequest,
+    get_recent_transcripts,
+    save_last,
+    save_last_transcript,
+)
 from src.handlers._queue import user_lock
 from src.handlers._reply import make_draft_streamer, send_result
 from src.handlers.text import _process_text, error_message_for
@@ -167,6 +172,7 @@ async def _process_media(
                 file_id=media.file_id,
                 session=session,
                 force_retranscribe=force_retranscribe,
+                duration_sec=duration,
             )
         else:
             # Long audio — chunked pipeline. Транскрипт кэшируется по file_id:
@@ -177,6 +183,8 @@ async def _process_media(
                     row = await session.get(TranscriptionCache, media.file_id)
                     if row:
                         cached_transcript = row.transcript
+                    # Коммит сразу после чтения — не держим коннект весь прогон.
+                    await session.commit()
             if force_retranscribe and settings.enable_transcription_cache:
                 with contextlib.suppress(Exception):
                     row = await session.get(TranscriptionCache, media.file_id)
@@ -226,7 +234,13 @@ async def _process_media(
             for i, res in enumerate(results):
                 if isinstance(res, BaseException):
                     log.warning("chunk_retry_after_failure", chunk=i + 1, error=str(res))
-                    fixed.append(await transcribe(chunks[i], api_key=groq_key))
+                    try:
+                        fixed.append(await transcribe(chunks[i], api_key=groq_key))
+                    except Exception as exc:
+                        # Провал одного куска не должен обнулять час распознанной
+                        # речи — помечаем пропуск и продолжаем.
+                        log.error("chunk_permanently_failed", chunk=i + 1, error=str(exc))
+                        fixed.append((f"[…часть {i + 1} не распозналась…]", 0))
                 else:
                     fixed.append(res)
             stt_ms = sum(ms for _text, ms in fixed)
@@ -242,7 +256,11 @@ async def _process_media(
                 if transcript.strip() and settings.enable_transcription_cache:
                     with contextlib.suppress(Exception):
                         session.add(
-                            TranscriptionCache(file_id=media.file_id, transcript=transcript)
+                            TranscriptionCache(
+                                file_id=media.file_id,
+                                transcript=transcript,
+                                duration_sec=duration,
+                            )
                         )
                         await session.commit()
 
@@ -265,13 +283,17 @@ async def _process_media(
         # Deliver the result FIRST — history is best-effort (мёртвая БД не должна
         # выбрасывать уже готовый ответ LLM).
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
+        # Кнопка склейки — только когда рядом реально есть предыдущее голосовое.
+        can_merge = (
+            len(get_recent_transcripts(message.chat.id, settings.voice_merge_window_sec)) > 1
+        )
         await send_result(
             message,
             progress_msg,
             result_text,
             skills_info,
             "",
-            result_keyboard(mode, with_transcript=True),
+            result_keyboard(mode, with_transcript=True, with_merge=can_merge),
         )
 
         if db_user_id is not None:
@@ -325,10 +347,11 @@ async def handle_voice(
     mode = ctx.default_mode or "polish"
     style = ctx.default_style
 
-    if mode == "humanizer":
-        # Голос Humanizer не поддерживает. Но если юзер НАПИСАЛ текст, реплайнув
-        # на чьё-то медиа, — обрабатываем его текст, а не ругаемся.
-        if message.text and _pick_media(message)[0] is None:
+    # Юзер НАПИСАЛ текст реплаем на чужое голосовое: он хочет обработать свои
+    # слова, а не чужой звук. Раньше текст молча выбрасывался во всех режимах,
+    # кроме humanizer, и бот заново прогонял голос.
+    if message.text and _pick_media(message)[0] is None:
+        async with user_lock(user_tg.id):
             await _process_text(
                 message,
                 session,
@@ -339,7 +362,9 @@ async def handle_voice(
                 target_lang=ctx.target_lang,
                 db_user_id=ctx.db_user_id,
             )
-            return
+        return
+
+    if mode == "humanizer":
         await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard(), parse_mode="HTML")
         return
 
