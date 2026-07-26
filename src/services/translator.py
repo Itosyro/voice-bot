@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.config import settings
 from src.prompts.translator import LANG_NAMES, TRANSLATE_PROMPT
-from src.services.llm import OnDelta, complete
+from src.services.llm import OnDelta, complete, sanitize_user_input
 
 
 @dataclass
@@ -27,7 +27,7 @@ async def run_translator(
 
     text, ms = await complete(
         system_prompt=system,
-        user_message=f"<user_input>{transcript}</user_input>",
+        user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("translator"),
         model=settings.llm_model_default,
         temperature=0.3,

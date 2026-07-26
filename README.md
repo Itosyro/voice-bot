@@ -44,13 +44,16 @@ GROQ_API_KEY_FALLBACK=<ключ с console.groq.com>
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/voicebot
 ```
 
-Для полного функционала — отдельный Groq ключ на каждый режим:
+Опционально — отдельный Groq ключ на каждый режим. ВАЖНО: лимиты Groq
+считаются на организацию, поэтому смысл в отдельных ключах есть только если
+это ключи **разных** аккаунтов Groq:
 
 ```
 GROQ_API_KEY_POLISH=gsk_...
 GROQ_API_KEY_PROMPT=gsk_...
 GROQ_API_KEY_HUMANIZER=gsk_...
 GROQ_API_KEY_TRANSLATOR=gsk_...
+GROQ_API_KEY_SUMMARY=gsk_...
 ```
 
 ### 3. Запусти через Docker

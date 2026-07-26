@@ -31,12 +31,29 @@ class Settings(BaseSettings):
     llm_model_strict: str = "openai/gpt-oss-120b"
     # Запасные модели: если основная отключена провайдером (404/decommissioned),
     # complete() пробует их по порядку.
-    llm_model_fallbacks: str = "qwen/qwen3.6-27b,llama-3.3-70b-versatile"
+    llm_model_fallbacks: str = "qwen/qwen3.6-27b,openai/gpt-oss-20b"
     # large-v3 (НЕ turbo) — выбран осознанно: качество распознавания важнее скорости.
     # turbo быстрее, но заметно хуже на сложной речи/акцентах/матах. Не менять на turbo.
     whisper_model: str = "whisper-large-v3"
     # Запасная STT-модель на случай отключения основной провайдером.
     whisper_model_fallbacks: str = "whisper-large-v3-turbo"
+
+    # ── Запасные LLM-провайдеры (OpenAI-совместимые, активны только при ключе) ──
+    # Cerebras: тот же gpt-oss-120b, 1M токенов/день бесплатно, очень быстрый,
+    # но контекст на free ~8K. https://cloud.cerebras.ai
+    cerebras_api_key: str | None = None
+    cerebras_model: str = "gpt-oss-120b"
+    # OpenRouter: gpt-oss-120b:free с контекстом 131K — спасает ДЛИННЫЕ
+    # транскрипты, которые не влезают в 8K TPM Groq free. https://openrouter.ai
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "openai/gpt-oss-120b:free"
+    # Примерный потолок токенов запроса для Groq free (TPM ~8K): длиннее — сразу
+    # роутим в OpenRouter (если ключ задан), иначе Groq вернёт 413.
+    groq_max_request_tokens: int = 7000
+
+    # Стриминг-превью через sendMessageDraft (Bot API 9.5+, aiogram 3.30+).
+    # Выключен по умолчанию: включать после проверки вживую (см. грабли №1).
+    enable_draft_streaming: bool = False
 
     # Database
     database_url: str
@@ -45,14 +62,13 @@ class Settings(BaseSettings):
     max_voice_duration_sec: int = 3600  # 1 hour absolute cap (chunked beyond chunk_threshold)
     chunk_threshold_sec: int = 600  # voices longer than this go through chunked pipeline
     chunk_duration_sec: int = 300  # size of a single audio chunk (5 min)
-    chunk_throttle_sec: float = 1.5  # pause between Groq calls to avoid rate limit
+    chunk_throttle_sec: float = 1.5  # stagger between chunk launches (rate-limit friendly)
+    chunk_parallelism: int = 3  # сколько чанков транскрибируем одновременно
     max_voice_file_mb: int = 20
     max_text_length: int = 10000
     rate_limit_per_user_per_min: int = 20
 
     enable_transcription_cache: bool = True
-    skills_auto_sync_on_startup: bool = True
-    skills_sync_interval_hours: int = 168
 
     # Retention / cleanup (фоновая задача удаляет старые строки из БД)
     transcription_cache_ttl_days: int = 7  # удалять кэш транскриптов старше N дней (0 — выкл.)

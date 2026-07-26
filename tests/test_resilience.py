@@ -244,3 +244,47 @@ def test_error_message_for_model_unavailable():
 
     assert error_message_for(llm.ModelUnavailableError("gone")) == MODEL_ERROR
     assert error_message_for(Exception("boom")) == GROQ_ERROR
+
+
+# ── внешние фолбэк-провайдеры (Cerebras/OpenRouter) ──
+
+
+@pytest.mark.asyncio
+async def test_long_request_routes_to_openrouter(monkeypatch):
+    """Запрос длиннее лимита Groq free уходит в фолбэк с длинным контекстом."""
+    called = {}
+
+    async def fake_try(system, user, temperature, max_tokens, on_delta, long_context):
+        called["long_context"] = long_context
+        return "long answer"
+
+    monkeypatch.setattr(llm, "_try_fallback_providers", fake_try)
+
+    long_text = "ы" * 60_000  # ~20K токенов — не влезает в 8K TPM Groq
+    text, _ms = await llm.complete("sys", long_text, api_key="k", model="m")
+
+    assert text == "long answer"
+    assert called["long_context"] is True
+
+
+@pytest.mark.asyncio
+async def test_groq_failure_falls_through_to_external_provider(monkeypatch):
+    """Groq лёг целиком -> отвечает внешний провайдер, ошибка не долетает до юзера."""
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(side_effect=_FakeModelGoneError())
+    monkeypatch.setattr(llm, "AsyncGroq", MagicMock(return_value=client))
+    monkeypatch.setattr(type(llm.settings), "llm_model_fallbacks_list", property(lambda self: []))
+
+    async def fake_try(system, user, temperature, max_tokens, on_delta, long_context):
+        return "external saved us" if not long_context else None
+
+    monkeypatch.setattr(llm, "_try_fallback_providers", fake_try)
+
+    text, _ms = await llm.complete("sys", "short", api_key="k", model="dead-model")
+    assert text == "external saved us"
+
+
+def test_estimate_tokens_rough():
+    # ~2 символа/токен для кириллицы (консервативно)
+    assert llm.estimate_tokens("абв" * 100) == 151
+    assert llm.estimate_tokens("") == 1

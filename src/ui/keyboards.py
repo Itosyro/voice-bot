@@ -101,13 +101,34 @@ def mode_keyboard() -> InlineKeyboardMarkup:
 # ── Reprocess mode selection ──
 
 
+def _rerun_btn(mode: str) -> InlineKeyboardButton:
+    icon = MODE_ICON.get(mode, "")
+    name = MODE_NAME[mode]
+    return InlineKeyboardButton(
+        text=f"{icon} {name}" if icon else name,
+        callback_data=f"rerun:{mode}",
+        style=BTN_STYLE_MODE,
+    )
+
+
 def reprocess_mode_keyboard() -> InlineKeyboardMarkup:
+    """Выбор режима для НЕМЕДЛЕННОГО повторного прогона последнего запроса
+    (rerun:) — не просто смена настройки с просьбой переслать заново."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [_mode_btn("polish"), _mode_btn("prompt")],
-            [_mode_btn("humanizer"), _mode_btn("translator")],
-            [_mode_btn("summary")],
+            [_rerun_btn("polish"), _rerun_btn("prompt")],
+            [_rerun_btn("humanizer"), _rerun_btn("translator")],
+            [_rerun_btn("summary")],
             _back_btn(),
+        ]
+    )
+
+
+def menu_keyboard() -> InlineKeyboardMarkup:
+    """Одна кнопка «Меню» — чтобы после выбора стиля не оставался тупик."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"{ICON_MENU} Меню", callback_data="back:modes")]
         ]
     )
 
@@ -182,35 +203,46 @@ def lang_keyboard() -> InlineKeyboardMarkup:
 # ── Result actions ──
 
 
-def result_keyboard(mode: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+def result_keyboard(mode: str, with_transcript: bool = False) -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton(
+                # «Ещё вариант» честнее «Повтора»: генерация каждый раз новая.
+                text=f"{ICON_REGEN} Ещё вариант",
+                callback_data="action:regenerate",
+                style=BTN_STYLE_ACTION,
+            ),
+            InlineKeyboardButton(
+                text=f"{ICON_OTHER} Другой режим",
+                callback_data="action:other_mode",
+                style=BTN_STYLE_ACTION,
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                text=f"{ICON_DOWNLOAD} Скачать .txt",
+                callback_data="action:export",
+                style=BTN_STYLE_ACTION,
+            ),
+            InlineKeyboardButton(
+                text=f"{ICON_MENU} Меню",
+                callback_data="back:modes",
+                style=BTN_STYLE_ACTION,
+            ),
+        ],
+    ]
+    if with_transcript:
+        rows.insert(
+            1,
             [
                 InlineKeyboardButton(
-                    text=f"{ICON_REGEN} Повтор",
-                    callback_data="action:regenerate",
+                    text="🎙 Транскрипт — что я сказал дословно",
+                    callback_data="action:transcript",
                     style=BTN_STYLE_ACTION,
-                ),
-                InlineKeyboardButton(
-                    text=f"{ICON_OTHER} Другой режим",
-                    callback_data="action:other_mode",
-                    style=BTN_STYLE_ACTION,
-                ),
+                )
             ],
-            [
-                InlineKeyboardButton(
-                    text=f"{ICON_DOWNLOAD} Скачать .txt",
-                    callback_data="action:export",
-                    style=BTN_STYLE_ACTION,
-                ),
-                InlineKeyboardButton(
-                    text=f"{ICON_MENU} Меню",
-                    callback_data="back:modes",
-                    style=BTN_STYLE_ACTION,
-                ),
-            ],
-        ]
-    )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 # ── Settings ──

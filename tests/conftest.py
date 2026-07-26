@@ -22,7 +22,14 @@ class FakeGroqStream:
             (),
             {
                 "choices": [
-                    type("Choice", (), {"delta": type("Delta", (), {"content": self._text})()})()
+                    type(
+                        "Choice",
+                        (),
+                        {
+                            "delta": type("Delta", (), {"content": self._text})(),
+                            "finish_reason": "stop",
+                        },
+                    )()
                 ]
             },
         )()

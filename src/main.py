@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import hashlib
 import os
 
 import aiohttp
@@ -103,7 +104,9 @@ async def run_webhook(bot: Bot, dp: Dispatcher) -> None:
     """Run aiohttp server with aiogram webhook handler + self-ping + cleanup."""
     assert settings.webhook_url is not None
     port = int(os.environ.get("PORT", "10000"))
-    webhook_path = f"/webhook/{settings.telegram_bot_token}"
+    # Хэш вместо сырого токена: путь вебхука попадает в логи (Render и т.п.).
+    path_secret = hashlib.sha256(settings.telegram_bot_token.encode()).hexdigest()[:32]
+    webhook_path = f"/webhook/{path_secret}"
     webhook_full_url = f"{settings.webhook_url.rstrip('/')}{webhook_path}"
 
     app = web.Application()

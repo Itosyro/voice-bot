@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.handlers._last import LastRequest, save_last
-from src.handlers._reply import send_result
+from src.handlers._reply import make_draft_streamer, send_result
 from src.services.humanizer import run_humanizer
-from src.services.llm import ModelUnavailableError, is_rate_limit_error
+from src.services.llm import ModelUnavailableError, RequestTooLargeError, is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -19,7 +19,14 @@ from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.user_context import load_user_context
 from src.ui.keyboards import mode_keyboard, result_keyboard
-from src.ui.messages import GROQ_ERROR, MODEL_ERROR, RATE_LIMIT_ERROR, TEXT_TOO_LONG
+from src.ui.messages import (
+    GROQ_ERROR,
+    MODEL_ERROR,
+    RATE_LIMIT_ERROR,
+    REQUEST_TOO_LARGE,
+    TEXT_TOO_LONG,
+    TG_SEND_ERROR,
+)
 
 log = structlog.get_logger()
 router = Router()
@@ -37,6 +44,10 @@ def error_message_for(exc: Exception) -> str:
     """Pick a user-facing error text that actually explains what broke."""
     if isinstance(exc, ModelUnavailableError):
         return MODEL_ERROR
+    if isinstance(exc, RequestTooLargeError):
+        return REQUEST_TOO_LARGE
+    if "MESSAGE_TOO_LONG" in str(exc) or "message is too long" in str(exc).lower():
+        return TG_SEND_ERROR
     if is_rate_limit_error(exc):
         return RATE_LIMIT_ERROR
     return GROQ_ERROR
@@ -56,6 +67,7 @@ async def _process_text(
     """Run the selected mode on text and deliver the result. Returns True on success."""
     started = time.monotonic()
     progress_msg = await message.answer(f"✨ {MODE_LABEL.get(mode, 'Обрабатываю')}…")
+    on_delta = make_draft_streamer(message.bot, message.chat.id) if message.bot else None
 
     try:
         result_text = ""
@@ -64,22 +76,22 @@ async def _process_text(
         used_skills: list[str] = []
 
         if mode == "polish":
-            r = await run_polish(text, sub_style=style or "polish_default", on_delta=None)
+            r = await run_polish(text, sub_style=style or "polish_default", on_delta=on_delta)
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
-                text, sub_style=style or "prompt_general", skills_db=skills_db, on_delta=None
+                text, sub_style=style or "prompt_general", skills_db=skills_db, on_delta=on_delta
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
             used_skills = r2.used_skills
         elif mode == "humanizer":
-            r3 = await run_humanizer(text, sub_style=style or "humanize_lite", on_delta=None)
+            r3 = await run_humanizer(text, sub_style=style or "humanize_lite", on_delta=on_delta)
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
         elif mode == "translator":
-            r4 = await run_translator(text, target_lang=target_lang, on_delta=None)
+            r4 = await run_translator(text, target_lang=target_lang, on_delta=on_delta)
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
         elif mode == "summary":
-            r5 = await run_summary(text, on_delta=None)
+            r5 = await run_summary(text, on_delta=on_delta)
             result_text, llm_ms, model_used = r5.text, r5.llm_ms, r5.model
 
         total_ms = int((time.monotonic() - started) * 1000)
@@ -134,12 +146,10 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         first_name=user_tg.first_name,
     )
 
-    mode = ctx.default_mode
+    # Дефолт для новичка — полировка: первое сообщение сразу даёт результат,
+    # а не тупик «сначала выбери режим».
+    mode = ctx.default_mode or "polish"
     style = ctx.default_style
-
-    if not mode:
-        await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
-        return
 
     text = message.text
     if len(text) > settings.max_text_length:

@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject
+from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from src.config import settings
 from src.ui.messages import RATE_LIMIT_ERROR
@@ -40,6 +40,9 @@ class RateLimitMiddleware(BaseMiddleware):
         if len(recent) >= limit:
             if isinstance(event, Message):
                 await event.answer(RATE_LIMIT_ERROR)
+            elif isinstance(event, CallbackQuery):
+                # Иначе кнопка молча крутит спиннер до таймаута.
+                await event.answer(RATE_LIMIT_ERROR, show_alert=False)
             return None
 
         self._user_requests[user_id].append(now)

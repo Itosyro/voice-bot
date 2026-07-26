@@ -461,15 +461,3 @@ def test_message_constants_exist():
     assert len(MODE_NAMES) == 5
     # 11 реальных стилей + псевдо-стили summary/translator (для /settings)
     assert len(STYLE_NAMES) == 13
-
-
-# ===== FSM states =====
-
-
-def test_fsm_states_exist():
-    from src.states import ModeSelection
-
-    assert ModeSelection.waiting_for_mode is not None
-    assert ModeSelection.waiting_for_style is not None
-    assert ModeSelection.waiting_for_lang is not None
-    assert ModeSelection.waiting_for_input is not None

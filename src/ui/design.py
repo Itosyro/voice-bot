@@ -70,8 +70,8 @@ STYLE_DESC = {
     "prompt_general": "под любую задачу",
     "prompt_designer": "UI/UX, дизайн",
     "prompt_coder": "код, архитектура",
-    "prompt_coder_strict": "production, SLO",
-    "humanize_lite": "мягко, AI-маркеры",
+    "prompt_coder_strict": "максимально придирчивый",
+    "humanize_lite": "убирает явные следы ИИ",
     "humanize_strong": "переписать полностью",
 }
 

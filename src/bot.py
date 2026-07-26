@@ -5,7 +5,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types.error_event import ErrorEvent
 
 from src.config import settings
-from src.handlers import admin, callbacks, modes, start, text, voice
+from src.handlers import admin, callbacks, fallback, modes, start, text, voice
 from src.handlers import settings as settings_handler
 from src.middlewares.auth import AuthMiddleware
 from src.middlewares.db_session import DbSessionMiddleware
@@ -42,6 +42,7 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(callbacks.router)
     dp.include_router(voice.router)
     dp.include_router(text.router)
+    dp.include_router(fallback.router)  # ловит неподдерживаемые типы — ПОСЛЕДНИМ
 
     @dp.errors()
     async def on_error(event: ErrorEvent) -> bool:

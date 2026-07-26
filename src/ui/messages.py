@@ -125,7 +125,20 @@ MODEL_ERROR = (
     "Сообщи владельцу бота — нужно обновить настройки моделей."
 )
 
-NOT_ALLOWED = "⛔ Нет доступа."
+REQUEST_TOO_LARGE = (
+    "⚠ Текст получился слишком длинным для бесплатного лимита ИИ.\n"
+    "Попробуй прислать частями покороче — или попроси владельца добавить\n"
+    "запасной провайдер (OPENROUTER_API_KEY) для длинных запросов."
+)
+
+TG_SEND_ERROR = (
+    "⚠ Ответ готов, но Telegram отказался его принять (слишком длинный).\n"
+    "Нажми «Ещё вариант» — попробую снова."
+)
+
+VOICE_TOO_BIG = "⚠ Файл слишком большой — макс. <b>{max_mb}</b> МБ (лимит Telegram для ботов)."
+
+NOT_ALLOWED = "⛔ Это личный бот. Доступ выдаёт владелец — напиши ему."
 
 USER_BLOCKED = "🚫 Ты заблокирован администратором."
 
@@ -142,17 +155,18 @@ def settings_text(
     mode: str | None,
     style: str | None,
     target_lang: str,
-    total_requests: int,
+    total_requests: int | None,
 ) -> str:
     mode_display = MODE_NAME.get(mode or "", "не выбран")
     style_display = STYLE_NAME.get(style or "", "не выбран")
+    requests_display = "н/д" if total_requests is None else str(total_requests)
     return (
         f"⊛ <b><u>Настройки</u></b>\n"
         f"\n"
         f"<b>Режим:</b> {mode_display}\n"
         f"<b>Стиль:</b> {style_display}\n"
         f"<b>Язык перевода:</b> {target_lang.upper()}\n"
-        f"<b>Запросов:</b> {total_requests}\n"
+        f"<b>Запросов:</b> {requests_display}\n"
         f"\n"
         f"{DIV}\n"
         f"\n"
@@ -283,7 +297,7 @@ MODE_INFO = {
         f"<b>14 языков:</b> EN, RU, ES, FR, DE, ZH,\n"
         f"JA, KO, AR, TR, PT, IT, PL, UK\n"
         f"\n"
-        f"Или через /lang &lt;код&gt; любой другой.\n"
+        f"Сменить: /lang и код из списка выше.\n"
         f"\n"
         f"Вход: <u>голос</u> или <u>текст</u>"
     ),
