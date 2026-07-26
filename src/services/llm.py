@@ -112,6 +112,11 @@ async def complete(
                 if is_model_unavailable_error(e):
                     log.warning("llm_model_unavailable", model=current_model, error=str(e))
                     break  # no point retrying — jump to the next fallback model
+                if getattr(e, "status_code", None) in (400, 401, 403, 404, 413):
+                    # Постоянные ошибки (битый ключ/запрос) — ретраи только тянут
+                    # время до сообщения об ошибке.
+                    log.warning("llm_permanent_error", model=current_model, error=str(e))
+                    raise
                 if is_rate_limit_error(e):
                     alt_keys = [k for k in settings.get_all_groq_keys() if k != current_key]
                     if alt_keys:

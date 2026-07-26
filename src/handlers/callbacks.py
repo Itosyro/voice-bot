@@ -57,6 +57,11 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
 
     kb_fn = STYLE_KEYBOARDS.get(mode)
     if kb_fn:
+        # Персистим режим сразу (стиль сбрасываем на дефолт режима): раньше
+        # выбор «ПОЛИРОВКА» после Summary без нажатия стиля оставлял summary.
+        await save_user_settings(
+            session, callback.from_user.id, default_mode=mode, reset_style=True
+        )
         await callback.message.edit_text(  # type: ignore[union-attr]
             style_header(mode),
             reply_markup=kb_fn(),

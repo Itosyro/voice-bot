@@ -91,6 +91,8 @@ async def _run_mode(
         r4 = await run_summary(transcript, on_delta=on_delta)
         return r4.text, r4.llm_ms, r4.model, used_skills
 
+    # Неизвестный режим не должен превращаться в молчаливо-пустой ответ.
+    log.error("unknown_mode_in_run_mode", mode=mode)
     return "", 0, "", used_skills
 
 

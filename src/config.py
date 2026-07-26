@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     skills_sync_interval_hours: int = 168
 
     # Retention / cleanup (фоновая задача удаляет старые строки из БД)
-    transcription_cache_ttl_days: int = 1  # удалять кэш транскриптов старше N дней (0 — выкл.)
+    transcription_cache_ttl_days: int = 7  # удалять кэш транскриптов старше N дней (0 — выкл.)
     request_history_ttl_days: int = 30  # удалять историю запросов старше N дней (0 — выкл.)
     cleanup_interval_hours: int = 24  # как часто запускать cleanup
     cleanup_initial_delay_sec: int = 300  # пауза перед первым запуском после старта

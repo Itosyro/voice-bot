@@ -122,17 +122,21 @@ async def save_user_settings(
     default_style: str | None = None,
     target_lang: str | None = None,
     reset: bool = False,
+    reset_style: bool = False,
 ) -> bool:
     """Persist settings to DB and mirror them in memory.
 
     Returns True if the DB write worked, False if only the memory store got it.
     Кнопки выбора режима зовут это вместо прямого update_user_settings — выбор
     юзера не должен молча теряться из-за мёртвой БД. reset=True очищает
-    режим/стиль (кнопка «Сброс»).
+    режим/стиль (кнопка «Сброс»); reset_style=True сбрасывает только стиль
+    (при смене режима стиль прошлого режима не должен «протекать»).
     """
     mem = _mem(telegram_user_id)
     if reset:
         mem.default_mode = None
+        mem.default_style = None
+    if reset_style:
         mem.default_style = None
     if default_mode is not None:
         mem.default_mode = default_mode
@@ -144,6 +148,8 @@ async def save_user_settings(
     kwargs: dict[str, str | int | bool | None] = {}
     if reset:
         kwargs["default_mode"] = None
+        kwargs["default_style"] = None
+    if reset_style:
         kwargs["default_style"] = None
     if default_mode is not None:
         kwargs["default_mode"] = default_mode

@@ -17,4 +17,6 @@ RUN pip install --no-cache-dir -e . && \
 
 USER appuser
 
-CMD ["sh", "-c", "alembic upgrade head && python scripts/sync_skills.py && python -m src.main"]
+# Миграции и синк skills — best-effort: их падение (мёртвая БД, GitHub недоступен)
+# не должно ронять запуск бота в restart-loop. Бот умеет работать деградированно.
+CMD ["sh", "-c", "alembic upgrade head || echo 'WARN: migrations failed, continuing'; python scripts/sync_skills.py || echo 'WARN: skills sync failed, continuing'; python -m src.main"]

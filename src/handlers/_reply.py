@@ -18,9 +18,11 @@ def split_text(text: str) -> list[str]:
             parts.append(text)
             break
         split_at = text.rfind("\n\n", 0, _CHUNK)
-        if split_at == -1:
+        if split_at <= 0:
             split_at = text.rfind(". ", 0, _CHUNK)
-        if split_at == -1:
+        if split_at <= 0:
+            # rfind может вернуть 0 (граница в самом начале) — это дало бы
+            # часть из одного символа; режем по жёсткой границе.
             split_at = _CHUNK
         else:
             split_at += 1
@@ -45,8 +47,9 @@ async def send_result(
     """Send the final result as a copyable quote block, splitting or filing if long."""
     if not result_text or not result_text.strip():
         # Never edit a message to empty text — Telegram rejects it and the user
-        # would see a blank reply. Surface a clear error instead.
-        await progress_msg.edit_text("⚠ Пустой ответ от модели. Попробуй ещё раз.")
+        # would see a blank reply. Surface a clear error instead (с клавиатурой,
+        # чтобы юзер не остался без кнопок).
+        await progress_msg.edit_text("⚠ Пустой ответ от модели. Попробуй ещё раз.", reply_markup=kb)
         return
 
     parts = split_text(result_text)

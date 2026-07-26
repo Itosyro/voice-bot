@@ -459,7 +459,8 @@ def test_message_constants_exist():
     assert "{max_min}" in VOICE_TOO_LONG
     assert "{max_len}" in TEXT_TOO_LONG
     assert len(MODE_NAMES) == 5
-    assert len(STYLE_NAMES) == 11
+    # 11 реальных стилей + псевдо-стили summary/translator (для /settings)
+    assert len(STYLE_NAMES) == 13
 
 
 # ===== FSM states =====

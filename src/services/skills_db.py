@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import ClassVar
 
 from rank_bm25 import BM25Okapi
@@ -8,11 +9,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.storage.models import SkillIndex
 
+# body длиннее этого в промпт всё равно не попадает (format_for_prompt режет
+# сильнее) — держим в памяти только нужное, а не тысячи полных статей.
+_MAX_BODY_CHARS = 6000
+
+
+@dataclass(slots=True)
+class SkillRow:
+    """Лёгкая копия строки skills_index — без ORM-сессии и dirty-tracking."""
+
+    skill_name: str
+    description: str
+    body: str
+    source_repo: str
+
 
 class SkillsDB:
     """In-memory cache of skills from Postgres + BM25 search."""
 
-    def __init__(self, skills: list[SkillIndex]) -> None:
+    def __init__(self, skills: list) -> None:
         self.skills = skills
         self._tokens = [
             self._tokenize(
@@ -28,9 +43,31 @@ class SkillsDB:
 
     @classmethod
     async def load_from_db(cls, session: AsyncSession) -> SkillsDB:
-        result = await session.execute(select(SkillIndex))
-        skills = list(result.scalars().all())
+        result = await session.execute(
+            select(
+                SkillIndex.skill_name,
+                SkillIndex.description,
+                SkillIndex.body,
+                SkillIndex.source_repo,
+            )
+        )
+        skills = [
+            SkillRow(
+                skill_name=name,
+                description=desc,
+                body=(body or "")[:_MAX_BODY_CHARS],
+                source_repo=repo,
+            )
+            for name, desc, body, repo in result.all()
+        ]
         return cls(skills)
+
+    def replace_from(self, other: SkillsDB) -> None:
+        """Swap contents in place — used after /sync_skills, чтобы новый индекс
+        подхватился без рестарта (объект расшарен через dp.workflow_data)."""
+        self.skills = other.skills
+        self._tokens = other._tokens
+        self.bm25 = other.bm25
 
     PRIORITY_BY_STYLE: ClassVar[dict[str, set[str]]] = {
         "designer": {
@@ -129,7 +166,7 @@ class SkillsDB:
         return [s for _score, s in ranked[:top_k] if _score > 0.0 or s.skill_name in priority]
 
     @staticmethod
-    def format_for_prompt(skills: list[SkillIndex], max_total_chars: int = 6000) -> str:
+    def format_for_prompt(skills: list, max_total_chars: int = 3000) -> str:
         if not skills:
             return ""
         per_skill = max_total_chars // len(skills)

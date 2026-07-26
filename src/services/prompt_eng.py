@@ -41,7 +41,9 @@ async def run_prompt_eng(
         api_key=settings.get_groq_key("prompt"),
         model=model,
         temperature=temperature,
-        max_tokens=8000,
+        # 8000 + большой skills-контекст пробивал TPM-лимит free-tier Groq
+        # (429/413 на каждом запросе) — режим Prompt не работал вовсе.
+        max_tokens=4000,
         reasoning_effort="low" if is_strict else None,
         on_delta=on_delta,
     )

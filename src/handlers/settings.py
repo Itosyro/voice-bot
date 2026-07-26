@@ -41,7 +41,8 @@ async def cmd_lang(message: Message, session: AsyncSession) -> None:
         return
 
     lang = parts[1].lower().strip()
-    if lang not in LANG_NAMES and len(lang) > 5:
+    if lang not in LANG_NAMES:
+        # Раньше условие пропускало любой мусор длиной ≤5 символов.
         await message.answer(
             "⚠ Неизвестный код языка. Выбери из списка:",
             reply_markup=lang_keyboard(),

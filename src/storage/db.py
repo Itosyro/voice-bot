@@ -16,7 +16,9 @@ engine = create_async_engine(
     max_overflow=5,
     pool_pre_ping=True,
     pool_recycle=300,
-    connect_args={"statement_cache_size": 0},
+    # timeout/command_timeout: приостановленный Supabase (TCP открыт, ответа
+    # нет) без них подвешивал хендлеры навечно и исчерпывал пул.
+    connect_args={"statement_cache_size": 0, "timeout": 10, "command_timeout": 30},
 )
 
 AsyncSessionMaker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
