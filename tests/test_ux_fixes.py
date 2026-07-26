@@ -202,3 +202,85 @@ async def test_chunked_voice_uses_cached_transcript(monkeypatch, common_mocks=No
     split_mock.assert_not_awaited()
     transcribe_mock.assert_not_awaited()
     sr.assert_awaited_once()
+
+
+# ── раунд 3: атрибуция модели и склейка голосовых ──
+
+
+def test_recent_transcripts_window_and_cap():
+    from src.handlers._last import _transcripts, get_recent_transcripts, save_last_transcript
+
+    _transcripts.clear()
+    for i in range(7):
+        save_last_transcript(9, f"кусок {i}")
+    # хранится не больше _TRANSCRIPTS_PER_CHAT, отдаём последние limit штук
+    assert get_recent_transcripts(9, window_sec=600, limit=3) == ["кусок 4", "кусок 5", "кусок 6"]
+    # нулевое окно — ничего не считается «соседним»
+    assert get_recent_transcripts(9, window_sec=0, limit=3) == []
+    _transcripts.clear()
+
+
+def test_merge_button_only_with_previous_voice():
+    from src.ui.keyboards import result_keyboard
+
+    with_merge = result_keyboard("polish", with_transcript=True, with_merge=True)
+    labels = [b.text for row in with_merge.inline_keyboard for b in row]
+    assert any("Склеить" in label for label in labels)
+
+    without = result_keyboard("polish", with_transcript=True, with_merge=False)
+    labels_without = [b.text for row in without.inline_keyboard for b in row]
+    assert not any("Склеить" in label for label in labels_without)
+
+
+@pytest.mark.asyncio
+async def test_merge_prev_joins_transcripts_and_runs_mode(monkeypatch):
+    """Кнопка склейки обрабатывает несколько голосовых как один текст,
+    не запуская Whisper повторно."""
+    from src.handlers import callbacks as cb
+    from src.handlers._last import _transcripts, save_last_transcript
+
+    _transcripts.clear()
+    save_last_transcript(11, "первая часть мысли")
+    save_last_transcript(11, "вторая часть мысли")
+
+    run_mode_mock = AsyncMock(return_value=("склеенный результат", 10, "m", []))
+    monkeypatch.setattr("src.handlers.voice._run_mode", run_mode_mock)
+
+    callback = MagicMock()
+    callback.from_user.id = 11
+    callback.answer = AsyncMock()
+    callback.message.chat.id = 11
+    progress = MagicMock()
+    progress.edit_text = AsyncMock()
+    callback.message.answer = AsyncMock(return_value=progress)
+
+    with patch.object(cb, "send_result", new=AsyncMock()) as sr:
+        await cb.on_merge_prev(callback, MagicMock(), MagicMock())
+
+    run_mode_mock.assert_awaited_once()
+    joined = run_mode_mock.call_args.args[0]
+    assert "первая часть мысли" in joined
+    assert "вторая часть мысли" in joined
+    sr.assert_awaited_once()
+    _transcripts.clear()
+
+
+@pytest.mark.asyncio
+async def test_merge_prev_refuses_with_single_voice():
+    from src.handlers import callbacks as cb
+    from src.handlers._last import _transcripts, save_last_transcript
+
+    _transcripts.clear()
+    save_last_transcript(12, "одинокое голосовое")
+
+    callback = MagicMock()
+    callback.from_user.id = 12
+    callback.answer = AsyncMock()
+    callback.message.chat.id = 12
+    callback.message.answer = AsyncMock()
+
+    await cb.on_merge_prev(callback, MagicMock(), MagicMock())
+
+    callback.message.answer.assert_not_awaited()
+    assert "Нечего склеивать" in callback.answer.call_args.args[0]
+    _transcripts.clear()

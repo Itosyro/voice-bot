@@ -13,6 +13,20 @@ log = structlog.get_logger()
 OnDelta = Callable[[str], Awaitable[None]]
 
 
+@dataclass
+class LLMResult:
+    """Ответ модели + правда о том, КТО его дал.
+
+    Раньше сервисы писали в историю settings.llm_model_default, даже если
+    ответ реально пришёл от фолбэк-модели или внешнего провайдера.
+    """
+
+    text: str
+    elapsed_ms: int
+    model: str
+    provider: str  # "groq" | "cerebras" | "openrouter"
+
+
 class ModelUnavailableError(RuntimeError):
     """All candidate models are decommissioned/unknown at the provider."""
 
@@ -157,8 +171,8 @@ async def _try_fallback_providers(
     max_tokens: int,
     on_delta: OnDelta | None,
     long_context: bool,
-) -> str | None:
-    """Прогоняем настроенных внешних провайдеров; None — никто не ответил."""
+) -> tuple[str, str, str] | None:
+    """Прогоняем внешних провайдеров. Возвращает (text, provider, model) или None."""
     for provider in _fallback_providers(long_context):
         try:
             from openai import AsyncOpenAI
@@ -176,7 +190,7 @@ async def _try_fallback_providers(
             )
             if text:
                 log.warning("llm_external_provider_used", provider=provider.name)
-                return text
+                return text, provider.name, provider.model
         except Exception as exc:
             log.warning("llm_external_provider_failed", provider=provider.name, error=str(exc))
     return None
@@ -191,8 +205,8 @@ async def complete(
     max_tokens: int = 4096,
     reasoning_effort: str | None = None,
     on_delta: OnDelta | None = None,
-) -> tuple[str, int]:
-    """Call the LLM via streaming. Returns (response_text, elapsed_ms).
+) -> LLMResult:
+    """Call the LLM via streaming. Returns LLMResult (текст + кто ответил).
 
     Порядок: Groq (осн. модель → фолбэк-модели, ретраи, ротация ключей на 429)
     → внешние провайдеры (Cerebras/OpenRouter), если настроены ключи.
@@ -204,11 +218,17 @@ async def complete(
     # Длинный вход (часовое голосовое ≈ 12-18K токенов) в Groq free не влезает.
     request_tokens = estimate_tokens(system_prompt + user_message) + max_tokens
     if request_tokens > settings.groq_max_request_tokens:
-        text = await _try_fallback_providers(
+        external = await _try_fallback_providers(
             system_prompt, user_message, temperature, max_tokens, on_delta, long_context=True
         )
-        if text:
-            return text, int((time.monotonic() - started) * 1000)
+        if external:
+            text, provider_name, provider_model = external
+            return LLMResult(
+                text=text,
+                elapsed_ms=int((time.monotonic() - started) * 1000),
+                model=provider_model,
+                provider=provider_name,
+            )
         log.warning(
             "llm_long_request_no_provider",
             request_tokens=request_tokens,
@@ -244,7 +264,12 @@ async def complete(
                     elapsed_ms = int((time.monotonic() - started) * 1000)
                     if model_idx > 0:
                         log.warning("llm_fallback_model_used", model=current_model, wanted=model)
-                    return full_text, elapsed_ms
+                    return LLMResult(
+                        text=full_text,
+                        elapsed_ms=elapsed_ms,
+                        model=current_model,
+                        provider="groq",
+                    )
 
                 last_exc = RuntimeError("Groq returned empty response")
             except Exception as e:
@@ -275,11 +300,17 @@ async def complete(
             break  # битый ключ/запрос — Groq-цепочку не продолжаем
 
     # Groq не справился — внешние провайдеры (если настроены).
-    text = await _try_fallback_providers(
+    external = await _try_fallback_providers(
         system_prompt, user_message, temperature, max_tokens, on_delta, long_context=False
     )
-    if text:
-        return text, int((time.monotonic() - started) * 1000)
+    if external:
+        text, provider_name, provider_model = external
+        return LLMResult(
+            text=text,
+            elapsed_ms=int((time.monotonic() - started) * 1000),
+            model=provider_model,
+            provider=provider_name,
+        )
 
     if last_exc is not None and is_model_unavailable_error(last_exc):
         raise ModelUnavailableError(

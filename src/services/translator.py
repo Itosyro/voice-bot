@@ -25,7 +25,7 @@ async def run_translator(
         target_lang_code=target_lang,
     )
 
-    text, ms = await complete(
+    r = await complete(
         system_prompt=system,
         user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("translator"),
@@ -34,8 +34,8 @@ async def run_translator(
         on_delta=on_delta,
     )
     return TranslatorResult(
-        text=text.strip(),
-        llm_ms=ms,
-        model=settings.llm_model_default,
+        text=r.text.strip(),
+        llm_ms=r.elapsed_ms,
+        model=r.model,
         target_lang=target_lang,
     )

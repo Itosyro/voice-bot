@@ -8,14 +8,17 @@ from aiogram.types import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.handlers._last import (
     get_last,
     get_last_result,
     get_last_transcript,
+    get_recent_transcripts,
     get_result_for_message,
 )
 from src.handlers._queue import is_busy, user_lock
-from src.handlers.text import regenerate_text
+from src.handlers._reply import send_result
+from src.handlers.text import error_message_for, regenerate_text
 from src.handlers.voice import regenerate_voice
 from src.services.skills_db import SkillsDB
 from src.storage.history import get_user_history
@@ -31,6 +34,7 @@ from src.ui.keyboards import (
     polish_style_keyboard,
     prompt_style_keyboard,
     reprocess_mode_keyboard,
+    result_keyboard,
     settings_keyboard,
 )
 from src.ui.messages import (
@@ -313,6 +317,59 @@ async def on_transcript(callback: CallbackQuery) -> None:
         f"{header}<blockquote expandable><code>{body}</code></blockquote>",
         parse_mode="HTML",
     )
+
+
+@router.callback_query(F.data == "action:merge_prev")
+async def on_merge_prev(
+    callback: CallbackQuery, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    """Склеить несколько последних голосовых в один текст и обработать разом.
+
+    Владелец часто наговаривает одну мысль двумя-тремя сообщениями подряд —
+    раньше приходилось обрабатывать каждое отдельно и сшивать руками.
+    Транскрипты уже в памяти, поэтому Whisper повторно не гоняем.
+    """
+    if not callback.from_user or not callback.message:
+        return
+    if is_busy(callback.from_user.id):
+        await callback.answer("⏳ Уже обрабатываю — секунду.")
+        return
+
+    texts = get_recent_transcripts(callback.message.chat.id, settings.voice_merge_window_sec)
+    if len(texts) < 2:
+        await callback.answer("Нечего склеивать — рядом только одно голосовое.", show_alert=True)
+        return
+
+    last = get_last(callback.from_user.id)
+    mode = last.mode if last else "polish"
+    style = last.style if last else None
+    target_lang = last.target_lang if last else "en"
+
+    await callback.answer(f"Склеиваю {len(texts)} голосовых…")
+    joined = "\n\n".join(texts)
+
+    progress = await callback.message.answer(  # type: ignore[union-attr]
+        f"✨ Обрабатываю {len(texts)} голосовых как один текст…"
+    )
+    async with user_lock(callback.from_user.id):
+        try:
+            from src.handlers.voice import _run_mode
+
+            result_text, _llm_ms, _model, used_skills = await _run_mode(
+                joined, mode, style, target_lang, skills_db, None
+            )
+            skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
+            await send_result(
+                callback.message,  # type: ignore[arg-type]
+                progress,
+                result_text,
+                skills_info,
+                "",
+                result_keyboard(mode, with_transcript=True),
+            )
+        except Exception as exc:
+            log.exception("merge_prev_failed")
+            await progress.edit_text(error_message_for(exc), reply_markup=mode_keyboard())
 
 
 @router.callback_query(F.data == "action:regenerate")

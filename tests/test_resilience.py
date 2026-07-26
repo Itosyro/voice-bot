@@ -57,9 +57,11 @@ async def test_complete_falls_back_when_model_decommissioned(monkeypatch):
         type(llm.settings), "llm_model_fallbacks_list", property(lambda self: ["live-model"])
     )
 
-    text, _ms = await llm.complete("sys", "user", api_key="k", model="dead-model")
+    result = await llm.complete("sys", "user", api_key="k", model="dead-model")
 
-    assert text == "ok"
+    assert result.text == "ok"
+    assert result.model == "live-model"  # атрибуция: в историю пойдёт реальная модель
+    assert result.provider == "groq"
     assert called_models == ["dead-model", "live-model"]
 
 
@@ -256,14 +258,15 @@ async def test_long_request_routes_to_openrouter(monkeypatch):
 
     async def fake_try(system, user, temperature, max_tokens, on_delta, long_context):
         called["long_context"] = long_context
-        return "long answer"
+        return "long answer", "openrouter", "openai/gpt-oss-120b:free"
 
     monkeypatch.setattr(llm, "_try_fallback_providers", fake_try)
 
     long_text = "ы" * 60_000  # ~20K токенов — не влезает в 8K TPM Groq
-    text, _ms = await llm.complete("sys", long_text, api_key="k", model="m")
+    result = await llm.complete("sys", long_text, api_key="k", model="m")
 
-    assert text == "long answer"
+    assert result.text == "long answer"
+    assert result.provider == "openrouter"
     assert called["long_context"] is True
 
 
@@ -276,12 +279,15 @@ async def test_groq_failure_falls_through_to_external_provider(monkeypatch):
     monkeypatch.setattr(type(llm.settings), "llm_model_fallbacks_list", property(lambda self: []))
 
     async def fake_try(system, user, temperature, max_tokens, on_delta, long_context):
-        return "external saved us" if not long_context else None
+        if long_context:
+            return None
+        return "external saved us", "cerebras", "gpt-oss-120b"
 
     monkeypatch.setattr(llm, "_try_fallback_providers", fake_try)
 
-    text, _ms = await llm.complete("sys", "short", api_key="k", model="dead-model")
-    assert text == "external saved us"
+    result = await llm.complete("sys", "short", api_key="k", model="dead-model")
+    assert result.text == "external saved us"
+    assert result.provider == "cerebras"
 
 
 def test_estimate_tokens_rough():

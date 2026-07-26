@@ -5,6 +5,7 @@ entry is overwritten on every new request, so the dict stays ~one row per active
 user. Lost on restart — then "Повтор" just asks the user to resend.
 """
 
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,8 +34,10 @@ _results: dict[int, str] = {}
 _results_by_message: dict[tuple[int, int], str] = {}
 _RESULTS_BY_MESSAGE_CAP = 500  # не даём словарю расти бесконечно
 
-# Сырой транскрипт последнего голосового по chat_id — кнопка «Транскрипт».
-_transcripts: dict[int, str] = {}
+# Транскрипты последних голосовых по chat_id, с временем — для кнопки
+# «Транскрипт» и для склейки нескольких голосовых подряд в один текст.
+_transcripts: dict[int, list[tuple[str, float]]] = {}
+_TRANSCRIPTS_PER_CHAT = 5
 
 
 def save_last(telegram_user_id: int, req: LastRequest) -> None:
@@ -66,8 +69,23 @@ def get_result_for_message(chat_id: int, message_id: int) -> str | None:
 
 
 def save_last_transcript(chat_id: int, transcript: str) -> None:
-    _transcripts[chat_id] = transcript
+    recent = _transcripts.setdefault(chat_id, [])
+    recent.append((transcript, time.monotonic()))
+    del recent[:-_TRANSCRIPTS_PER_CHAT]  # держим только последние N
 
 
 def get_last_transcript(chat_id: int) -> str | None:
-    return _transcripts.get(chat_id)
+    recent = _transcripts.get(chat_id)
+    return recent[-1][0] if recent else None
+
+
+def get_recent_transcripts(chat_id: int, window_sec: float, limit: int = 3) -> list[str]:
+    """Транскрипты голосовых, присланных за последние window_sec секунд.
+
+    Владелец часто наговаривает одну мысль двумя-тремя голосовыми подряд —
+    это позволяет склеить их в один текст без пересылки.
+    """
+    recent = _transcripts.get(chat_id) or []
+    now = time.monotonic()
+    fresh = [text for text, at in recent if now - at <= window_sec]
+    return fresh[-limit:]

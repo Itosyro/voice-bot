@@ -25,7 +25,7 @@ async def run_humanizer(
         sub_style = "humanize_lite"
 
     system = HUMANIZER_PROMPTS[sub_style]
-    result, ms = await complete(
+    r = await complete(
         system_prompt=system,
         user_message=f"<user_input>{sanitize_user_input(text)}</user_input>",
         api_key=settings.get_groq_key("humanizer"),
@@ -33,4 +33,4 @@ async def run_humanizer(
         temperature=TEMPERATURE_MAP.get(sub_style, 0.5),
         on_delta=on_delta,
     )
-    return HumanizerResult(text=result.strip(), llm_ms=ms, model=settings.llm_model_default)
+    return HumanizerResult(text=r.text.strip(), llm_ms=r.elapsed_ms, model=r.model)

@@ -9,7 +9,7 @@ from src.services.llm import OnDelta, complete, sanitize_user_input
 class PolishResult:
     text: str
     llm_ms: int
-    model: str
+    model: str  # модель, которая РЕАЛЬНО ответила (может быть фолбэк)
 
 
 TEMPERATURE_MAP = {
@@ -28,7 +28,7 @@ async def run_polish(
         sub_style = "polish_default"
 
     system = POLISH_PROMPTS[sub_style]
-    text, ms = await complete(
+    r = await complete(
         system_prompt=system,
         user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("polish"),
@@ -36,4 +36,4 @@ async def run_polish(
         temperature=TEMPERATURE_MAP.get(sub_style, 0.3),
         on_delta=on_delta,
     )
-    return PolishResult(text=text.strip(), llm_ms=ms, model=settings.llm_model_default)
+    return PolishResult(text=r.text.strip(), llm_ms=r.elapsed_ms, model=r.model)

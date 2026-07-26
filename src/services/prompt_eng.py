@@ -35,7 +35,7 @@ async def run_prompt_eng(
     model = settings.llm_model_strict if is_strict else settings.llm_model_default
     temperature = 0.3 if is_strict else 0.4
 
-    text, ms = await complete(
+    r = await complete(
         system_prompt=system,
         user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("prompt"),
@@ -48,8 +48,8 @@ async def run_prompt_eng(
         on_delta=on_delta,
     )
     return PromptResult(
-        text=text.strip(),
-        llm_ms=ms,
-        model=model,
+        text=r.text.strip(),
+        llm_ms=r.elapsed_ms,
+        model=r.model,
         used_skills=[s.skill_name for s in relevant],
     )

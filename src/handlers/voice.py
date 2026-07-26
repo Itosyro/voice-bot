@@ -8,7 +8,12 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.handlers._last import LastRequest, save_last, save_last_transcript
+from src.handlers._last import (
+    LastRequest,
+    get_recent_transcripts,
+    save_last,
+    save_last_transcript,
+)
 from src.handlers._queue import user_lock
 from src.handlers._reply import make_draft_streamer, send_result
 from src.handlers.text import _process_text, error_message_for
@@ -265,13 +270,17 @@ async def _process_media(
         # Deliver the result FIRST — history is best-effort (мёртвая БД не должна
         # выбрасывать уже готовый ответ LLM).
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
+        # Кнопка склейки — только когда рядом реально есть предыдущее голосовое.
+        can_merge = (
+            len(get_recent_transcripts(message.chat.id, settings.voice_merge_window_sec)) > 1
+        )
         await send_result(
             message,
             progress_msg,
             result_text,
             skills_info,
             "",
-            result_keyboard(mode, with_transcript=True),
+            result_keyboard(mode, with_transcript=True, with_merge=can_merge),
         )
 
         if db_user_id is not None:
