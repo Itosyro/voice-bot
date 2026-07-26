@@ -1,3 +1,4 @@
+import contextlib
 import time
 
 import structlog
@@ -9,15 +10,16 @@ from src.config import settings
 from src.handlers._last import LastRequest, save_last
 from src.handlers._reply import send_result
 from src.services.humanizer import run_humanizer
+from src.services.llm import ModelUnavailableError, is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
 from src.services.summary import run_summary
 from src.services.translator import run_translator
 from src.storage.history import save_request
-from src.storage.users import get_or_create_user
+from src.storage.user_context import load_user_context
 from src.ui.keyboards import mode_keyboard, result_keyboard
-from src.ui.messages import GROQ_ERROR, TEXT_TOO_LONG
+from src.ui.messages import GROQ_ERROR, MODEL_ERROR, RATE_LIMIT_ERROR, TEXT_TOO_LONG
 
 log = structlog.get_logger()
 router = Router()
@@ -31,6 +33,15 @@ MODE_LABEL = {
 }
 
 
+def error_message_for(exc: Exception) -> str:
+    """Pick a user-facing error text that actually explains what broke."""
+    if isinstance(exc, ModelUnavailableError):
+        return MODEL_ERROR
+    if is_rate_limit_error(exc):
+        return RATE_LIMIT_ERROR
+    return GROQ_ERROR
+
+
 async def _process_text(
     message: Message,
     session: AsyncSession,
@@ -40,7 +51,7 @@ async def _process_text(
     mode: str,
     style: str | None,
     target_lang: str,
-    db_user_id: int,
+    db_user_id: int | None,
 ) -> bool:
     """Run the selected mode on text and deliver the result. Returns True on success."""
     started = time.monotonic()
@@ -73,30 +84,40 @@ async def _process_text(
 
         total_ms = int((time.monotonic() - started) * 1000)
 
-        await save_request(
-            session,
-            user_id=db_user_id,
-            mode=mode,
-            style=style or "default",
-            input_type="text",
-            input_length=len(text),
-            input_preview=text[:200],
-            output_text=result_text[:5000],
-            output_length=len(result_text),
-            llm_model=model_used,
-            llm_ms=llm_ms,
-            total_ms=total_ms,
-        )
-
+        # Deliver the result FIRST — history is best-effort. Раньше падение БД
+        # на save_request выбрасывало уже готовый ответ LLM (юзер видел ошибку).
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
         await send_result(
             message, progress_msg, result_text, skills_info, "", result_keyboard(mode)
         )
+
+        if db_user_id is not None:
+            try:
+                await save_request(
+                    session,
+                    user_id=db_user_id,
+                    mode=mode,
+                    style=style or "default",
+                    input_type="text",
+                    input_length=len(text),
+                    input_preview=text[:200],
+                    output_text=result_text[:5000],
+                    output_length=len(result_text),
+                    llm_model=model_used,
+                    llm_ms=llm_ms,
+                    total_ms=total_ms,
+                )
+            except Exception as exc:
+                log.warning("save_request_failed", error=str(exc))
+                # Не оставляем сессию в failed-состоянии — иначе финальный
+                # commit в middleware упадёт с PendingRollbackError.
+                with contextlib.suppress(Exception):
+                    await session.rollback()
         return True
 
-    except Exception:
+    except Exception as exc:
         log.exception("text_handler_error")
-        await progress_msg.edit_text(GROQ_ERROR, reply_markup=mode_keyboard())
+        await progress_msg.edit_text(error_message_for(exc), reply_markup=mode_keyboard())
         return False
 
 
@@ -106,15 +127,15 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
     if not user_tg or not message.text:
         return
 
-    user = await get_or_create_user(
+    ctx = await load_user_context(
         session,
         telegram_user_id=user_tg.id,
         username=user_tg.username,
         first_name=user_tg.first_name,
     )
 
-    mode = user.default_mode
-    style = user.default_style
+    mode = ctx.default_mode
+    style = ctx.default_style
 
     if not mode:
         await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
@@ -127,7 +148,7 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         )
         return
 
-    target_lang = user.target_lang or "en"
+    target_lang = ctx.target_lang
     ok = await _process_text(
         message,
         session,
@@ -136,7 +157,7 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         mode=mode,
         style=style,
         target_lang=target_lang,
-        db_user_id=user.id,
+        db_user_id=ctx.db_user_id,
     )
     if ok:
         save_last(
@@ -146,7 +167,7 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
                 mode=mode,
                 style=style,
                 target_lang=target_lang,
-                db_user_id=user.id,
+                db_user_id=ctx.db_user_id,
                 text=text,
             ),
         )

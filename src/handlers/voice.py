@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import time
 
 import structlog
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import settings
 from src.handlers._last import LastRequest, save_last
 from src.handlers._reply import send_result
+from src.handlers.text import error_message_for
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -16,12 +18,11 @@ from src.services.summary import run_summary
 from src.services.transcribe import extract_audio_from_video, split_audio_to_chunks, transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
-from src.storage.users import get_or_create_user
+from src.storage.user_context import load_user_context
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import (
     CHUNK_TRANSCRIBING,
     EMPTY_TRANSCRIPT,
-    GROQ_ERROR,
     HUMANIZER_VOICE_ERROR,
     VOICE_TOO_LONG,
 )
@@ -104,7 +105,7 @@ async def _process_media(
     mode: str,
     style: str | None,
     target_lang: str,
-    db_user_id: int,
+    db_user_id: int | None,
     force_retranscribe: bool,
 ) -> bool:
     """Transcribe media and run the mode, delivering the result. Returns True on success.
@@ -197,31 +198,41 @@ async def _process_media(
 
         total_ms = int((time.monotonic() - started) * 1000)
 
-        await save_request(
-            session,
-            user_id=db_user_id,
-            mode=mode,
-            style=style or "default",
-            input_type="voice",
-            input_length=duration,
-            input_preview=transcript[:200],
-            output_text=result_text[:5000],
-            output_length=len(result_text),
-            llm_model=model_used,
-            transcription_ms=stt_ms,
-            llm_ms=llm_ms,
-            total_ms=total_ms,
-        )
-
+        # Deliver the result FIRST — history is best-effort (мёртвая БД не должна
+        # выбрасывать уже готовый ответ LLM).
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
         await send_result(
             message, progress_msg, result_text, skills_info, "", result_keyboard(mode)
         )
+
+        if db_user_id is not None:
+            try:
+                await save_request(
+                    session,
+                    user_id=db_user_id,
+                    mode=mode,
+                    style=style or "default",
+                    input_type="voice",
+                    input_length=duration,
+                    input_preview=transcript[:200],
+                    output_text=result_text[:5000],
+                    output_length=len(result_text),
+                    llm_model=model_used,
+                    transcription_ms=stt_ms,
+                    llm_ms=llm_ms,
+                    total_ms=total_ms,
+                )
+            except Exception as exc:
+                log.warning("save_request_failed", error=str(exc))
+                # Не оставляем сессию в failed-состоянии — иначе финальный
+                # commit в middleware упадёт с PendingRollbackError.
+                with contextlib.suppress(Exception):
+                    await session.rollback()
         return True
 
-    except Exception:
+    except Exception as exc:
         log.exception("voice_handler_error")
-        await progress_msg.edit_text(GROQ_ERROR, reply_markup=mode_keyboard())
+        await progress_msg.edit_text(error_message_for(exc), reply_markup=mode_keyboard())
         return False
 
 
@@ -233,15 +244,15 @@ async def handle_voice(
     if not user_tg:
         return
 
-    user = await get_or_create_user(
+    ctx = await load_user_context(
         session,
         telegram_user_id=user_tg.id,
         username=user_tg.username,
         first_name=user_tg.first_name,
     )
 
-    mode = user.default_mode
-    style = user.default_style
+    mode = ctx.default_mode
+    style = ctx.default_style
 
     if not mode:
         await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
@@ -258,7 +269,7 @@ async def handle_voice(
     if media is None:
         return
 
-    target_lang = user.target_lang or "en"
+    target_lang = ctx.target_lang
     ok = await _process_media(
         message,
         bot,
@@ -269,7 +280,7 @@ async def handle_voice(
         mode=mode,
         style=style,
         target_lang=target_lang,
-        db_user_id=user.id,
+        db_user_id=ctx.db_user_id,
         force_retranscribe=False,
     )
     if ok:
@@ -280,7 +291,7 @@ async def handle_voice(
                 mode=mode,
                 style=style,
                 target_lang=target_lang,
-                db_user_id=user.id,
+                db_user_id=ctx.db_user_id,
                 media=media,
                 is_video=is_video,
             ),

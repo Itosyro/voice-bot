@@ -9,7 +9,7 @@ from groq import AsyncGroq
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.services.llm import is_rate_limit_error
+from src.services.llm import is_model_unavailable_error, is_rate_limit_error
 from src.storage.models import TranscriptionCache
 
 log = structlog.get_logger()
@@ -35,16 +35,28 @@ async def transcribe(
     (via settings.get_all_groq_keys()) to spread load across accounts.
     """
     if file_id and session and settings.enable_transcription_cache:
-        if force_retranscribe:
-            cached = await session.get(TranscriptionCache, file_id)
-            if cached:
-                await session.delete(cached)
-                await session.flush()
-        else:
-            cached = await session.get(TranscriptionCache, file_id)
-            if cached:
-                return cached.transcript, 0
+        try:
+            if force_retranscribe:
+                cached = await session.get(TranscriptionCache, file_id)
+                if cached:
+                    await session.delete(cached)
+                    await session.flush()
+            else:
+                cached = await session.get(TranscriptionCache, file_id)
+                if cached:
+                    return cached.transcript, 0
+        except Exception as exc:
+            # Кэш — оптимизация; мёртвая БД не должна ломать распознавание.
+            log.warning("transcription_cache_unavailable", error=str(exc))
+            with contextlib.suppress(Exception):
+                await session.rollback()
+            session = None
 
+    wanted_model = model or settings.whisper_model
+    models_to_try = [wanted_model] + [
+        m for m in settings.whisper_model_fallbacks_list if m != wanted_model
+    ]
+    stt_model = models_to_try[0]
     current_key = api_key
     client = AsyncGroq(api_key=current_key)
     started = time.monotonic()
@@ -54,17 +66,24 @@ async def transcribe(
         try:
             result = await client.audio.transcriptions.create(
                 file=("voice.ogg", audio_bytes),
-                model=model or settings.whisper_model,
+                model=stt_model,
             )
             elapsed_ms = int((time.monotonic() - started) * 1000)
             text = result.text
 
             if file_id and session and settings.enable_transcription_cache:
-                existing = await session.get(TranscriptionCache, file_id)
-                if existing:
-                    existing.transcript = text
-                else:
-                    session.add(TranscriptionCache(file_id=file_id, transcript=text))
+                try:
+                    existing = await session.get(TranscriptionCache, file_id)
+                    if existing:
+                        existing.transcript = text
+                    else:
+                        session.add(TranscriptionCache(file_id=file_id, transcript=text))
+                except Exception as exc:
+                    # Транскрипт уже получен — падение записи кэша не должно
+                    # уводить нас на повторный прогон Whisper.
+                    log.warning("transcription_cache_save_failed", error=str(exc))
+                    with contextlib.suppress(Exception):
+                        await session.rollback()
 
             return text, elapsed_ms
         except Exception as e:
@@ -76,6 +95,14 @@ async def transcribe(
                 error=str(e),
                 rate_limited=rate_limited,
             )
+            if is_model_unavailable_error(e):
+                # Модель STT отключена провайдером — переключаемся на запасную
+                # (whisper-large-v3-turbo) вместо бессмысленных ретраев.
+                idx = models_to_try.index(stt_model)
+                if idx + 1 < len(models_to_try):
+                    stt_model = models_to_try[idx + 1]
+                    log.warning("stt_fallback_model", model=stt_model)
+                    continue
             if attempt < 2:
                 if rate_limited:
                     alt_keys = [k for k in settings.get_all_groq_keys() if k != current_key]

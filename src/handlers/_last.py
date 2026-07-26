@@ -15,7 +15,7 @@ class LastRequest:
     mode: str
     style: str | None
     target_lang: str
-    db_user_id: int
+    db_user_id: int | None  # None = БД была недоступна, история не писалась
     media: Any = None  # aiogram Voice/Audio/VideoNote/Video object (voice path)
     is_video: bool = False
     text: str | None = None  # text path

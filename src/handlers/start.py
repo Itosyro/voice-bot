@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.storage.users import get_or_create_user
+from src.storage.user_context import load_user_context
 from src.ui.keyboards import mode_keyboard
 from src.ui.messages import HELP_MESSAGE, START_MESSAGE
 
@@ -15,7 +15,8 @@ router = Router()
 async def cmd_start(message: Message, session: AsyncSession, state: FSMContext) -> None:
     await state.clear()
     if message.from_user:
-        await get_or_create_user(
+        # Resilient: /start обязан отвечать даже при мёртвой БД.
+        await load_user_context(
             session,
             telegram_user_id=message.from_user.id,
             username=message.from_user.username,
