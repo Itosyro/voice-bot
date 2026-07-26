@@ -8,7 +8,8 @@ from src.handlers.text import regenerate_text
 from src.handlers.voice import regenerate_voice
 from src.services.skills_db import SkillsDB
 from src.storage.history import get_user_history
-from src.storage.users import get_or_create_user, update_user_settings
+from src.storage.user_context import load_user_context, save_user_settings
+from src.storage.users import get_or_create_user
 from src.ui.design import MODE_NAME, STYLE_NAME
 from src.ui.keyboards import (
     humanizer_style_keyboard,
@@ -20,7 +21,7 @@ from src.ui.keyboards import (
     reprocess_mode_keyboard,
     settings_keyboard,
 )
-from src.ui.messages import CHOOSE_MODE, MODE_INFO, settings_text, style_header
+from src.ui.messages import CHOOSE_MODE, DB_UNAVAILABLE, MODE_INFO, settings_text, style_header
 from src.utils import escape_html
 
 log = structlog.get_logger()
@@ -42,9 +43,9 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
     mode = callback.data.split(":", 1)[1]
 
     if mode == "summary":
-        await update_user_settings(
+        await save_user_settings(
             session,
-            telegram_user_id=callback.from_user.id,
+            callback.from_user.id,
             default_mode="summary",
             default_style="summary",
         )
@@ -56,6 +57,11 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
 
     kb_fn = STYLE_KEYBOARDS.get(mode)
     if kb_fn:
+        # Персистим режим сразу (стиль сбрасываем на дефолт режима): раньше
+        # выбор «ПОЛИРОВКА» после Summary без нажатия стиля оставлял summary.
+        await save_user_settings(
+            session, callback.from_user.id, default_mode=mode, reset_style=True
+        )
         await callback.message.edit_text(  # type: ignore[union-attr]
             style_header(mode),
             reply_markup=kb_fn(),
@@ -85,9 +91,9 @@ async def on_style_selected(callback: CallbackQuery, session: AsyncSession) -> N
     }
     mode = mode_map.get(style, "polish")
 
-    await update_user_settings(
+    await save_user_settings(
         session,
-        telegram_user_id=callback.from_user.id,
+        callback.from_user.id,
         default_mode=mode,
         default_style=style,
     )
@@ -107,9 +113,9 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
     await callback.answer()  # ack immediately so the button stops spinning
     lang = callback.data.split(":", 1)[1]
 
-    await update_user_settings(
+    await save_user_settings(
         session,
-        telegram_user_id=callback.from_user.id,
+        callback.from_user.id,
         default_mode="translator",
         default_style="translator",
         target_lang=lang,
@@ -134,23 +140,25 @@ async def on_back_to_modes(callback: CallbackQuery) -> None:
     )
 
 
-@router.callback_query(F.data == "back:settings")
-async def on_back_to_settings(callback: CallbackQuery, session: AsyncSession) -> None:
+async def _show_settings(callback: CallbackQuery, session: AsyncSession) -> None:
+    """Render the settings card; survive a dead DB with memory-store values."""
     if not callback.from_user:
         return
-    user = await get_or_create_user(session, telegram_user_id=callback.from_user.id)
-    text = settings_text(
-        user.default_mode,
-        user.default_style,
-        user.target_lang or "en",
-        user.total_requests,
-    )
+    await callback.answer()  # ack immediately so the button stops spinning
+    ctx = await load_user_context(session, callback.from_user.id)
+    if not ctx.from_db:
+        log.warning("settings_shown_from_memory", telegram_user_id=callback.from_user.id)
+    text = settings_text(ctx.default_mode, ctx.default_style, ctx.target_lang, ctx.total_requests)
     await callback.message.edit_text(  # type: ignore[union-attr]
         text,
         reply_markup=settings_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()
+
+
+@router.callback_query(F.data == "back:settings")
+async def on_back_to_settings(callback: CallbackQuery, session: AsyncSession) -> None:
+    await _show_settings(callback, session)
 
 
 # ── Settings ──
@@ -158,21 +166,7 @@ async def on_back_to_settings(callback: CallbackQuery, session: AsyncSession) ->
 
 @router.callback_query(F.data == "cmd:settings")
 async def on_settings(callback: CallbackQuery, session: AsyncSession) -> None:
-    if not callback.from_user:
-        return
-    user = await get_or_create_user(session, telegram_user_id=callback.from_user.id)
-    text = settings_text(
-        user.default_mode,
-        user.default_style,
-        user.target_lang or "en",
-        user.total_requests,
-    )
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        text,
-        reply_markup=settings_keyboard(),
-        parse_mode="HTML",
-    )
-    await callback.answer()
+    await _show_settings(callback, session)
 
 
 @router.callback_query(F.data.startswith("action:set_default:"))
@@ -180,11 +174,7 @@ async def on_set_default(callback: CallbackQuery, session: AsyncSession) -> None
     if not callback.data or not callback.from_user:
         return
     mode = callback.data.split(":", 2)[2]
-    await update_user_settings(
-        session,
-        telegram_user_id=callback.from_user.id,
-        default_mode=mode,
-    )
+    await save_user_settings(session, callback.from_user.id, default_mode=mode)
     mode_name = MODE_NAME.get(mode, mode)
     await callback.answer(f"Режим {mode_name} установлен по умолчанию!", show_alert=True)
 
@@ -284,19 +274,13 @@ async def on_mode_info_page(callback: CallbackQuery) -> None:
 async def on_settings_reset(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.from_user:
         return
-    await update_user_settings(
-        session,
-        telegram_user_id=callback.from_user.id,
-        default_mode=None,
-        default_style=None,
-        target_lang="en",
-    )
+    await callback.answer()
+    await save_user_settings(session, callback.from_user.id, target_lang="en", reset=True)
     await callback.message.edit_text(  # type: ignore[union-attr]
         CHOOSE_MODE,
         reply_markup=mode_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 # ── History ──
@@ -306,8 +290,18 @@ async def on_settings_reset(callback: CallbackQuery, session: AsyncSession) -> N
 async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.from_user:
         return
-    user = await get_or_create_user(session, telegram_user_id=callback.from_user.id)
-    history = await get_user_history(session, user_id=user.id, limit=10)
+    await callback.answer()  # ack immediately so the button stops spinning
+    try:
+        user = await get_or_create_user(session, telegram_user_id=callback.from_user.id)
+        history = await get_user_history(session, user_id=user.id, limit=10)
+    except Exception as exc:
+        log.warning("history_db_unavailable", error=str(exc))
+        await callback.message.edit_text(  # type: ignore[union-attr]
+            DB_UNAVAILABLE,
+            reply_markup=mode_keyboard(),
+            parse_mode="HTML",
+        )
+        return
 
     if not history:
         await callback.message.edit_text(  # type: ignore[union-attr]
@@ -315,7 +309,6 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
             reply_markup=mode_keyboard(),
             parse_mode="HTML",
         )
-        await callback.answer()
         return
 
     lines = ["<b>Последние запросы</b>\n"]
@@ -329,4 +322,3 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
         reply_markup=mode_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()

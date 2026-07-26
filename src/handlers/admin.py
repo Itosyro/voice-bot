@@ -11,6 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
+from src.services.skills_db import SkillsDB
+from src.storage.db import get_session
 from src.storage.models import RequestHistory, SkillIndex, User
 from src.storage.users import (
     get_user_by_telegram_id,
@@ -42,30 +44,42 @@ def _user_label(user: User) -> str:
 
 
 @router.message(Command("sync_skills"))
-async def cmd_sync_skills(message: Message) -> None:
+async def cmd_sync_skills(message: Message, skills_db: SkillsDB) -> None:
     if not message.from_user or not _is_admin(message.from_user.id):
         await message.answer("Только для администраторов.")
         return
 
     await message.answer("Синхронизирую skills...")
 
-    proc = await asyncio.to_thread(
-        subprocess.run,
-        ["python", "scripts/sync_skills.py"],
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
+    try:
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            ["python", "scripts/sync_skills.py"],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        await message.answer("Синхронизация не уложилась в 10 минут — прервана.")
+        return
 
     output = proc.stdout[-2000:] if proc.stdout else ""
     errors = proc.stderr[-500:] if proc.stderr else ""
 
     if proc.returncode == 0:
-        msg = f"Skills синхронизированы.\n\n```\n{output}\n```"
-        await message.answer(msg, parse_mode="Markdown")
+        # Перезагружаем in-memory индекс: раньше новые skills подхватывались
+        # только после рестарта бота.
+        try:
+            async with get_session() as session:
+                fresh = await SkillsDB.load_from_db(session)
+            skills_db.replace_from(fresh)
+            reload_note = f"Индекс перезагружен: {len(fresh.skills)} skills."
+        except Exception as exc:
+            reload_note = f"Индекс НЕ перезагружен (ошибка чтения БД: {exc})."
+        # Вывод шлём без parse_mode: markdown-символы в логах ломали отправку.
+        await message.answer(f"Skills синхронизированы. {reload_note}\n\n{output}")
     else:
-        msg = f"Ошибка:\n```\n{errors}\n```"
-        await message.answer(msg, parse_mode="Markdown")
+        await message.answer(f"Ошибка:\n{errors}")
 
 
 @router.message(Command("stats"))
@@ -98,17 +112,18 @@ async def cmd_stats(message: Message, session: AsyncSession) -> None:
     mode_lines = [f"  {mode}: {cnt}" for mode, cnt in mode_stats]
 
     stats_text = (
-        f"**Статистика:**\n\n"
+        f"📊 Статистика\n\n"
         f"Пользователей всего: {users_count}\n"
         f"Активных за 7 дней: {active_week}\n"
         f"Запросов всего: {requests_count}\n"
         f"Skills: {skills_count}\n\n"
-        f"**Skills по репозиториям:**\n"
+        f"Skills по репозиториям:\n"
         + "\n".join(repo_lines or ["  (пусто)"])
-        + "\n\n**Запросы по режимам:**\n"
+        + "\n\nЗапросы по режимам:\n"
         + "\n".join(mode_lines or ["  (пусто)"])
     )
-    await message.answer(stats_text, parse_mode="Markdown")
+    # Без parse_mode: имена репозиториев с "_"/"*" ломали Markdown-парсинг.
+    await message.answer(stats_text)
 
 
 async def _render_user_card(session: AsyncSession, target_id: int) -> tuple[str, object | None]:

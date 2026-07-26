@@ -27,8 +27,10 @@ def _make_media(duration: int, file_id: str = "file123", file_size: int = 1000):
 
 
 def _make_user(mode: str = "polish", style: str | None = None, target_lang: str = "en"):
+    """Mimic storage.user_context.UserContext for handler tests."""
     user = MagicMock()
     user.id = 1
+    user.db_user_id = 1
     user.default_mode = mode
     user.default_style = style
     user.target_lang = target_lang
@@ -59,7 +61,7 @@ def common_mocks(monkeypatch):
 async def test_short_voice_uses_single_shot_transcribe(common_mocks, monkeypatch):
     """Duration below chunk_threshold_sec should use the single-shot transcribe path."""
     user = _make_user(mode="polish")
-    monkeypatch.setattr(voice, "get_or_create_user", AsyncMock(return_value=user))
+    monkeypatch.setattr(voice, "load_user_context", AsyncMock(return_value=user))
 
     transcribe_mock = AsyncMock(return_value=("hello world", 100))
     split_mock = AsyncMock()
@@ -86,7 +88,7 @@ async def test_short_voice_uses_single_shot_transcribe(common_mocks, monkeypatch
 async def test_long_voice_triggers_chunked_pipeline(common_mocks, monkeypatch):
     """Duration above chunk_threshold_sec should split into chunks and transcribe sequentially."""
     user = _make_user(mode="polish")
-    monkeypatch.setattr(voice, "get_or_create_user", AsyncMock(return_value=user))
+    monkeypatch.setattr(voice, "load_user_context", AsyncMock(return_value=user))
 
     chunks = [b"chunk1", b"chunk2", b"chunk3"]
     split_mock = AsyncMock(return_value=chunks)
@@ -140,7 +142,7 @@ async def test_long_voice_triggers_chunked_pipeline(common_mocks, monkeypatch):
 async def test_voice_exceeding_max_duration_is_rejected(common_mocks, monkeypatch):
     """Duration above max_voice_duration_sec should be rejected with VOICE_TOO_LONG."""
     user = _make_user(mode="polish")
-    monkeypatch.setattr(voice, "get_or_create_user", AsyncMock(return_value=user))
+    monkeypatch.setattr(voice, "load_user_context", AsyncMock(return_value=user))
 
     split_mock = AsyncMock()
     transcribe_mock = AsyncMock()
@@ -166,7 +168,7 @@ async def test_voice_exceeding_max_duration_is_rejected(common_mocks, monkeypatc
 async def test_reply_to_voice_transcribes_the_replied_media(common_mocks, monkeypatch):
     """Replying to (or forwarding) a voice should transcribe that media, not the reply text."""
     user = _make_user(mode="polish")
-    monkeypatch.setattr(voice, "get_or_create_user", AsyncMock(return_value=user))
+    monkeypatch.setattr(voice, "load_user_context", AsyncMock(return_value=user))
 
     transcribe_mock = AsyncMock(return_value=("replied transcript", 100))
     monkeypatch.setattr(voice, "transcribe", transcribe_mock)
@@ -194,7 +196,7 @@ async def test_reply_to_voice_transcribes_the_replied_media(common_mocks, monkey
 async def test_video_note_dispatches_through_same_pipeline(common_mocks, monkeypatch):
     """video_note messages should extract audio and go through the same transcribe pipeline."""
     user = _make_user(mode="translator")
-    monkeypatch.setattr(voice, "get_or_create_user", AsyncMock(return_value=user))
+    monkeypatch.setattr(voice, "load_user_context", AsyncMock(return_value=user))
 
     extract_mock = AsyncMock(return_value=b"extracted-audio")
     monkeypatch.setattr(voice, "extract_audio_from_video", extract_mock)

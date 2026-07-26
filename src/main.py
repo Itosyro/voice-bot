@@ -22,11 +22,19 @@ SELF_PING_INITIAL_DELAY_SEC = 60
 
 
 async def load_skills() -> SkillsDB:
-    """Load skills from database into memory for BM25 search."""
-    async with get_session() as session:
-        skills_db = await SkillsDB.load_from_db(session)
-    log.info("skills_loaded", count=len(skills_db.skills))
-    return skills_db
+    """Load skills from database into memory for BM25 search.
+
+    Мёртвая БД не должна ронять весь бот на старте — skills нужны только
+    режиму Prompt, остальные режимы работают и без них.
+    """
+    try:
+        async with get_session() as session:
+            skills_db = await SkillsDB.load_from_db(session)
+        log.info("skills_loaded", count=len(skills_db.skills))
+        return skills_db
+    except Exception as exc:
+        log.error("skills_load_failed_starting_without", error=str(exc))
+        return SkillsDB([])
 
 
 async def health_handler(_request: web.Request) -> web.Response:

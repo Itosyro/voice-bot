@@ -286,4 +286,3 @@ def admin_user_keyboard(telegram_user_id: int, is_blocked: bool) -> InlineKeyboa
             ],
         ]
     )
-

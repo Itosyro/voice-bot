@@ -19,6 +19,11 @@ async def get_or_create_user(
     stmt = select(User).where(User.telegram_user_id == telegram_user_id)
     user = (await session.execute(stmt)).scalar_one_or_none()
     if user:
+        # Держим ник/имя актуальными — иначе /users и /user показывают старые.
+        if username is not None and user.username != username:
+            user.username = username
+        if first_name is not None and user.first_name != first_name:
+            user.first_name = first_name
         return user
 
     # Atomic insert: if a concurrent request already inserted this user

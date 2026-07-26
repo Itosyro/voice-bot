@@ -39,6 +39,10 @@ STYLE_NAME = {
     "prompt_coder_strict": "Строгий",
     "humanize_lite": "Лёгкий",
     "humanize_strong": "Сильный",
+    # Псевдо-стили режимов без выбора стиля — иначе /settings показывал
+    # «Стиль: не выбран» после выбора Summary или языка перевода.
+    "summary": "Саммари",
+    "translator": "Перевод",
 }
 
 # ── Style icons (Unicode, per sub-style) ──

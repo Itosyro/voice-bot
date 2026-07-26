@@ -24,12 +24,19 @@ class Settings(BaseSettings):
     groq_api_key_fallback: str | None = None
 
     # Models
-    llm_model_default: str = "llama-3.3-70b-versatile"
-    llm_model_fast: str = "llama-3.1-8b-instant"
+    # llama-3.3-70b-versatile / llama-3.1-8b-instant деприкейтнуты Groq 17.06.2026
+    # (отключение до августа 2026). Официальная замена — openai/gpt-oss-120b.
+    llm_model_default: str = "openai/gpt-oss-120b"
+    llm_model_fast: str = "openai/gpt-oss-20b"
     llm_model_strict: str = "openai/gpt-oss-120b"
+    # Запасные модели: если основная отключена провайдером (404/decommissioned),
+    # complete() пробует их по порядку.
+    llm_model_fallbacks: str = "qwen/qwen3.6-27b,llama-3.3-70b-versatile"
     # large-v3 (НЕ turbo) — выбран осознанно: качество распознавания важнее скорости.
     # turbo быстрее, но заметно хуже на сложной речи/акцентах/матах. Не менять на turbo.
     whisper_model: str = "whisper-large-v3"
+    # Запасная STT-модель на случай отключения основной провайдером.
+    whisper_model_fallbacks: str = "whisper-large-v3-turbo"
 
     # Database
     database_url: str
@@ -48,7 +55,7 @@ class Settings(BaseSettings):
     skills_sync_interval_hours: int = 168
 
     # Retention / cleanup (фоновая задача удаляет старые строки из БД)
-    transcription_cache_ttl_days: int = 1  # удалять кэш транскриптов старше N дней (0 — выкл.)
+    transcription_cache_ttl_days: int = 7  # удалять кэш транскриптов старше N дней (0 — выкл.)
     request_history_ttl_days: int = 30  # удалять историю запросов старше N дней (0 — выкл.)
     cleanup_interval_hours: int = 24  # как часто запускать cleanup
     cleanup_initial_delay_sec: int = 300  # пауза перед первым запуском после старта
@@ -67,6 +74,14 @@ class Settings(BaseSettings):
         if not self.admin_user_ids:
             return []
         return [int(x.strip()) for x in self.admin_user_ids.split(",") if x.strip()]
+
+    @property
+    def llm_model_fallbacks_list(self) -> list[str]:
+        return [m.strip() for m in self.llm_model_fallbacks.split(",") if m.strip()]
+
+    @property
+    def whisper_model_fallbacks_list(self) -> list[str]:
+        return [m.strip() for m in self.whisper_model_fallbacks.split(",") if m.strip()]
 
     def get_groq_key(self, mode: str) -> str:
         key_map: dict[str, str | None] = {
