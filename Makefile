@@ -11,8 +11,8 @@ up:           ## Запустить бота
 down:         ## Остановить бота
 	$(COMPOSE) down
 
-restart:      ## Перезапустить
-	$(COMPOSE) restart
+restart:      ## Перезапустить (подхватывает изменения в .env)
+	$(COMPOSE) up -d --force-recreate
 
 logs:         ## Живые логи (Ctrl+C — выйти)
 	$(COMPOSE) logs -f --tail 100
@@ -22,6 +22,10 @@ status:       ## Работает ли бот
 
 update:       ## Забрать свежий код с GitHub и перезапустить
 	git pull && $(COMPOSE) up -d --build
+
+reconfigure:  ## Ввести ключи заново (старый .env сохранится в .env.bak)
+	@test -f .env && cp .env .env.bak && rm .env && echo "Старый .env сохранён как .env.bak" || true
+	bash scripts/install-server.sh
 
 shell:        ## Зайти внутрь контейнера
 	$(COMPOSE) exec bot sh

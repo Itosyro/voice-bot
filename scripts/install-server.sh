@@ -47,6 +47,7 @@ fi
 # ── 3. .env ──
 if [ -f .env ]; then
   ok ".env уже есть — оставляю как есть"
+  say "  (перезаписать ключи: make reconfigure — или вручную nano .env)"
 else
   say ""
   say "${BOLD}Настройка (2 обязательных значения)${OFF}"
@@ -90,7 +91,7 @@ $COMPOSE -f docker-compose.server.yml build
 
 say ""
 say "${BOLD}Запускаю${OFF}"
-$COMPOSE -f docker-compose.server.yml up -d
+$COMPOSE -f docker-compose.server.yml up -d --force-recreate
 
 sleep 5
 say ""
@@ -103,7 +104,7 @@ fi
 say ""
 say "${BOLD}Команды на каждый день${OFF}"
 say "  Логи:       $COMPOSE -f docker-compose.server.yml logs -f"
-say "  Перезапуск: $COMPOSE -f docker-compose.server.yml restart"
+say "  Перезапуск: $COMPOSE -f docker-compose.server.yml up -d --force-recreate"
 say "  Стоп:       $COMPOSE -f docker-compose.server.yml down"
 say "  Обновиться: git pull && $COMPOSE -f docker-compose.server.yml up -d --build"
 say ""
