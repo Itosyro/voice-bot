@@ -84,6 +84,9 @@ bash scripts/install-server.sh
 
 Без `make` — то же самое через `docker compose -f docker-compose.server.yml …`.
 
+Подробный рантбук (что делать при неверном ключе, как бэкапить базу,
+диагностика по логам): **[docs/DEPLOY-SERVER.md](docs/DEPLOY-SERVER.md)**.
+
 **Сколько занимает:** образ ~600 МБ, база растёт медленно (TTL чистит старое
 автоматически). Если места мало — `docker system prune -a` освободит
 неиспользуемые образы.
