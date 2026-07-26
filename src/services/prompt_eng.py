@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from src.config import settings
 from src.prompts.prompt_eng import PROMPT_ENG_PROMPTS
-from src.services.llm import OnDelta, complete
+from src.services.llm import OnDelta, complete, sanitize_user_input
 from src.services.skills_db import SkillsDB
 
 
@@ -37,7 +37,7 @@ async def run_prompt_eng(
 
     text, ms = await complete(
         system_prompt=system,
-        user_message=f"<user_input>{transcript}</user_input>",
+        user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("prompt"),
         model=model,
         temperature=temperature,

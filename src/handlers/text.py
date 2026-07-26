@@ -10,7 +10,7 @@ from src.config import settings
 from src.handlers._last import LastRequest, save_last
 from src.handlers._reply import make_draft_streamer, send_result
 from src.services.humanizer import run_humanizer
-from src.services.llm import ModelUnavailableError, is_rate_limit_error
+from src.services.llm import ModelUnavailableError, RequestTooLargeError, is_rate_limit_error
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -19,7 +19,14 @@ from src.services.translator import run_translator
 from src.storage.history import save_request
 from src.storage.user_context import load_user_context
 from src.ui.keyboards import mode_keyboard, result_keyboard
-from src.ui.messages import GROQ_ERROR, MODEL_ERROR, RATE_LIMIT_ERROR, TEXT_TOO_LONG
+from src.ui.messages import (
+    GROQ_ERROR,
+    MODEL_ERROR,
+    RATE_LIMIT_ERROR,
+    REQUEST_TOO_LARGE,
+    TEXT_TOO_LONG,
+    TG_SEND_ERROR,
+)
 
 log = structlog.get_logger()
 router = Router()
@@ -37,6 +44,10 @@ def error_message_for(exc: Exception) -> str:
     """Pick a user-facing error text that actually explains what broke."""
     if isinstance(exc, ModelUnavailableError):
         return MODEL_ERROR
+    if isinstance(exc, RequestTooLargeError):
+        return REQUEST_TOO_LARGE
+    if "MESSAGE_TOO_LONG" in str(exc) or "message is too long" in str(exc).lower():
+        return TG_SEND_ERROR
     if is_rate_limit_error(exc):
         return RATE_LIMIT_ERROR
     return GROQ_ERROR
@@ -135,12 +146,10 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         first_name=user_tg.first_name,
     )
 
-    mode = ctx.default_mode
+    # Дефолт для новичка — полировка: первое сообщение сразу даёт результат,
+    # а не тупик «сначала выбери режим».
+    mode = ctx.default_mode or "polish"
     style = ctx.default_style
-
-    if not mode:
-        await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
-        return
 
     text = message.text
     if len(text) > settings.max_text_length:

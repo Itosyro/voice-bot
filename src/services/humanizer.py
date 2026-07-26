@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.config import settings
 from src.prompts.humanizer import HUMANIZER_PROMPTS
-from src.services.llm import OnDelta, complete
+from src.services.llm import OnDelta, complete, sanitize_user_input
 
 
 @dataclass
@@ -27,7 +27,7 @@ async def run_humanizer(
     system = HUMANIZER_PROMPTS[sub_style]
     result, ms = await complete(
         system_prompt=system,
-        user_message=f"<user_input>{text}</user_input>",
+        user_message=f"<user_input>{sanitize_user_input(text)}</user_input>",
         api_key=settings.get_groq_key("humanizer"),
         model=settings.llm_model_default,
         temperature=TEMPERATURE_MAP.get(sub_style, 0.5),

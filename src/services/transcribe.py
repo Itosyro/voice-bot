@@ -126,20 +126,15 @@ async def split_audio_to_chunks(audio_bytes: bytes, chunk_sec: int) -> list[byte
     os.close(in_fd)
     work_dir = tempfile.mkdtemp(prefix="voice_chunks_")
     pattern = os.path.join(work_dir, "chunk_%04d.ogg")
-    try:
-        with open(in_path, "wb") as f:
-            f.write(audio_bytes)
 
+    async def _run_segment(codec_args: list[str]) -> bool:
         proc = await asyncio.create_subprocess_exec(
             "ffmpeg",
             "-y",
             "-i",
             in_path,
             "-vn",
-            "-acodec",
-            "libopus",
-            "-b:a",
-            "64k",
+            *codec_args,
             "-f",
             "segment",
             "-segment_time",
@@ -157,19 +152,39 @@ async def split_audio_to_chunks(audio_bytes: bytes, chunk_sec: int) -> list[byte
             with contextlib.suppress(Exception):
                 await proc.wait()
             log.error("ffmpeg_split_timeout", timeout=_FFMPEG_TIMEOUT_SEC)
-            return []
-
+            return False
         if proc.returncode != 0:
-            log.error("ffmpeg_split_failed", returncode=proc.returncode)
-            return []
+            log.warning("ffmpeg_split_failed", returncode=proc.returncode, codec=codec_args)
+            return False
+        return True
 
+    def _collect() -> list[bytes]:
         files = sorted(f for f in os.listdir(work_dir) if f.startswith("chunk_"))
-        chunks: list[bytes] = []
+        out: list[bytes] = []
         for name in files:
-            path = os.path.join(work_dir, name)
-            with open(path, "rb") as f:
-                chunks.append(f.read())
-        return chunks
+            with open(os.path.join(work_dir, name), "rb") as f:
+                out.append(f.read())
+        return out
+
+    try:
+        with open(in_path, "wb") as f:
+            f.write(audio_bytes)
+
+        # Телеграмный voice — уже ogg/opus: копирование потока вместо
+        # перекодировки на порядок быстрее (критично на слабом CPU Render free,
+        # где транскодинг часового аудио не влезал в таймаут).
+        if await _run_segment(["-c:a", "copy"]):
+            chunks = _collect()
+            if chunks:
+                return chunks
+
+        # Не-opus вход (mp3-файл, звук из видео) — полноценная перекодировка.
+        for name in os.listdir(work_dir):
+            with contextlib.suppress(OSError):
+                os.remove(os.path.join(work_dir, name))
+        if await _run_segment(["-acodec", "libopus", "-b:a", "64k"]):
+            return _collect()
+        return []
     except Exception:
         log.exception("split_audio_error")
         return []

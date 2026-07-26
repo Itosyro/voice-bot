@@ -61,3 +61,58 @@ async def test_humanizer_processes_text_reply_to_voice(monkeypatch):
     process_text_mock.assert_awaited_once()
     assert process_text_mock.call_args.kwargs["text"] == "очеловечь этот текст"
     message.answer.assert_not_awaited()  # ошибка HUMANIZER_VOICE_ERROR не показана
+
+
+# ── находки критика: UTF-16 лимиты и защита результата ──
+
+
+def test_split_text_respects_utf16_units():
+    """Текст с эмодзи (2 UTF-16 юнита каждый) не должен пробивать лимит 4096."""
+    from src.handlers._reply import split_text, tg_len
+
+    emoji_text = "слово 🔥 " * 700  # ~5600 симв, ~6300 UTF-16 юнитов
+    parts = split_text(emoji_text)
+    assert len(parts) >= 2
+    for part in parts:
+        assert tg_len(part) <= 3500
+
+
+def test_tg_len_counts_emoji_as_two():
+    from src.handlers._reply import tg_len
+
+    assert tg_len("абв") == 3
+    assert tg_len("🔥") == 2
+    assert tg_len("а🔥б") == 4
+
+
+def test_result_message_detection():
+    """Меню не должно затирать сообщения с результатом (blockquote/code entities)."""
+    from src.handlers.callbacks import _holds_result
+
+    result_msg = MagicMock()
+    result_msg.entities = [MagicMock(type="blockquote"), MagicMock(type="code")]
+    assert _holds_result(result_msg) is True
+
+    nav_msg = MagicMock()
+    nav_msg.entities = [MagicMock(type="bold")]
+    assert _holds_result(nav_msg) is False
+
+    plain_msg = MagicMock()
+    plain_msg.entities = None
+    assert _holds_result(plain_msg) is False
+
+
+def test_result_by_message_store_caps_growth():
+    from src.handlers._last import (
+        _RESULTS_BY_MESSAGE_CAP,
+        _results_by_message,
+        get_result_for_message,
+        save_result_for_message,
+    )
+
+    _results_by_message.clear()
+    for i in range(_RESULTS_BY_MESSAGE_CAP + 50):
+        save_result_for_message(1, i, f"r{i}")
+    assert len(_results_by_message) <= _RESULTS_BY_MESSAGE_CAP + 1
+    assert get_result_for_message(1, _RESULTS_BY_MESSAGE_CAP + 49) is not None
+    _results_by_message.clear()

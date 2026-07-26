@@ -25,7 +25,7 @@ async def cmd_settings(message: Message, session: AsyncSession) -> None:
         ctx.default_mode,
         ctx.default_style,
         ctx.target_lang,
-        ctx.total_requests,
+        ctx.total_requests if ctx.from_db else None,
     )
     await message.answer(text, reply_markup=settings_keyboard(), parse_mode="HTML")
 

@@ -8,7 +8,7 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.handlers._last import LastRequest, save_last
+from src.handlers._last import LastRequest, save_last, save_last_transcript
 from src.handlers._reply import make_draft_streamer, send_result
 from src.handlers.text import _process_text, error_message_for
 from src.services.polish import run_polish
@@ -24,6 +24,7 @@ from src.ui.messages import (
     CHUNK_TRANSCRIBING,
     EMPTY_TRANSCRIPT,
     HUMANIZER_VOICE_ERROR,
+    VOICE_TOO_BIG,
     VOICE_TOO_LONG,
 )
 
@@ -125,8 +126,9 @@ async def _process_media(
 
     max_bytes = settings.max_voice_file_mb * 1024 * 1024
     if media.file_size and media.file_size > max_bytes:
+        # Отдельный текст: раньше про большой ФАЙЛ писали «слишком длинное аудио».
         await message.answer(
-            VOICE_TOO_LONG.format(max_min=settings.max_voice_duration_sec // 60),
+            VOICE_TOO_BIG.format(max_mb=settings.max_voice_file_mb),
             parse_mode="HTML",
         )
         return False
@@ -193,17 +195,32 @@ async def _process_media(
                     )
                 return chunk_text, chunk_ms
 
+            # return_exceptions=True: иначе первый упавший чанк роняет всё,
+            # а «выжившие» таски продолжают редактировать прогресс-сообщение
+            # ПОВЕРХ сообщения об ошибке (и результат всех чанков теряется).
             results = await asyncio.gather(
-                *(_transcribe_chunk(i, cb) for i, cb in enumerate(chunks))
+                *(_transcribe_chunk(i, cb) for i, cb in enumerate(chunks)),
+                return_exceptions=True,
             )
-            stt_ms = sum(ms for _text, ms in results)
-            transcript_parts = [t.strip() for t, _ms in results if t and t.strip()]
+            # Упавшие чанки добираем последовательно (обычно это единичный 429).
+            fixed: list[tuple[str, int]] = []
+            for i, res in enumerate(results):
+                if isinstance(res, BaseException):
+                    log.warning("chunk_retry_after_failure", chunk=i + 1, error=str(res))
+                    fixed.append(await transcribe(chunks[i], api_key=groq_key))
+                else:
+                    fixed.append(res)
+            stt_ms = sum(ms for _text, ms in fixed)
+            transcript_parts = [t.strip() for t, _ms in fixed if t and t.strip()]
 
             transcript = "\n\n".join(transcript_parts)
 
         if not transcript.strip():
             await progress_msg.edit_text(EMPTY_TRANSCRIPT, reply_markup=mode_keyboard())
             return False
+
+        # Сырой транскрипт доступен по кнопке «Транскрипт» под результатом.
+        save_last_transcript(message.chat.id, transcript)
 
         await progress_msg.edit_text(f"✨ {MODE_LABEL.get(mode, 'Обрабатываю')}…")
 
@@ -218,7 +235,12 @@ async def _process_media(
         # выбрасывать уже готовый ответ LLM).
         skills_info = f"\n\n🧠 Skills: {', '.join(used_skills)}" if used_skills else ""
         await send_result(
-            message, progress_msg, result_text, skills_info, "", result_keyboard(mode)
+            message,
+            progress_msg,
+            result_text,
+            skills_info,
+            "",
+            result_keyboard(mode, with_transcript=True),
         )
 
         if db_user_id is not None:
@@ -267,12 +289,10 @@ async def handle_voice(
         first_name=user_tg.first_name,
     )
 
-    mode = ctx.default_mode
+    # Новичок без настроек сразу получает полировку, а не тупик «выбери режим»
+    # с необходимостью пересылать голосовое заново (главный фейл онбординга).
+    mode = ctx.default_mode or "polish"
     style = ctx.default_style
-
-    if not mode:
-        await message.answer("Сначала выбери режим:", reply_markup=mode_keyboard())
-        return
 
     if mode == "humanizer":
         # Голос Humanizer не поддерживает. Но если юзер НАПИСАЛ текст, реплайнув

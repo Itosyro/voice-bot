@@ -90,6 +90,7 @@ async def load_user_context(
                 default_style=mem.default_style,
                 target_lang=mem.target_lang,
             )
+            await session.commit()  # synced=True только после реального коммита
             mem.synced = True
             log.info("memory_settings_resynced", telegram_user_id=telegram_user_id)
         except Exception as exc:

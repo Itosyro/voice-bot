@@ -3,7 +3,7 @@ from typing import Any
 
 import structlog
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject
+from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from src.config import settings
 from src.storage.db import get_session
@@ -35,6 +35,8 @@ class AuthMiddleware(BaseMiddleware):
             if blocked:
                 if isinstance(event, Message):
                     await event.answer(USER_BLOCKED)
+                elif isinstance(event, CallbackQuery):
+                    await event.answer(USER_BLOCKED, show_alert=False)
                 return None
 
         allowed = settings.allowed_user_ids_list
@@ -46,4 +48,6 @@ class AuthMiddleware(BaseMiddleware):
 
         if isinstance(event, Message):
             await event.answer(NOT_ALLOWED)
+        elif isinstance(event, CallbackQuery):
+            await event.answer(NOT_ALLOWED, show_alert=False)
         return None

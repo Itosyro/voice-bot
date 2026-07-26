@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     llm_model_strict: str = "openai/gpt-oss-120b"
     # Запасные модели: если основная отключена провайдером (404/decommissioned),
     # complete() пробует их по порядку.
-    llm_model_fallbacks: str = "qwen/qwen3.6-27b,llama-3.3-70b-versatile"
+    llm_model_fallbacks: str = "qwen/qwen3.6-27b,openai/gpt-oss-20b"
     # large-v3 (НЕ turbo) — выбран осознанно: качество распознавания важнее скорости.
     # turbo быстрее, но заметно хуже на сложной речи/акцентах/матах. Не менять на turbo.
     whisper_model: str = "whisper-large-v3"

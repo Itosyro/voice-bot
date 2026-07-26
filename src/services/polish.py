@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from src.config import settings
 from src.prompts.polish import POLISH_PROMPTS
-from src.services.llm import OnDelta, complete
+from src.services.llm import OnDelta, complete, sanitize_user_input
 
 
 @dataclass
@@ -30,7 +30,7 @@ async def run_polish(
     system = POLISH_PROMPTS[sub_style]
     text, ms = await complete(
         system_prompt=system,
-        user_message=f"<user_input>{transcript}</user_input>",
+        user_message=f"<user_input>{sanitize_user_input(transcript)}</user_input>",
         api_key=settings.get_groq_key("polish"),
         model=settings.llm_model_default,
         temperature=TEMPERATURE_MAP.get(sub_style, 0.3),

@@ -285,5 +285,6 @@ async def test_groq_failure_falls_through_to_external_provider(monkeypatch):
 
 
 def test_estimate_tokens_rough():
-    assert llm.estimate_tokens("абв" * 100) == 101
+    # ~2 символа/токен для кириллицы (консервативно)
+    assert llm.estimate_tokens("абв" * 100) == 151
     assert llm.estimate_tokens("") == 1

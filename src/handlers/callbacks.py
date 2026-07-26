@@ -3,7 +3,12 @@ from aiogram import Bot, F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.handlers._last import get_last, get_last_result
+from src.handlers._last import (
+    get_last,
+    get_last_result,
+    get_last_transcript,
+    get_result_for_message,
+)
 from src.handlers.text import regenerate_text
 from src.handlers.voice import regenerate_voice
 from src.services.skills_db import SkillsDB
@@ -14,6 +19,7 @@ from src.ui.design import MODE_NAME, STYLE_NAME
 from src.ui.keyboards import (
     humanizer_style_keyboard,
     lang_keyboard,
+    menu_keyboard,
     mode_info_keyboard,
     mode_keyboard,
     polish_style_keyboard,
@@ -21,7 +27,14 @@ from src.ui.keyboards import (
     reprocess_mode_keyboard,
     settings_keyboard,
 )
-from src.ui.messages import CHOOSE_MODE, DB_UNAVAILABLE, MODE_INFO, settings_text, style_header
+from src.ui.messages import (
+    CHOOSE_MODE,
+    DB_UNAVAILABLE,
+    HUMANIZER_VOICE_ERROR,
+    MODE_INFO,
+    settings_text,
+    style_header,
+)
 from src.utils import escape_html
 
 log = structlog.get_logger()
@@ -51,6 +64,7 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
         )
         await callback.message.edit_text(  # type: ignore[union-attr]
             "∑ <b>САММАРИ</b>\n\nОтправь голос или текст",
+            reply_markup=menu_keyboard(),
             parse_mode="HTML",
         )
         return
@@ -102,6 +116,7 @@ async def on_style_selected(callback: CallbackQuery, session: AsyncSession) -> N
     mode_name = MODE_NAME.get(mode, mode)
     await callback.message.edit_text(  # type: ignore[union-attr]
         f"{mode_name} · {style_name}\n\nОтправь голос или текст",
+        reply_markup=menu_keyboard(),
         parse_mode="HTML",
     )
 
@@ -123,6 +138,7 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
 
     await callback.message.edit_text(  # type: ignore[union-attr]
         f"ПЕРЕВОД → {lang.upper()}\n\nОтправь голос или текст",
+        reply_markup=menu_keyboard(),
         parse_mode="HTML",
     )
 
@@ -130,14 +146,23 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
 # ── Navigation ──
 
 
+def _holds_result(msg) -> bool:
+    """True, если в сообщении лежит результат (копи-блок) — его нельзя затирать."""
+    entities = getattr(msg, "entities", None) or []
+    return any(e.type in ("blockquote", "expandable_blockquote", "code", "pre") for e in entities)
+
+
 @router.callback_query(F.data == "back:modes")
 async def on_back_to_modes(callback: CallbackQuery) -> None:
     await callback.answer()  # ack immediately so the button stops spinning
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        CHOOSE_MODE,
-        reply_markup=mode_keyboard(),
-        parse_mode="HTML",
-    )
+    msg = callback.message
+    if msg is None:
+        return
+    if _holds_result(msg):
+        # Раньше «Меню» УНИЧТОЖАЛО результат, редактируя его в список режимов.
+        await msg.answer(CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML")
+        return
+    await msg.edit_text(CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML")
 
 
 async def _show_settings(callback: CallbackQuery, session: AsyncSession) -> None:
@@ -148,7 +173,8 @@ async def _show_settings(callback: CallbackQuery, session: AsyncSession) -> None
     ctx = await load_user_context(session, callback.from_user.id)
     if not ctx.from_db:
         log.warning("settings_shown_from_memory", telegram_user_id=callback.from_user.id)
-    text = settings_text(ctx.default_mode, ctx.default_style, ctx.target_lang, ctx.total_requests)
+    total = ctx.total_requests if ctx.from_db else None
+    text = settings_text(ctx.default_mode, ctx.default_style, ctx.target_lang, total)
     await callback.message.edit_text(  # type: ignore[union-attr]
         text,
         reply_markup=settings_keyboard(),
@@ -177,9 +203,13 @@ async def on_export(callback: CallbackQuery) -> None:
         await callback.answer("Нет текста для экспорта.")
         return
 
-    # Полный текст из стора (многочастные ответы целиком); msg.text — фолбэк
-    # после рестарта, когда стор пуст.
-    text_content = get_last_result(msg.chat.id) or (msg.text or "").strip()
+    # Сначала — результат именно ЭТОГО сообщения (кнопка под старым ответом не
+    # должна выгружать более новый), затем последний, затем видимый текст.
+    text_content = (
+        get_result_for_message(msg.chat.id, msg.message_id)
+        or get_last_result(msg.chat.id)
+        or (msg.text or "").strip()
+    )
     if not text_content:
         await callback.answer("Нет текста для экспорта.")
         return
@@ -187,6 +217,92 @@ async def on_export(callback: CallbackQuery) -> None:
     doc = BufferedInputFile(text_content.encode("utf-8"), filename="result.txt")
     await msg.answer_document(doc)  # type: ignore[union-attr]
     await callback.answer("Готово!")
+
+
+@router.callback_query(F.data.startswith("rerun:"))
+async def on_rerun_in_mode(
+    callback: CallbackQuery, bot: Bot, session: AsyncSession, skills_db: SkillsDB
+) -> None:
+    """«Другой режим» → выбор режима СРАЗУ прогоняет сохранённый запрос.
+
+    Раньше кнопка честно писала «отправь тот же голос ещё раз» — хотя всё
+    нужное уже лежит в _last (а транскрипт — в кэше по file_id).
+    """
+    if not callback.data or not callback.from_user or not callback.message:
+        return
+    mode = callback.data.split(":", 1)[1]
+
+    last = get_last(callback.from_user.id)
+    # Режим запоминаем в любом случае — это ожидаемый сайд-эффект выбора.
+    await save_user_settings(session, callback.from_user.id, default_mode=mode, reset_style=True)
+
+    if last is None:
+        await callback.answer()
+        await callback.message.answer(  # type: ignore[union-attr]
+            "Режим переключил. Отправь голос или текст — обработаю.",
+        )
+        return
+
+    if mode == "humanizer" and last.input_type == "voice":
+        await callback.answer()
+        await callback.message.answer(  # type: ignore[union-attr]
+            HUMANIZER_VOICE_ERROR, parse_mode="HTML"
+        )
+        return
+
+    await callback.answer("Прогоняю в новом режиме…")
+    if last.input_type == "voice":
+        await _process_media_cb(callback, bot, session, skills_db, last, mode)
+    else:
+        from src.handlers.text import _process_text
+
+        await _process_text(
+            callback.message,  # type: ignore[arg-type]
+            session,
+            skills_db,
+            text=last.text or "",
+            mode=mode,
+            style=None,
+            target_lang=last.target_lang,
+            db_user_id=last.db_user_id,
+        )
+
+
+async def _process_media_cb(callback, bot, session, skills_db, last, mode: str) -> None:
+    from src.handlers.voice import _process_media
+
+    await _process_media(
+        callback.message,
+        bot,
+        session,
+        skills_db,
+        media=last.media,
+        is_video=last.is_video,
+        mode=mode,
+        style=None,
+        target_lang=last.target_lang,
+        db_user_id=last.db_user_id,
+        force_retranscribe=False,  # транскрипт берём из кэша — мгновенно
+    )
+
+
+@router.callback_query(F.data == "action:transcript")
+async def on_transcript(callback: CallbackQuery) -> None:
+    """Показать сырой Whisper-транскрипт последнего голосового."""
+    await callback.answer()
+    msg = callback.message
+    if msg is None:
+        return
+    transcript = get_last_transcript(msg.chat.id)
+    if not transcript:
+        await msg.answer("Транскрипта нет — пришли голосовое ещё раз.")  # type: ignore[union-attr]
+        return
+    header = "🎙 <b>Дословный транскрипт</b>\n"
+    body = escape_html(transcript[:3500])
+    await msg.answer(  # type: ignore[union-attr]
+        f"{header}<blockquote expandable><code>{body}</code></blockquote>",
+        parse_mode="HTML",
+    )
 
 
 @router.callback_query(F.data == "action:regenerate")
@@ -214,11 +330,14 @@ async def on_regenerate(
 @router.callback_query(F.data == "action:other_mode")
 async def on_other_mode(callback: CallbackQuery) -> None:
     await callback.answer()  # ack immediately so the button stops spinning
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        "<b>Другой режим</b>\n\nВыбери режим — отправь тот же голос\nили текст ещё раз:",
-        reply_markup=reprocess_mode_keyboard(),
-        parse_mode="HTML",
-    )
+    msg = callback.message
+    if msg is None:
+        return
+    text = "<b>Другой режим</b>\n\nВыбери — сразу прогоню тот же\nголос или текст ещё раз:"
+    if _holds_result(msg):
+        await msg.answer(text, reply_markup=reprocess_mode_keyboard(), parse_mode="HTML")
+        return
+    await msg.edit_text(text, reply_markup=reprocess_mode_keyboard(), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "settings:default_mode")

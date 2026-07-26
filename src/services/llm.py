@@ -17,6 +17,17 @@ class ModelUnavailableError(RuntimeError):
     """All candidate models are decommissioned/unknown at the provider."""
 
 
+class RequestTooLargeError(RuntimeError):
+    """Запрос не влезает в лимиты бесплатного тарифа (и нет провайдера с
+    длинным контекстом). Ретраи бессмысленны — юзеру нужен честный совет."""
+
+
+def sanitize_user_input(text: str) -> str:
+    """Убираем поддельные закрывающие теги: пользовательский текст не должен
+    уметь «выпрыгнуть» из <user_input>-обёртки (обход защиты из PR#6)."""
+    return text.replace("</user_input>", "")
+
+
 def is_rate_limit_error(exc: Exception) -> bool:
     """Return True if the exception indicates a rate-limit (429) response."""
     if isinstance(exc, RateLimitError):
@@ -41,8 +52,9 @@ def is_model_unavailable_error(exc: Exception) -> bool:
 
 
 def estimate_tokens(text: str) -> int:
-    """Грубая оценка токенов для русского/смешанного текста (~3 символа/токен)."""
-    return len(text) // 3 + 1
+    """Грубая оценка токенов: для кириллицы реально ~2 символа/токен, считаем
+    консервативно, чтобы длинный транскрипт не проскочил мимо роутинга."""
+    return len(text) // 2 + 1
 
 
 def _reasoning_extra(model: str, reasoning_effort: str | None) -> dict[str, str]:
@@ -83,14 +95,22 @@ async def _stream_chat(
         **extra,
     )
     full_text = ""
+    finish_reason = None
     async for chunk in stream:
         if not chunk.choices:
             continue
-        delta = chunk.choices[0].delta.content or ""
+        choice = chunk.choices[0]
+        if choice.finish_reason:
+            finish_reason = choice.finish_reason
+        delta = choice.delta.content or ""
         if delta:
             full_text += delta
             if on_delta:
                 await on_delta(full_text)
+    if full_text and finish_reason == "length":
+        # Молчаливый обрыв на полуслове хуже честной пометки.
+        log.warning("llm_response_truncated", model=model)
+        full_text += "\n\n[…ответ обрезан по лимиту длины — попробуй разбить запрос]"
     return full_text
 
 
@@ -195,6 +215,9 @@ async def complete(
             hint="set OPENROUTER_API_KEY to handle long transcripts",
         )
         # Провайдера с длинным контекстом нет — пробуем Groq: вдруг тариф платный.
+        long_request_without_provider = True
+    else:
+        long_request_without_provider = False
 
     models_to_try = [model] + [m for m in settings.llm_model_fallbacks_list if m != model]
     current_key = api_key
@@ -262,4 +285,12 @@ async def complete(
         raise ModelUnavailableError(
             f"All models unavailable: {', '.join(models_to_try)}"
         ) from last_exc
+    if (
+        last_exc is not None
+        and long_request_without_provider
+        and getattr(last_exc, "status_code", None) in (400, 413, 429)
+    ):
+        # 413/429 на заведомо длинном запросе — это не «сервер недоступен»,
+        # а лимит тарифа: совет «попробуй через минуту» здесь враньё.
+        raise RequestTooLargeError(str(last_exc)) from last_exc
     raise last_exc  # type: ignore[misc]
