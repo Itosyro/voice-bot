@@ -1,6 +1,11 @@
 import structlog
 from aiogram import Bot, F, Router
-from aiogram.types import BufferedInputFile, CallbackQuery
+from aiogram.types import (
+    BufferedInputFile,
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.handlers._last import (
@@ -9,6 +14,7 @@ from src.handlers._last import (
     get_last_transcript,
     get_result_for_message,
 )
+from src.handlers._queue import is_busy, user_lock
 from src.handlers.text import regenerate_text
 from src.handlers.voice import regenerate_voice
 from src.services.skills_db import SkillsDB
@@ -230,6 +236,9 @@ async def on_rerun_in_mode(
     """
     if not callback.data or not callback.from_user or not callback.message:
         return
+    if is_busy(callback.from_user.id):
+        await callback.answer("⏳ Уже обрабатываю — секунду.")
+        return
     mode = callback.data.split(":", 1)[1]
 
     last = get_last(callback.from_user.id)
@@ -251,21 +260,22 @@ async def on_rerun_in_mode(
         return
 
     await callback.answer("Прогоняю в новом режиме…")
-    if last.input_type == "voice":
-        await _process_media_cb(callback, bot, session, skills_db, last, mode)
-    else:
-        from src.handlers.text import _process_text
+    async with user_lock(callback.from_user.id):
+        if last.input_type == "voice":
+            await _process_media_cb(callback, bot, session, skills_db, last, mode)
+        else:
+            from src.handlers.text import _process_text
 
-        await _process_text(
-            callback.message,  # type: ignore[arg-type]
-            session,
-            skills_db,
-            text=last.text or "",
-            mode=mode,
-            style=None,
-            target_lang=last.target_lang,
-            db_user_id=last.db_user_id,
-        )
+            await _process_text(
+                callback.message,  # type: ignore[arg-type]
+                session,
+                skills_db,
+                text=last.text or "",
+                mode=mode,
+                style=None,
+                target_lang=last.target_lang,
+                db_user_id=last.db_user_id,
+            )
 
 
 async def _process_media_cb(callback, bot, session, skills_db, last, mode: str) -> None:
@@ -312,6 +322,10 @@ async def on_regenerate(
     """Re-run the last request from scratch (fresh transcription + fresh generation)."""
     if not callback.from_user or not callback.message:
         return
+    if is_busy(callback.from_user.id):
+        # Даблтап: раньше два конкурирующих прогона дрались за row-lock кэша.
+        await callback.answer("⏳ Уже генерирую — секунду.")
+        return
     await callback.answer("Перегенерирую…")
 
     last = get_last(callback.from_user.id)
@@ -321,10 +335,11 @@ async def on_regenerate(
         )
         return
 
-    if last.input_type == "voice":
-        await regenerate_voice(callback.message, bot, session, skills_db, last)  # type: ignore[arg-type]
-    else:
-        await regenerate_text(callback.message, session, skills_db, last)  # type: ignore[arg-type]
+    async with user_lock(callback.from_user.id):
+        if last.input_type == "voice":
+            await regenerate_voice(callback.message, bot, session, skills_db, last)  # type: ignore[arg-type]
+        else:
+            await regenerate_text(callback.message, session, skills_db, last)  # type: ignore[arg-type]
 
 
 @router.callback_query(F.data == "action:other_mode")
@@ -385,10 +400,28 @@ async def on_mode_info_page(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "settings:reset")
-async def on_settings_reset(callback: CallbackQuery, session: AsyncSession) -> None:
+async def on_settings_reset(callback: CallbackQuery) -> None:
+    """Сброс — только через подтверждение (раньше сносил всё молча)."""
+    await callback.answer()
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Да, сбросить", callback_data="settings:reset_yes"),
+                InlineKeyboardButton(text="Отмена", callback_data="back:settings"),
+            ]
+        ]
+    )
+    await callback.message.edit_text(  # type: ignore[union-attr]
+        "Сбросить режим, стиль и язык перевода на значения по умолчанию?",
+        reply_markup=kb,
+    )
+
+
+@router.callback_query(F.data == "settings:reset_yes")
+async def on_settings_reset_confirmed(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.from_user:
         return
-    await callback.answer()
+    await callback.answer("Сброшено")
     await save_user_settings(session, callback.from_user.id, target_lang="en", reset=True)
     await callback.message.edit_text(  # type: ignore[union-attr]
         CHOOSE_MODE,
@@ -426,10 +459,13 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
         return
 
     lines = ["<b>Последние запросы</b>\n"]
+    type_ru = {"voice": "голос", "text": "текст"}
     for h in history:
         mode_name = MODE_NAME.get(h.mode, h.mode)
         preview = (h.input_preview or "")[:80]
-        lines.append(f"• {mode_name} | {h.input_type} | {escape_html(preview)}...")
+        when = h.created_at.strftime("%d.%m %H:%M") if h.created_at else ""
+        kind = type_ru.get(h.input_type, h.input_type)
+        lines.append(f"• {when} · {mode_name} · {kind}\n  {escape_html(preview)}…")
 
     await callback.message.edit_text(  # type: ignore[union-attr]
         "\n".join(lines),
