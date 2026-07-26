@@ -71,8 +71,13 @@ src/
     voice.py       — приём медиа (прямое/форвард/реплай), транскрипция, _process_media
     text.py        — текстовые сообщения, _process_text
     _reply.py      — send_result: копи-блок, разбивка на части, .txt-фолбэк
-    _last.py       — in-memory стор последнего запроса (для кнопки «Повтор»)
-    callbacks.py   — все inline-кнопки (выбор режима/стиля/языка, навигация, regenerate, export)
+    _last.py       — in-memory стор: последний запрос, результаты по message_id,
+                     последние 5 транскриптов (для «Ещё вариант»/«Транскрипт»/склейки)
+    _queue.py      — per-user asyncio.Lock: очередь на пользователя + acquire_or_none
+                     (атомарный дедуп даблтапов по кнопкам)
+    callbacks.py   — все inline-кнопки (режим/стиль/язык, навигация, regenerate,
+                     rerun:<mode> — мгновенный прогон, transcript, merge_prev, export)
+    fallback.py    — catch-all: фото/файлы/стикеры получают понятный ответ
     start.py       — /start, /help
     modes.py       — /modes
     settings.py    — /settings, /lang, /history
@@ -81,14 +86,15 @@ src/
     llm.py         — complete(): Groq chat (стриминг внутрь, retry, ротация ключей при 429)
     transcribe.py  — transcribe(), split_audio_to_chunks(), extract_audio_from_video() (ffmpeg)
     polish.py / prompt_eng.py / humanizer.py / translator.py / summary.py — режимы
-    skills_db.py   — BM25-поиск по skills (in-memory из БД)
-    audio.py       — (legacy-хелперы аудио)
+    skills_db.py   — BM25-поиск по skills (лёгкие SkillRow, in-memory из БД)
   storage/
-    models.py      — User, RequestHistory, TranscriptionCache, Skill, …
-    db.py          — async engine (pool_size=5, statement_cache_size=0), get_session
-    users.py       — get_or_create_user (атомарный upsert), update_user_settings, бан
-    history.py     — save_request, get_user_history
-    cleanup.py     — cleanup_old_records (TTL для cache/history)
+    models.py      — User, RequestHistory, TranscriptionCache, SkillIndex
+                     (BigIntPK/TagsType — варианты типов под SQLite и Postgres)
+    db.py          — async engine под оба диалекта, IS_SQLITE, init_db(), get_session
+    users.py       — get_or_create_user (диалектный upsert), update_user_settings, бан
+    user_context.py— load_user_context/save_user_settings: БД + memory-фолбэк
+    history.py     — save_request (сам коммитит), get_user_history
+    cleanup.py     — cleanup_old_records (TTL; наивное время для SQLite)
   middlewares/
     auth.py        — ALLOWED_USER_IDS + динамический бан (is_blocked), админов не банит
     rate_limit.py  — in-memory скользящее окно, idle-юзеры выпиливаются из dict
@@ -98,8 +104,14 @@ src/
     design.py      — ЕДИНЫЙ источник: BRAND, MODE_ICON, STYLE_*, BTN_STYLE_*, DIV, LANG_FLAG
     keyboards.py   — все клавиатуры (style= для цветных кнопок, Bot API 9.4+)
     messages.py    — все тексты (HTML), settings_text(), MODE_INFO, константы ошибок
-scripts/sync_skills.py — заливка skills из GitHub-репозиториев в БД
-migrations/        — Alembic
+scripts/
+  sync_skills.py       — заливка skills из GitHub-репозиториев в БД
+  install-server.sh    — установка на свой сервер одной командой (вариант Б)
+  entrypoint.sh        — старт контейнера: миграции только для Postgres, best-effort синк
+docker-compose.server.yml — self-hosted: один контейнер + том, лимиты, ротация логов
+docker-compose.yml   — локальная разработка с Postgres
+Makefile             — up/down/logs/status/restart/update/reconfigure/backup
+migrations/          — Alembic (только для Postgres; SQLite поднимает init_db)
 ```
 
 **Стек:** aiogram 3.28+, SQLAlchemy 2 async, asyncpg, Groq SDK (LLM + Whisper STT),
@@ -274,6 +286,16 @@ aiohttp (health/webhook), rank-bm25 (skills), Alembic, ffmpeg (чанкинг/в
     Telegram после обработки апдейта; часовое голосовое в очереди → таймаут
     вебхука → Telegram ретраит апдейт → повторная обработка. Блокер для плана
     «webhook как основной режим» — сначала отвечать 200 сразу.
+28. **`docker compose restart` НЕ перечитывает `env_file`.** После правки ключа
+    в `.env` контейнер продолжал работать со старым значением — выглядело как
+    «ключ опять неверный». Нужен `up -d --force-recreate` (заведено в
+    `make restart`). Всплыло на первой же реальной установке на сервер.
+29. **SQLite ≠ Postgres в трёх местах, и каждое ломается молча:** BIGINT-PK не
+    автоинкрементится (вставка падает на NOT NULL id) → `BigIntPK`; нет типа
+    ARRAY → `TagsType` (JSON); нет таймзоны, `CURRENT_TIMESTAMP` наивный →
+    сравнение с aware-датой в TTL-очистке падает. Плюс asyncpg-параметры
+    (`statement_cache_size`) в SQLite слать нельзя, а без WAL параллельные
+    запросы дают «database is locked».
 
 ---
 
@@ -301,6 +323,8 @@ docker-compose.server.yml up -d` (или `bash scripts/install-server.sh`).
 База — **SQLite-файл в docker-томе** (`/app/data/voicebot.db`), внешних
 сервисов нет вообще. Схему создаёт `init_db()` на старте (alembic-миграции
 остаются только для Postgres). Обновление: `make update`.
+Рантбук (диагностика, бэкап/восстановление базы, смена ключей):
+`docs/DEPLOY-SERVER.md`.
 
 **Деплой (вариант А, легаси):** Render (free tier), long-polling. Деплоит **с ветки `main`**.
 Keep-alive: внешний пингер (cron-job.org/UptimeRobot) дёргает `/health` каждые 10 мин
@@ -334,14 +358,25 @@ Keep-alive: внешний пингер (cron-job.org/UptimeRobot) дёргае�
 
 ## 7. Переменные окружения
 
+Обязательных всего два (вариант Б):
+
 ```
 TELEGRAM_BOT_TOKEN=        # обязателен
 GROQ_API_KEY_FALLBACK=     # общий ключ; или отдельные groq_api_key_<mode>
-DATABASE_URL=              # postgresql+asyncpg://...
+```
+
+Остальное — по желанию:
+
+```
+DATABASE_URL=              # НЕ обязателен: по умолчанию sqlite+aiosqlite:///data/voicebot.db
+                           # (docker-compose.server.yml подставляет путь в томе);
+                           # для managed Postgres — postgresql+asyncpg://...
 ADMIN_USER_IDS=            # твой telegram user_id, через запятую
 ALLOWED_USER_IDS=          # пусто = открыт всем, список = только они
-# опционально:
-WEBHOOK_URL=               # если задан → webhook-режим вместо polling
+CEREBRAS_API_KEY=          # запасной LLM-провайдер (1M токенов/день бесплатно)
+OPENROUTER_API_KEY=        # нужен для голосовых длиннее ~25 мин (контекст 131K)
+ENABLE_DRAFT_STREAMING=    # false; true — превью генерации (после live-теста)
+WEBHOOK_URL=               # если задан → webhook-режим вместо polling (см. грабли №27)
 WEBHOOK_SECRET=
 # модели/лимиты/TTL берутся из config.py (есть дефолты)
 ```
@@ -350,11 +385,26 @@ WEBHOOK_SECRET=
 
 ## 8. Команды разработки
 
+Локально:
+
 ```bash
-docker compose up --build          # локально с postgres
-alembic upgrade head               # применить миграции
+python -m src.main                 # запустить бота (база — файл data/voicebot.db)
+docker compose up --build          # локально с Postgres (docker-compose.yml)
+alembic upgrade head               # миграции (только Postgres)
 python scripts/sync_skills.py      # залить skills в БД
-python -m src.main                 # запустить бота
+```
+
+На сервере (вариант Б, из папки проекта):
+
+```bash
+bash scripts/install-server.sh     # первичная установка (спросит токен и ключ)
+make logs                          # живые логи
+make status                        # работает ли
+make restart                       # перезапуск (подхватывает правки .env!)
+make reconfigure                   # ввести ключи заново (.env → .env.bak)
+make update                        # git pull + пересборка
+make backup                        # копия базы в backup-<дата>.db
+make down                          # остановить
 ```
 
 ---
@@ -426,6 +476,8 @@ python -m src.main                 # запустить бота
 - [x] Кэш транскрипта для чанкового пути (повторный прогон длинного — мгновенный)
 - [x] Склейка нескольких голосовых подряд в один текст (кнопка «Склеить»)
 - [x] Атрибуция реальной модели/провайдера в истории (LLMResult)
+- [x] **Вариант Б: self-hosted** — SQLite вместо Supabase, один контейнер вместо
+      Render, установка одной командой (#20, #21)
 - [ ] Кнопка «Транскрипт» — привязать к конкретному сообщению (как экспорт)
 - [ ] Ограничить память стора результатов (500 × полный текст = десятки МБ)
 - [ ] Логировать суточные audio-seconds (нужен ли STT-фолбэк вообще?)
