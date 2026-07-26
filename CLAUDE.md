@@ -52,6 +52,11 @@ Groq деприкейтнул `llama-3.3-70b-versatile` — модель, на �
    голосовые длиннее ~25 минут упираются в лимит Groq (8K TPM).
 3. Проверить бота вживую → тогда включать `ENABLE_DRAFT_STREAMING`.
 
+**Вариант Б (переезд на свой сервер, 26.07.2026):** добавлен self-hosted
+режим — SQLite вместо Supabase, один контейнер вместо Render, установка
+`bash scripts/install-server.sh`. Пункт 1 из списка выше при этом отпадает:
+база создаётся сама.
+
 ## 2. Архитектура
 
 ```
@@ -166,6 +171,12 @@ aiohttp (health/webhook), rank-bm25 (skills), Alembic, ffmpeg (чанкинг/в
 - **coder_strict / gpt-oss-120b** — reasoning-модель: нужны
   `reasoning_effort` + `reasoning_format="hidden"` + `max_completion_tokens`,
   иначе пустой `content`.
+- **Две БД одним кодом** (`db.py`, `models.py`): SQLite (self-hosted, дефолт)
+  и Postgres (managed). Различия спрятаны: `BigIntPK`/`TagsType` — варианты
+  типов (в SQLite BIGINT-PK не автоинкрементится, ARRAY отсутствует),
+  `_insert` — диалектный upsert, `IS_SQLITE` — ветка в cleanup (SQLite хранит
+  наивное время) и в параметрах движка (asyncpg-опции туда слать нельзя).
+  Для SQLite включены WAL + busy_timeout, иначе «database is locked».
 - **БД-пул** (`db.py`): pool_size=5, max_overflow=5, pool_pre_ping, pool_recycle=300,
   `statement_cache_size=0` (совместимость с PgBouncer Supabase/Neon).
 - **Бан**: `users.is_blocked`; `AuthMiddleware` проверяет (своя сессия), админов забанить нельзя.
@@ -270,7 +281,7 @@ aiohttp (health/webhook), rank-bm25 (skills), Alembic, ffmpeg (чанкинг/в
 
 ```bash
 ruff check . && ruff format --check .            # линт/формат
-python -m pytest tests/ -q                       # 98 тестов
+python -m pytest tests/ -q                       # 101 тест
 python -c "from src.bot import create_dispatcher; create_dispatcher()"  # сборка без циклов
 ```
 
@@ -285,7 +296,13 @@ python -c "from src.bot import create_dispatcher; create_dispatcher()"  # сбо
 
 ## 6. 🔄 Рабочий процесс и деплой
 
-**Деплой:** Render (free tier), long-polling. Деплоит **с ветки `main`**.
+**Деплой (вариант Б, основной):** свой VPS, `docker compose -f
+docker-compose.server.yml up -d` (или `bash scripts/install-server.sh`).
+База — **SQLite-файл в docker-томе** (`/app/data/voicebot.db`), внешних
+сервисов нет вообще. Схему создаёт `init_db()` на старте (alembic-миграции
+остаются только для Postgres). Обновление: `make update`.
+
+**Деплой (вариант А, легаси):** Render (free tier), long-polling. Деплоит **с ветки `main`**.
 Keep-alive: внешний пингер (cron-job.org/UptimeRobot) дёргает `/health` каждые 10 мин
 (+ есть self-ping в webhook-режиме). БД — Supabase (session pooler, порт 5432).
 При старте автоматически: `alembic upgrade head` + `python scripts/sync_skills.py`.

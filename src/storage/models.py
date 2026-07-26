@@ -1,9 +1,17 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+
+# Один и тот же код работает на Postgres и на SQLite (self-hosted режим:
+# база — просто файл рядом с ботом, никаких внешних сервисов).
+#   BigInt: в SQLite автоинкремент работает ТОЛЬКО у INTEGER PRIMARY KEY,
+#           BIGINT молча ломает вставку (id NOT NULL).
+#   Tags:   ARRAY есть только в Postgres, в SQLite кладём JSON-массив.
+BigIntPK = BigInteger().with_variant(Integer, "sqlite")
+TagsType = ARRAY(Text).with_variant(JSON, "sqlite")
 
 
 class Base(DeclarativeBase):
@@ -13,8 +21,8 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    telegram_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True)
+    telegram_user_id: Mapped[int] = mapped_column(BigIntPK, unique=True, nullable=False)
     username: Mapped[str | None] = mapped_column(Text)
     first_name: Mapped[str | None] = mapped_column(Text)
     language_code: Mapped[str | None] = mapped_column(Text)
@@ -39,9 +47,9 @@ class User(Base):
 class RequestHistory(Base):
     __tablename__ = "request_history"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        BigIntPK, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     mode: Mapped[str] = mapped_column(Text, nullable=False)
@@ -79,11 +87,11 @@ class TranscriptionCache(Base):
 class SkillIndex(Base):
     __tablename__ = "skills_index"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntPK, primary_key=True)
     source_repo: Mapped[str] = mapped_column(Text, nullable=False)
     skill_name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     file_path: Mapped[str] = mapped_column(Text, nullable=False)
-    tags: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    tags: Mapped[list[str] | None] = mapped_column(TagsType)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

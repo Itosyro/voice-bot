@@ -1,0 +1,28 @@
+# Self-hosted: один контейнер, база — файл SQLite внутри тома.
+# Ни Supabase, ни Render, ни отдельного Postgres. Запуск:
+#   docker compose -f docker-compose.server.yml up -d --build
+services:
+  bot:
+    build: .
+    image: voice-bot:local
+    container_name: voice-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Файловая база внутри тома: переживает пересборку и перезапуск.
+      DATABASE_URL: sqlite+aiosqlite:////app/data/voicebot.db
+      LOG_FORMAT: text
+    volumes:
+      - voicebot_data:/app/data
+    # Скромные лимиты: на сервере уже крутится другой проект.
+    mem_limit: 1g
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  voicebot_data:

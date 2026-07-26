@@ -1,0 +1,17 @@
+# Меньше контекст сборки — меньше места и времени на сервере.
+.git
+.github
+docs
+tests
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+*.egg-info
+data
+backup-*.db
