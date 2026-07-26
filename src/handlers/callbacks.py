@@ -3,7 +3,7 @@ from aiogram import Bot, F, Router
 from aiogram.types import BufferedInputFile, CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.handlers._last import get_last
+from src.handlers._last import get_last, get_last_result
 from src.handlers.text import regenerate_text
 from src.handlers.voice import regenerate_voice
 from src.services.skills_db import SkillsDB
@@ -169,27 +169,22 @@ async def on_settings(callback: CallbackQuery, session: AsyncSession) -> None:
     await _show_settings(callback, session)
 
 
-@router.callback_query(F.data.startswith("action:set_default:"))
-async def on_set_default(callback: CallbackQuery, session: AsyncSession) -> None:
-    if not callback.data or not callback.from_user:
-        return
-    mode = callback.data.split(":", 2)[2]
-    await save_user_settings(session, callback.from_user.id, default_mode=mode)
-    mode_name = MODE_NAME.get(mode, mode)
-    await callback.answer(f"Режим {mode_name} установлен по умолчанию!", show_alert=True)
-
-
 @router.callback_query(F.data == "action:export")
 async def on_export(callback: CallbackQuery) -> None:
     """Export the result text as a .txt file."""
     msg = callback.message
-    if not msg or not msg.text:
+    if not msg:
         await callback.answer("Нет текста для экспорта.")
         return
 
-    text_content = msg.text.strip()
-    file_bytes = text_content.encode("utf-8")
-    doc = BufferedInputFile(file_bytes, filename="result.txt")
+    # Полный текст из стора (многочастные ответы целиком); msg.text — фолбэк
+    # после рестарта, когда стор пуст.
+    text_content = get_last_result(msg.chat.id) or (msg.text or "").strip()
+    if not text_content:
+        await callback.answer("Нет текста для экспорта.")
+        return
+
+    doc = BufferedInputFile(text_content.encode("utf-8"), filename="result.txt")
     await msg.answer_document(doc)  # type: ignore[union-attr]
     await callback.answer("Готово!")
 

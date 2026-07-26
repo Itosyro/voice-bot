@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config import settings
 from src.handlers._last import LastRequest, save_last
 from src.handlers._reply import send_result
-from src.handlers.text import error_message_for
+from src.handlers.text import _process_text, error_message_for
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
 from src.services.skills_db import SkillsDB
@@ -261,6 +261,20 @@ async def handle_voice(
         return
 
     if mode == "humanizer":
+        # Голос Humanizer не поддерживает. Но если юзер НАПИСАЛ текст, реплайнув
+        # на чьё-то медиа, — обрабатываем его текст, а не ругаемся.
+        if message.text and _pick_media(message)[0] is None:
+            await _process_text(
+                message,
+                session,
+                skills_db,
+                text=message.text,
+                mode=mode,
+                style=style,
+                target_lang=ctx.target_lang,
+                db_user_id=ctx.db_user_id,
+            )
+            return
         await message.answer(HUMANIZER_VOICE_ERROR, reply_markup=mode_keyboard(), parse_mode="HTML")
         return
 

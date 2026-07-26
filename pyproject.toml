@@ -17,9 +17,6 @@ dependencies = [
     # Search
     "rank-bm25>=0.2.2",
 
-    # Audio
-    "pydub>=0.25.1",
-
     # Config
     "pydantic-settings>=2.5.0",
     "python-dotenv>=1.0.1",

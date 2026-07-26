@@ -38,8 +38,11 @@ async def save_request(
     session.add(record)
     await session.flush()
 
-    # Increment total_requests counter
-    stmt = update(User).where(User.id == user_id).values(total_requests=User.total_requests + 1)
+    # Increment counters (voice seconds раньше объявлялся, но нигде не рос).
+    values: dict = {"total_requests": User.total_requests + 1}
+    if input_type == "voice" and input_length:
+        values["total_voice_seconds"] = User.total_voice_seconds + input_length
+    stmt = update(User).where(User.id == user_id).values(**values)
     await session.execute(stmt)
 
     return record

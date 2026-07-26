@@ -1,5 +1,6 @@
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, Message
 
+from src.handlers._last import save_last_result
 from src.utils import escape_html
 
 # Rendered text limit is 4096; HTML tags don't count toward it, but emojis cost
@@ -51,6 +52,8 @@ async def send_result(
         # чтобы юзер не остался без кнопок).
         await progress_msg.edit_text("⚠ Пустой ответ от модели. Попробуй ещё раз.", reply_markup=kb)
         return
+
+    save_last_result(message.chat.id, result_text)
 
     parts = split_text(result_text)
     # Footer (skills/timing) goes outside the copy block as plain text.

@@ -51,8 +51,6 @@ class Settings(BaseSettings):
     rate_limit_per_user_per_min: int = 20
 
     enable_transcription_cache: bool = True
-    skills_auto_sync_on_startup: bool = True
-    skills_sync_interval_hours: int = 168
 
     # Retention / cleanup (фоновая задача удаляет старые строки из БД)
     transcription_cache_ttl_days: int = 7  # удалять кэш транскриптов старше N дней (0 — выкл.)

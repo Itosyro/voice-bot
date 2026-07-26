@@ -23,6 +23,11 @@ class LastRequest:
 
 _store: dict[int, LastRequest] = {}
 
+# Полный текст последнего результата по chat_id — для «Скачать .txt».
+# Раньше экспорт брал msg.text: у многочастного ответа выгружалась только
+# последняя часть, а у файлового фолбэка текста нет вовсе.
+_results: dict[int, str] = {}
+
 
 def save_last(telegram_user_id: int, req: LastRequest) -> None:
     _store[telegram_user_id] = req
@@ -30,3 +35,11 @@ def save_last(telegram_user_id: int, req: LastRequest) -> None:
 
 def get_last(telegram_user_id: int) -> LastRequest | None:
     return _store.get(telegram_user_id)
+
+
+def save_last_result(chat_id: int, result_text: str) -> None:
+    _results[chat_id] = result_text
+
+
+def get_last_result(chat_id: int) -> str | None:
+    return _results.get(chat_id)
