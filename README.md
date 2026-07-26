@@ -76,7 +76,8 @@ bash scripts/install-server.sh
 |---|---|
 | Логи | `make logs` |
 | Статус | `make status` |
-| Перезапуск | `make restart` |
+| Перезапуск (подхватит новый `.env`) | `make restart` |
+| Переписать ключи заново | `make reconfigure` |
 | Обновиться с GitHub | `make update` |
 | Бэкап базы | `make backup` |
 | Остановить | `make down` |
