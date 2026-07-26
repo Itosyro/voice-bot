@@ -175,16 +175,29 @@ async def _process_media(
                 return False
 
             n = len(chunks)
-            transcript_parts: list[str] = []
-            stt_ms = 0
-            for k, chunk_bytes in enumerate(chunks, 1):
-                await progress_msg.edit_text(CHUNK_TRANSCRIBING.format(k=k, n=n), parse_mode="HTML")
-                chunk_text, chunk_ms = await transcribe(chunk_bytes, api_key=groq_key)
-                stt_ms += chunk_ms
-                if chunk_text and chunk_text.strip():
-                    transcript_parts.append(chunk_text.strip())
-                if k < n:
-                    await asyncio.sleep(settings.chunk_throttle_sec)
+            # Параллельная транскрипция (ограниченная semaphore): часовое аудио
+            # раньше обрабатывалось строго последовательно с паузами — долго.
+            sem = asyncio.Semaphore(max(1, settings.chunk_parallelism))
+            done_count = 0
+
+            async def _transcribe_chunk(idx: int, chunk_bytes: bytes) -> tuple[str, int]:
+                nonlocal done_count
+                # Небольшой стаггер стартов, чтобы не влупить все запросы разом.
+                await asyncio.sleep(idx * settings.chunk_throttle_sec)
+                async with sem:
+                    chunk_text, chunk_ms = await transcribe(chunk_bytes, api_key=groq_key)
+                done_count += 1
+                with contextlib.suppress(Exception):  # прогресс — не повод падать
+                    await progress_msg.edit_text(
+                        CHUNK_TRANSCRIBING.format(k=done_count, n=n), parse_mode="HTML"
+                    )
+                return chunk_text, chunk_ms
+
+            results = await asyncio.gather(
+                *(_transcribe_chunk(i, cb) for i, cb in enumerate(chunks))
+            )
+            stt_ms = sum(ms for _text, ms in results)
+            transcript_parts = [t.strip() for t, _ms in results if t and t.strip()]
 
             transcript = "\n\n".join(transcript_parts)
 

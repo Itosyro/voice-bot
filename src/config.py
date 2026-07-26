@@ -45,7 +45,8 @@ class Settings(BaseSettings):
     max_voice_duration_sec: int = 3600  # 1 hour absolute cap (chunked beyond chunk_threshold)
     chunk_threshold_sec: int = 600  # voices longer than this go through chunked pipeline
     chunk_duration_sec: int = 300  # size of a single audio chunk (5 min)
-    chunk_throttle_sec: float = 1.5  # pause between Groq calls to avoid rate limit
+    chunk_throttle_sec: float = 1.5  # stagger between chunk launches (rate-limit friendly)
+    chunk_parallelism: int = 3  # сколько чанков транскрибируем одновременно
     max_voice_file_mb: int = 20
     max_text_length: int = 10000
     rate_limit_per_user_per_min: int = 20
