@@ -1,6 +1,6 @@
 """Tests for UX fixes: full-text export store + humanizer text-reply routing."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -116,3 +116,89 @@ def test_result_by_message_store_caps_growth():
     assert len(_results_by_message) <= _RESULTS_BY_MESSAGE_CAP + 1
     assert get_result_for_message(1, _RESULTS_BY_MESSAGE_CAP + 49) is not None
     _results_by_message.clear()
+
+
+# ── бэклог раунда 2: очередь юзера и кэш чанкового транскрипта ──
+
+
+@pytest.mark.asyncio
+async def test_user_lock_serializes_and_reports_busy():
+    from src.handlers._queue import cleanup_idle_locks, is_busy, user_lock
+
+    uid = 777
+    assert is_busy(uid) is False
+    lock = user_lock(uid)
+    async with lock:
+        assert is_busy(uid) is True
+    assert is_busy(uid) is False
+    cleanup_idle_locks()
+    assert is_busy(uid) is False  # после чистки замок пересоздаётся по требованию
+
+
+@pytest.mark.asyncio
+async def test_chunked_voice_uses_cached_transcript(monkeypatch, common_mocks=None):
+    """Повторный прогон длинного голосового берёт транскрипт из кэша —
+    Whisper и нарезка не запускаются вовсе."""
+    from src.handlers import voice as voice_mod
+
+    ctx = MagicMock()
+    ctx.default_mode = "polish"
+    ctx.default_style = None
+    ctx.target_lang = "en"
+    ctx.db_user_id = 1
+
+    split_mock = AsyncMock()
+    transcribe_mock = AsyncMock()
+    monkeypatch.setattr(voice_mod, "split_audio_to_chunks", split_mock)
+    monkeypatch.setattr(voice_mod, "transcribe", transcribe_mock)
+    monkeypatch.setattr(voice_mod, "save_request", AsyncMock())
+    monkeypatch.setattr(
+        voice_mod,
+        "run_polish",
+        AsyncMock(return_value=MagicMock(text="polished", llm_ms=1, model="m")),
+    )
+
+    cached_row = MagicMock()
+    cached_row.transcript = "cached long transcript"
+    session = MagicMock()
+    session.get = AsyncMock(return_value=cached_row)
+    session.commit = AsyncMock()
+
+    bot = MagicMock()
+    file_info = MagicMock()
+    file_info.file_path = "voice/f.ogg"
+    bot.get_file = AsyncMock(return_value=file_info)
+    fb = MagicMock()
+    fb.read = MagicMock(return_value=b"bytes")
+    bot.download_file = AsyncMock(return_value=fb)
+
+    media = MagicMock()
+    media.duration = 1200  # больше chunk_threshold_sec=600 → чанковый путь
+    media.file_id = "long1"
+    media.file_size = 1000
+
+    message = MagicMock()
+    message.chat.id = 5
+    progress = MagicMock()
+    progress.edit_text = AsyncMock()
+    message.answer = AsyncMock(return_value=progress)
+
+    with patch.object(voice_mod, "send_result", new=AsyncMock()) as sr:
+        ok = await voice_mod._process_media(
+            message,
+            bot,
+            session,
+            MagicMock(),
+            media=media,
+            is_video=False,
+            mode="polish",
+            style=None,
+            target_lang="en",
+            db_user_id=1,
+            force_retranscribe=False,
+        )
+
+    assert ok is True
+    split_mock.assert_not_awaited()
+    transcribe_mock.assert_not_awaited()
+    sr.assert_awaited_once()

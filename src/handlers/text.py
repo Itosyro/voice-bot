@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.handlers._last import LastRequest, save_last
+from src.handlers._queue import user_lock
 from src.handlers._reply import make_draft_streamer, send_result
 from src.services.humanizer import run_humanizer
 from src.services.llm import ModelUnavailableError, RequestTooLargeError, is_rate_limit_error
@@ -159,16 +160,20 @@ async def handle_text(message: Message, session: AsyncSession, skills_db: Skills
         return
 
     target_lang = ctx.target_lang
-    ok = await _process_text(
-        message,
-        session,
-        skills_db,
-        text=text,
-        mode=mode,
-        style=style,
-        target_lang=target_lang,
-        db_user_id=ctx.db_user_id,
-    )
+    lock = user_lock(user_tg.id)
+    if lock.locked():
+        await message.answer("⏳ Обрабатываю предыдущее — это сообщение возьму следом.")
+    async with lock:
+        ok = await _process_text(
+            message,
+            session,
+            skills_db,
+            text=text,
+            mode=mode,
+            style=style,
+            target_lang=target_lang,
+            db_user_id=ctx.db_user_id,
+        )
     if ok:
         save_last(
             user_tg.id,

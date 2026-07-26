@@ -105,7 +105,7 @@ async def load_user_context(
             from_db=False,
         )
 
-    return UserContext(
+    ctx = UserContext(
         telegram_user_id=telegram_user_id,
         db_user_id=user.id,
         default_mode=user.default_mode,
@@ -113,6 +113,12 @@ async def load_user_context(
         target_lang=user.target_lang or "en",
         total_requests=user.total_requests,
     )
+    # Коммитим сразу после чтения: иначе транзакция (и коннект из пула 5+5)
+    # висит открытой всю транскрипцию + LLM — минуты для длинных голосовых.
+    # 8-10 параллельных прогонов раньше исчерпывали пул (критик Б2).
+    with contextlib.suppress(Exception):
+        await session.commit()
+    return ctx
 
 
 async def save_user_settings(

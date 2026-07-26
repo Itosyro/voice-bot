@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.handlers._last import LastRequest, save_last, save_last_transcript
+from src.handlers._queue import user_lock
 from src.handlers._reply import make_draft_streamer, send_result
 from src.handlers.text import _process_text, error_message_for
 from src.services.polish import run_polish
@@ -18,6 +19,7 @@ from src.services.summary import run_summary
 from src.services.transcribe import extract_audio_from_video, split_audio_to_chunks, transcribe
 from src.services.translator import run_translator
 from src.storage.history import save_request
+from src.storage.models import TranscriptionCache
 from src.storage.user_context import load_user_context
 from src.ui.keyboards import mode_keyboard, result_keyboard
 from src.ui.messages import (
@@ -167,9 +169,26 @@ async def _process_media(
                 force_retranscribe=force_retranscribe,
             )
         else:
-            # Long audio — split into chunks and transcribe sequentially (no cache).
-            chunks = await split_audio_to_chunks(audio_bytes, settings.chunk_duration_sec)
-            if not chunks:
+            # Long audio — chunked pipeline. Транскрипт кэшируется по file_id:
+            # «Другой режим» на часовом голосе раньше гонял Whisper заново.
+            cached_transcript = None
+            if settings.enable_transcription_cache and not force_retranscribe:
+                with contextlib.suppress(Exception):
+                    row = await session.get(TranscriptionCache, media.file_id)
+                    if row:
+                        cached_transcript = row.transcript
+            if force_retranscribe and settings.enable_transcription_cache:
+                with contextlib.suppress(Exception):
+                    row = await session.get(TranscriptionCache, media.file_id)
+                    if row:
+                        await session.delete(row)
+                        await session.commit()
+            chunks = (
+                []
+                if cached_transcript is not None
+                else await split_audio_to_chunks(audio_bytes, settings.chunk_duration_sec)
+            )
+            if not chunks and cached_transcript is None:
                 await progress_msg.edit_text(
                     "⚠️ Не удалось разрезать длинное аудио. Попробуй короче.",
                     reply_markup=mode_keyboard(),
@@ -213,7 +232,19 @@ async def _process_media(
             stt_ms = sum(ms for _text, ms in fixed)
             transcript_parts = [t.strip() for t, _ms in fixed if t and t.strip()]
 
-            transcript = "\n\n".join(transcript_parts)
+            if cached_transcript is not None:
+                transcript = cached_transcript
+                stt_ms = 0
+            else:
+                transcript = "\n\n".join(transcript_parts)
+                # Best-effort кэш склеенного транскрипта — повторный прогон
+                # («Другой режим»/«Ещё вариант» без сброса) будет мгновенным.
+                if transcript.strip() and settings.enable_transcription_cache:
+                    with contextlib.suppress(Exception):
+                        session.add(
+                            TranscriptionCache(file_id=media.file_id, transcript=transcript)
+                        )
+                        await session.commit()
 
         if not transcript.strip():
             await progress_msg.edit_text(EMPTY_TRANSCRIPT, reply_markup=mode_keyboard())
@@ -320,19 +351,23 @@ async def handle_voice(
         return
 
     target_lang = ctx.target_lang
-    ok = await _process_media(
-        message,
-        bot,
-        session,
-        skills_db,
-        media=media,
-        is_video=is_video,
-        mode=mode,
-        style=style,
-        target_lang=target_lang,
-        db_user_id=ctx.db_user_id,
-        force_retranscribe=False,
-    )
+    lock = user_lock(user_tg.id)
+    if lock.locked():
+        await message.answer("⏳ Обрабатываю предыдущее — это голосовое возьму следом.")
+    async with lock:
+        ok = await _process_media(
+            message,
+            bot,
+            session,
+            skills_db,
+            media=media,
+            is_video=is_video,
+            mode=mode,
+            style=style,
+            target_lang=target_lang,
+            db_user_id=ctx.db_user_id,
+            force_retranscribe=False,
+        )
     if ok:
         save_last(
             user_tg.id,
