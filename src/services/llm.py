@@ -1,6 +1,7 @@
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 
 import structlog
 from groq import AsyncGroq, RateLimitError
@@ -17,7 +18,7 @@ class ModelUnavailableError(RuntimeError):
 
 
 def is_rate_limit_error(exc: Exception) -> bool:
-    """Return True if the exception indicates a Groq rate-limit (429) response."""
+    """Return True if the exception indicates a rate-limit (429) response."""
     if isinstance(exc, RateLimitError):
         return True
     status = getattr(exc, "status_code", None)
@@ -39,17 +40,126 @@ def is_model_unavailable_error(exc: Exception) -> bool:
     return status == 404 and "model" in text
 
 
+def estimate_tokens(text: str) -> int:
+    """Грубая оценка токенов для русского/смешанного текста (~3 символа/токен)."""
+    return len(text) // 3 + 1
+
+
 def _reasoning_extra(model: str, reasoning_effort: str | None) -> dict[str, str]:
     """Params required by reasoning models (gpt-oss family) to emit content.
 
-    Без reasoning_effort + reasoning_format="hidden" gpt-oss возвращает пустой
-    content (грабли из CLAUDE.md) — поэтому для gpt-oss ставим их всегда.
+    Без reasoning_effort + reasoning_format="hidden" gpt-oss на Groq возвращает
+    пустой content (грабли из CLAUDE.md) — поэтому для gpt-oss ставим их всегда.
+    Только для Groq: сторонние провайдеры этих параметров не ждут.
     """
     if reasoning_effort is None and "gpt-oss" in model:
         reasoning_effort = "low"
     if not reasoning_effort:
         return {}
     return {"reasoning_effort": reasoning_effort, "reasoning_format": "hidden"}
+
+
+async def _stream_chat(
+    client,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    temperature: float,
+    max_tokens: int,
+    extra: dict,
+    on_delta: OnDelta | None,
+) -> str:
+    """Stream one chat completion; Groq и OpenAI-совместимые клиенты дают
+    одинаковую форму чанков (choices[0].delta.content)."""
+    stream = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=temperature,
+        max_completion_tokens=max_tokens,
+        stream=True,
+        **extra,
+    )
+    full_text = ""
+    async for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta.content or ""
+        if delta:
+            full_text += delta
+            if on_delta:
+                await on_delta(full_text)
+    return full_text
+
+
+@dataclass
+class _FallbackProvider:
+    name: str
+    base_url: str
+    api_key: str
+    model: str
+
+
+def _fallback_providers(long_context: bool) -> list[_FallbackProvider]:
+    """Настроенные внешние OpenAI-совместимые провайдеры, по порядку попыток.
+
+    long_context=True — только провайдеры с большим контекстом (OpenRouter):
+    Cerebras free урезан до ~8K и длинный транскрипт не примет.
+    """
+    providers: list[_FallbackProvider] = []
+    if settings.cerebras_api_key and not long_context:
+        providers.append(
+            _FallbackProvider(
+                name="cerebras",
+                base_url="https://api.cerebras.ai/v1",
+                api_key=settings.cerebras_api_key,
+                model=settings.cerebras_model,
+            )
+        )
+    if settings.openrouter_api_key:
+        providers.append(
+            _FallbackProvider(
+                name="openrouter",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=settings.openrouter_api_key,
+                model=settings.openrouter_model,
+            )
+        )
+    return providers
+
+
+async def _try_fallback_providers(
+    system_prompt: str,
+    user_message: str,
+    temperature: float,
+    max_tokens: int,
+    on_delta: OnDelta | None,
+    long_context: bool,
+) -> str | None:
+    """Прогоняем настроенных внешних провайдеров; None — никто не ответил."""
+    for provider in _fallback_providers(long_context):
+        try:
+            from openai import AsyncOpenAI
+
+            client = AsyncOpenAI(base_url=provider.base_url, api_key=provider.api_key)
+            text = await _stream_chat(
+                client,
+                provider.model,
+                system_prompt,
+                user_message,
+                temperature,
+                max_tokens,
+                {},
+                on_delta,
+            )
+            if text:
+                log.warning("llm_external_provider_used", provider=provider.name)
+                return text
+        except Exception as exc:
+            log.warning("llm_external_provider_failed", provider=provider.name, error=str(exc))
+    return None
 
 
 async def complete(
@@ -62,44 +172,51 @@ async def complete(
     reasoning_effort: str | None = None,
     on_delta: OnDelta | None = None,
 ) -> tuple[str, int]:
-    """Call Groq LLM via streaming. Returns (response_text, elapsed_ms).
+    """Call the LLM via streaming. Returns (response_text, elapsed_ms).
 
-    If on_delta is given, it's called with the accumulated text after each chunk.
-    Retries up to 3 times with backoff on transient errors or empty output; on
-    rate-limit (429) it rotates through other configured Groq keys to spread load.
-    If the provider reports the model as decommissioned/unknown, falls back to
-    the next model from settings.llm_model_fallbacks_list instead of retrying.
+    Порядок: Groq (осн. модель → фолбэк-модели, ретраи, ротация ключей на 429)
+    → внешние провайдеры (Cerebras/OpenRouter), если настроены ключи.
+    Запрос, не влезающий в TPM Groq free, сразу роутится в OpenRouter
+    (контекст 131K) — иначе Groq гарантированно вернёт 413.
     """
+    started = time.monotonic()
+
+    # Длинный вход (часовое голосовое ≈ 12-18K токенов) в Groq free не влезает.
+    request_tokens = estimate_tokens(system_prompt + user_message) + max_tokens
+    if request_tokens > settings.groq_max_request_tokens:
+        text = await _try_fallback_providers(
+            system_prompt, user_message, temperature, max_tokens, on_delta, long_context=True
+        )
+        if text:
+            return text, int((time.monotonic() - started) * 1000)
+        log.warning(
+            "llm_long_request_no_provider",
+            request_tokens=request_tokens,
+            hint="set OPENROUTER_API_KEY to handle long transcripts",
+        )
+        # Провайдера с длинным контекстом нет — пробуем Groq: вдруг тариф платный.
+
     models_to_try = [model] + [m for m in settings.llm_model_fallbacks_list if m != model]
     current_key = api_key
     client = AsyncGroq(api_key=current_key)
-    started = time.monotonic()
     last_exc: Exception | None = None
+    permanent_error = False
 
     for model_idx, current_model in enumerate(models_to_try):
         extra = _reasoning_extra(current_model, reasoning_effort)
 
         for attempt in range(3):
             try:
-                stream = await client.chat.completions.create(
-                    model=current_model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
-                    temperature=temperature,
-                    max_completion_tokens=max_tokens,
-                    stream=True,
-                    **extra,
+                full_text = await _stream_chat(
+                    client,
+                    current_model,
+                    system_prompt,
+                    user_message,
+                    temperature,
+                    max_tokens,
+                    extra,
+                    on_delta,
                 )
-                full_text = ""
-                async for chunk in stream:
-                    delta = chunk.choices[0].delta.content or ""
-                    if delta:
-                        full_text += delta
-                        if on_delta:
-                            await on_delta(full_text)
-
                 if full_text:
                     elapsed_ms = int((time.monotonic() - started) * 1000)
                     if model_idx > 0:
@@ -114,9 +231,10 @@ async def complete(
                     break  # no point retrying — jump to the next fallback model
                 if getattr(e, "status_code", None) in (400, 401, 403, 404, 413):
                     # Постоянные ошибки (битый ключ/запрос) — ретраи только тянут
-                    # время до сообщения об ошибке.
+                    # время. Даём шанс внешним провайдерам ниже.
                     log.warning("llm_permanent_error", model=current_model, error=str(e))
-                    raise
+                    permanent_error = True
+                    break
                 if is_rate_limit_error(e):
                     alt_keys = [k for k in settings.get_all_groq_keys() if k != current_key]
                     if alt_keys:
@@ -126,9 +244,19 @@ async def complete(
             if attempt < 2:
                 await asyncio.sleep(2 * (attempt + 1))
         else:
-            # 3 attempts exhausted on a live model — give up entirely (do not
+            # 3 attempts exhausted on a live model — stop the Groq chain (do not
             # switch models mid-outage: результат станет непредсказуемым).
             break
+
+        if permanent_error:
+            break  # битый ключ/запрос — Groq-цепочку не продолжаем
+
+    # Groq не справился — внешние провайдеры (если настроены).
+    text = await _try_fallback_providers(
+        system_prompt, user_message, temperature, max_tokens, on_delta, long_context=False
+    )
+    if text:
+        return text, int((time.monotonic() - started) * 1000)
 
     if last_exc is not None and is_model_unavailable_error(last_exc):
         raise ModelUnavailableError(

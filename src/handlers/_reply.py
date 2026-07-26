@@ -1,6 +1,11 @@
+import time
+
+from aiogram import Bot
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, Message
 
+from src.config import settings
 from src.handlers._last import save_last_result
+from src.services.llm import OnDelta
 from src.utils import escape_html
 
 # Rendered text limit is 4096; HTML tags don't count toward it, but emojis cost
@@ -35,6 +40,36 @@ def split_text(text: str) -> list[str]:
 def _block(text: str) -> str:
     """Wrap text in a quoted, tap-to-copy block (monospace, copies on tap)."""
     return f"<blockquote><code>{escape_html(text)}</code></blockquote>"
+
+
+def make_draft_streamer(bot: Bot, chat_id: int) -> OnDelta | None:
+    """Стриминг-превью через sendMessageDraft (Bot API 9.5+): эфемерный драфт
+    показывает генерацию на лету; финальный ответ доставляется как обычно.
+
+    Опт-ин (enable_draft_streaming=False по умолчанию): включать после проверки
+    вживую — прошлая попытка оставляла «осиротевшие» пузыри (грабли №1).
+    Ошибки драфта глушим: превью не стоит сломанного ответа.
+    """
+    if not settings.enable_draft_streaming:
+        return None
+    if not hasattr(bot, "send_message_draft"):  # aiogram < 3.26
+        return None
+
+    draft_id = int(time.monotonic() * 1000) % 2_000_000_000
+    last_sent = 0.0
+
+    async def on_delta(accumulated: str) -> None:
+        nonlocal last_sent
+        now = time.monotonic()
+        if now - last_sent < 1.2:  # не душим Telegram апдейтами
+            return
+        last_sent = now
+        try:
+            await bot.send_message_draft(chat_id, draft_id, text=accumulated[:4000])
+        except Exception:
+            pass
+
+    return on_delta
 
 
 async def send_result(

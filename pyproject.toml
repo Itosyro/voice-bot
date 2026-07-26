@@ -4,10 +4,11 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     # Telegram
-    "aiogram>=3.21.0",
+    "aiogram>=3.30.0",
 
     # AI
     "groq>=0.13.0",
+    "openai>=1.60.0",  # Cerebras/OpenRouter фолбэк-провайдеры (OpenAI-совместимые)
 
     # Database
     "sqlalchemy[asyncio]>=2.0.30",

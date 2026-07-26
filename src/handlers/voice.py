@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.handlers._last import LastRequest, save_last
-from src.handlers._reply import send_result
+from src.handlers._reply import make_draft_streamer, send_result
 from src.handlers.text import _process_text, error_message_for
 from src.services.polish import run_polish
 from src.services.prompt_eng import run_prompt_eng
@@ -207,8 +207,9 @@ async def _process_media(
 
         await progress_msg.edit_text(f"✨ {MODE_LABEL.get(mode, 'Обрабатываю')}…")
 
+        on_delta = make_draft_streamer(bot, message.chat.id)
         result_text, llm_ms, model_used, used_skills = await _run_mode(
-            transcript, mode, style, target_lang, skills_db, None
+            transcript, mode, style, target_lang, skills_db, on_delta
         )
 
         total_ms = int((time.monotonic() - started) * 1000)

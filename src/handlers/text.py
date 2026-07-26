@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.handlers._last import LastRequest, save_last
-from src.handlers._reply import send_result
+from src.handlers._reply import make_draft_streamer, send_result
 from src.services.humanizer import run_humanizer
 from src.services.llm import ModelUnavailableError, is_rate_limit_error
 from src.services.polish import run_polish
@@ -56,6 +56,7 @@ async def _process_text(
     """Run the selected mode on text and deliver the result. Returns True on success."""
     started = time.monotonic()
     progress_msg = await message.answer(f"✨ {MODE_LABEL.get(mode, 'Обрабатываю')}…")
+    on_delta = make_draft_streamer(message.bot, message.chat.id) if message.bot else None
 
     try:
         result_text = ""
@@ -64,22 +65,22 @@ async def _process_text(
         used_skills: list[str] = []
 
         if mode == "polish":
-            r = await run_polish(text, sub_style=style or "polish_default", on_delta=None)
+            r = await run_polish(text, sub_style=style or "polish_default", on_delta=on_delta)
             result_text, llm_ms, model_used = r.text, r.llm_ms, r.model
         elif mode == "prompt":
             r2 = await run_prompt_eng(
-                text, sub_style=style or "prompt_general", skills_db=skills_db, on_delta=None
+                text, sub_style=style or "prompt_general", skills_db=skills_db, on_delta=on_delta
             )
             result_text, llm_ms, model_used = r2.text, r2.llm_ms, r2.model
             used_skills = r2.used_skills
         elif mode == "humanizer":
-            r3 = await run_humanizer(text, sub_style=style or "humanize_lite", on_delta=None)
+            r3 = await run_humanizer(text, sub_style=style or "humanize_lite", on_delta=on_delta)
             result_text, llm_ms, model_used = r3.text, r3.llm_ms, r3.model
         elif mode == "translator":
-            r4 = await run_translator(text, target_lang=target_lang, on_delta=None)
+            r4 = await run_translator(text, target_lang=target_lang, on_delta=on_delta)
             result_text, llm_ms, model_used = r4.text, r4.llm_ms, r4.model
         elif mode == "summary":
-            r5 = await run_summary(text, on_delta=None)
+            r5 = await run_summary(text, on_delta=on_delta)
             result_text, llm_ms, model_used = r5.text, r5.llm_ms, r5.model
 
         total_ms = int((time.monotonic() - started) * 1000)
