@@ -15,3 +15,10 @@ __pycache__
 *.egg-info
 data
 backup-*.db
+# Локальный venv весит сотни МБ и собран под другую ОС — в образ ему нельзя
+# (Dockerfile делает COPY . .), да и контекст сборки на сервере раздувает.
+.venv
+venv
+.claude
+.jules
+voicebot-migration-*.tar.gz

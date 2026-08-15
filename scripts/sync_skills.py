@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import csv as _csv
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -89,7 +90,10 @@ REPOS = [
 def _clone_or_pull(repo: RepoConfig) -> Path:
     """Clone repo (shallow) or pull if already exists."""
     target = DATA_DIR / repo.name.replace("/", "_")
-    if target.exists():
+    # Проверяем .git, а не просто существование папки: упавший клон оставлял
+    # пустой каталог, и все следующие запуски уходили в ветку pull (без
+    # check=True) — «0 skills» навсегда, молча.
+    if (target / ".git").is_dir():
         subprocess.run(
             ["git", "-C", str(target), "pull", "--ff-only"],
             capture_output=True,
@@ -97,7 +101,9 @@ def _clone_or_pull(repo: RepoConfig) -> Path:
         )
         return target
 
-    target.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
     cmd = ["git", "clone", "--depth=1", repo.url, str(target)]
     subprocess.run(cmd, check=True, capture_output=True, timeout=300)
     return target
@@ -401,7 +407,14 @@ async def sync_all() -> None:
         except Exception as e:
             print(f"    FAILED: {e}")
 
-    print(f"\nTotal: {len(all_skills)} entries. Writing to Postgres...")
+    if not all_skills:
+        # Синк идёт на КАЖДОМ старте контейнера. Раньше при недоступном GitHub
+        # таблица всё равно очищалась — один рестарт в момент сетевого сбоя
+        # молча убивал skills у режима «Промпт» до следующего удачного синка.
+        print("\nNothing parsed (сеть/GitHub?) — оставляю прежний индекс нетронутым.")
+        return
+
+    print(f"\nTotal: {len(all_skills)} entries. Writing to DB...")
     async with get_session() as session:
         await session.execute(delete(SkillIndex))
         session.add_all(all_skills)

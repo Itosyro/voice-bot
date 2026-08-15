@@ -215,8 +215,12 @@ async def complete(
     """
     started = time.monotonic()
 
-    # Длинный вход (часовое голосовое ≈ 12-18K токенов) в Groq free не влезает.
-    request_tokens = estimate_tokens(system_prompt + user_message) + max_tokens
+    # Длинный ВХОД (часовое голосовое ≈ 12-18K токенов) в Groq free не влезает.
+    # Считаем только вход: раньше сюда приплюсовывался max_tokens (бюджет
+    # ОТВЕТА), и режим «Промпт» (system ~2K + skills 3K + max_tokens 4000)
+    # перепрыгивал порог ещё до первого слова юзера — весь трафик молча уходил
+    # в OpenRouter вместо Groq.
+    request_tokens = estimate_tokens(system_prompt + user_message)
     if request_tokens > settings.groq_max_request_tokens:
         external = await _try_fallback_providers(
             system_prompt, user_message, temperature, max_tokens, on_delta, long_context=True

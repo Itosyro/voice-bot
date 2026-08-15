@@ -88,9 +88,11 @@ ICON_DOWNLOAD = "⇩"
 
 # ── Button color styles (Bot API 9.4+) ──
 # Values: "primary" (blue), "success" (green), "danger" (red), None (default/white)
-BTN_STYLE_MODE = "primary"
+# Меню режимов и стили — красные (под цвет фона, просьба владельца 16.08.2026);
+# кнопки под результатом остаются синими.
+BTN_STYLE_MODE = "danger"
 BTN_STYLE_ACTION = "primary"
-BTN_STYLE_STYLE = "primary"
+BTN_STYLE_STYLE = "danger"
 BTN_STYLE_BACK = "danger"
 
 # ── Separator ──

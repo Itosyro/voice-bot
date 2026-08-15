@@ -1,5 +1,6 @@
 import structlog
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import (
     BufferedInputFile,
     CallbackQuery,
@@ -10,11 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.handlers._last import (
+    LastRequest,
     get_last,
     get_last_result,
     get_last_transcript,
     get_recent_transcripts,
     get_result_for_message,
+    save_last,
 )
 from src.handlers._queue import acquire_or_none
 from src.handlers._reply import send_result, tg_len
@@ -58,6 +61,52 @@ STYLE_KEYBOARDS = {
 }
 
 
+def _holds_result(msg) -> bool:
+    """True, если сообщение нельзя перезаписывать навигацией.
+
+    Это и результат в копи-блоке, и .txt-фолбэк (у document нет text — edit_text
+    на нём падает «there is no text in the message to edit», юзер видел
+    бесполезный тост «Ошибка»), и InaccessibleMessage (кнопка на сообщении
+    старше 48 часов): у него нет ни text, ни edit_text.
+    """
+    if getattr(msg, "document", None) is not None:
+        return True
+    if not getattr(msg, "text", None):
+        return True
+    entities = getattr(msg, "entities", None) or []
+    return any(e.type in ("blockquote", "expandable_blockquote", "code", "pre") for e in entities)
+
+
+async def _edit_or_send(
+    msg, text: str, *, reply_markup=None, parse_mode: str | None = None
+) -> None:
+    """Показать экран: правим сообщение, а если нельзя — присылаем новое.
+
+    `callback.message` — это `MaybeInaccessibleMessage`. Когда кнопка нажата на
+    сообщении, которое Telegram считает недоступным (старше ~48 часов, удалено),
+    прилетает `InaccessibleMessage` — у него ВООБЩЕ НЕТ `edit_text`. Раньше
+    каждый такой тап давал AttributeError → глобальный error-handler → тост
+    «⚠ Ошибка. Попробуй ещё раз.». Со стороны владельца это выглядело как
+    «режимы не переключаются»: он листал чат к прошлому /start и жал ПРОМПТ на
+    старом меню, а бот продолжал полировать. Сюда же — «message is not modified»
+    (даблтап по той же кнопке) и «message can't be edited» (старое сообщение).
+    """
+    if msg is None:
+        return
+    edit = getattr(msg, "edit_text", None)
+    if edit is not None and not _holds_result(msg):
+        try:
+            await edit(text, reply_markup=reply_markup, parse_mode=parse_mode)
+            return
+        except TelegramBadRequest as exc:
+            if "message is not modified" in str(exc):
+                # Экран уже такой — это не ошибка, а даблтап. Тост «Ошибка»
+                # здесь читался как «кнопка не работает».
+                return
+            log.info("edit_failed_sending_new", error=str(exc))
+    await msg.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
+
+
 @router.callback_query(F.data.startswith("mode:"))
 async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> None:
     if not callback.data or not callback.from_user:
@@ -72,7 +121,8 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
             default_mode="summary",
             default_style="summary",
         )
-        await callback.message.edit_text(  # type: ignore[union-attr]
+        await _edit_or_send(
+            callback.message,
             "∑ <b>САММАРИ</b>\n\nОтправь голос или текст",
             reply_markup=menu_keyboard(),
             parse_mode="HTML",
@@ -86,7 +136,8 @@ async def on_mode_selected(callback: CallbackQuery, session: AsyncSession) -> No
         await save_user_settings(
             session, callback.from_user.id, default_mode=mode, reset_style=True
         )
-        await callback.message.edit_text(  # type: ignore[union-attr]
+        await _edit_or_send(
+            callback.message,
             style_header(mode),
             reply_markup=kb_fn(),
             parse_mode="HTML",
@@ -124,7 +175,8 @@ async def on_style_selected(callback: CallbackQuery, session: AsyncSession) -> N
 
     style_name = STYLE_NAME.get(style, style)
     mode_name = MODE_NAME.get(mode, mode)
-    await callback.message.edit_text(  # type: ignore[union-attr]
+    await _edit_or_send(
+        callback.message,
         f"{mode_name} · {style_name}\n\nОтправь голос или текст",
         reply_markup=menu_keyboard(),
         parse_mode="HTML",
@@ -146,7 +198,8 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
         target_lang=lang,
     )
 
-    await callback.message.edit_text(  # type: ignore[union-attr]
+    await _edit_or_send(
+        callback.message,
         f"ПЕРЕВОД → {lang.upper()}\n\nОтправь голос или текст",
         reply_markup=menu_keyboard(),
         parse_mode="HTML",
@@ -156,32 +209,14 @@ async def on_lang_selected(callback: CallbackQuery, session: AsyncSession) -> No
 # ── Navigation ──
 
 
-def _holds_result(msg) -> bool:
-    """True, если сообщение нельзя перезаписывать навигацией.
-
-    Это и результат в копи-блоке, и .txt-фолбэк (у document нет text — edit_text
-    на нём падает «there is no text in the message to edit», юзер видел
-    бесполезный тост «Ошибка»).
-    """
-    if getattr(msg, "document", None) is not None:
-        return True
-    if not getattr(msg, "text", None):
-        return True
-    entities = getattr(msg, "entities", None) or []
-    return any(e.type in ("blockquote", "expandable_blockquote", "code", "pre") for e in entities)
-
-
 @router.callback_query(F.data == "back:modes")
 async def on_back_to_modes(callback: CallbackQuery) -> None:
     await callback.answer()  # ack immediately so the button stops spinning
-    msg = callback.message
-    if msg is None:
-        return
-    if _holds_result(msg):
-        # Раньше «Меню» УНИЧТОЖАЛО результат, редактируя его в список режимов.
-        await msg.answer(CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML")
-        return
-    await msg.edit_text(CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML")
+    # _edit_or_send сам не трогает сообщение с результатом (грабли №22):
+    # «Меню» через edit_text когда-то УНИЧТОЖАЛО отполированный текст.
+    await _edit_or_send(
+        callback.message, CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML"
+    )
 
 
 async def _show_settings(callback: CallbackQuery, session: AsyncSession) -> None:
@@ -194,11 +229,7 @@ async def _show_settings(callback: CallbackQuery, session: AsyncSession) -> None
         log.warning("settings_shown_from_memory", telegram_user_id=callback.from_user.id)
     total = ctx.total_requests if ctx.from_db else None
     text = settings_text(ctx.default_mode, ctx.default_style, ctx.target_lang, total)
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        text,
-        reply_markup=settings_keyboard(),
-        parse_mode="HTML",
-    )
+    await _edit_or_send(callback.message, text, reply_markup=settings_keyboard(), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "back:settings")
@@ -224,10 +255,11 @@ async def on_export(callback: CallbackQuery) -> None:
 
     # Сначала — результат именно ЭТОГО сообщения (кнопка под старым ответом не
     # должна выгружать более новый), затем последний, затем видимый текст.
+    # getattr: у InaccessibleMessage нет атрибута text вообще (AttributeError).
     text_content = (
         get_result_for_message(msg.chat.id, msg.message_id)
         or get_last_result(msg.chat.id)
-        or (msg.text or "").strip()
+        or (getattr(msg, "text", None) or "").strip()
     )
     if not text_content:
         await callback.answer("Нет текста для экспорта.")
@@ -330,7 +362,12 @@ async def on_transcript(callback: CallbackQuery) -> None:
         await msg.answer("Транскрипта нет — пришли голосовое ещё раз.")  # type: ignore[union-attr]
         return
 
-    if tg_len(transcript) > 3500:
+    # Лимит Telegram (4096) меряется по тексту ПОСЛЕ разбора entities: HTML-теги
+    # и escape-последовательности (&amp; → &) в него не входят, а заголовок —
+    # входит, и раньше его не учитывали вовсе. Меряем ровно то, что увидит
+    # Telegram: заголовок в plain + сам транскрипт, в UTF-16 юнитах.
+    header_plain = "🎙 Дословный транскрипт\n"
+    if tg_len(header_plain) + tg_len(transcript) > 3500:
         # Часовой транскрипт — десятки тысяч символов. Раньше молча резался
         # до 7% без единого намёка; отдаём файлом целиком.
         doc = BufferedInputFile(transcript.encode("utf-8"), filename="transcript.txt")
@@ -374,6 +411,11 @@ async def on_merge_prev(
     mode = last.mode if last else "polish"
     style = last.style if last else None
     target_lang = last.target_lang if last else "en"
+    if mode == "humanizer":
+        # ponytail: у voice.py::_run_mode нет ветки humanizer (голос в этот
+        # режим не пускают вовсе) — склейка молча возвращала "" и юзер видел
+        # «⚠ Пустой ответ от модели». Склеиваем голос как polish.
+        mode, style = "polish", None
 
     await callback.answer(f"Склеиваю {len(texts)} голосовых…")
     joined = "\n\n".join(texts)
@@ -396,6 +438,20 @@ async def on_merge_prev(
                 skills_info,
                 "",
                 result_keyboard(mode, with_transcript=True),
+            )
+            # «Ещё вариант» под склейкой обязан повторять СКЛЕЙКУ, а не
+            # последнее одиночное голосовое (Whisper повторно не гоняем —
+            # склеенный текст уже готов).
+            save_last(
+                callback.from_user.id,
+                LastRequest(
+                    input_type="text",
+                    mode=mode,
+                    style=style,
+                    target_lang=target_lang,
+                    db_user_id=last.db_user_id if last else None,
+                    text=joined,
+                ),
             )
         except Exception as exc:
             log.exception("merge_prev_failed")
@@ -442,54 +498,49 @@ async def on_other_mode(callback: CallbackQuery) -> None:
     if msg is None:
         return
     text = "<b>Другой режим</b>\n\nВыбери — сразу прогоню тот же\nголос или текст ещё раз:"
-    if _holds_result(msg):
-        await msg.answer(text, reply_markup=reprocess_mode_keyboard(), parse_mode="HTML")
-        return
-    await msg.edit_text(text, reply_markup=reprocess_mode_keyboard(), parse_mode="HTML")
+    await _edit_or_send(msg, text, reply_markup=reprocess_mode_keyboard(), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "settings:default_mode")
 async def on_settings_default_mode(callback: CallbackQuery) -> None:
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        CHOOSE_MODE,
-        reply_markup=mode_keyboard(),
-        parse_mode="HTML",
-    )
     await callback.answer()
+    await _edit_or_send(
+        callback.message, CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data == "settings:target_lang")
 async def on_settings_target_lang(callback: CallbackQuery) -> None:
-    await callback.message.edit_text(  # type: ignore[union-attr]
+    await callback.answer()
+    await _edit_or_send(
+        callback.message,
         style_header("translator"),
         reply_markup=lang_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "settings:mode_info")
 async def on_mode_info_menu(callback: CallbackQuery) -> None:
-    await callback.message.edit_text(  # type: ignore[union-attr]
+    await callback.answer()
+    await _edit_or_send(
+        callback.message,
         "Выбери режим, чтобы узнать подробнее:",
         reply_markup=mode_info_keyboard(),
         parse_mode="HTML",
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("info:"))
 async def on_mode_info_page(callback: CallbackQuery) -> None:
     if not callback.data:
         return
+    await callback.answer()
     mode = callback.data.split(":", 1)[1]
     text = MODE_INFO.get(mode, "Информация недоступна.")
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        text,
-        reply_markup=mode_info_keyboard(),
-        parse_mode="HTML",
+    await _edit_or_send(
+        callback.message, text, reply_markup=mode_info_keyboard(), parse_mode="HTML"
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "settings:reset")
@@ -504,7 +555,8 @@ async def on_settings_reset(callback: CallbackQuery) -> None:
             ]
         ]
     )
-    await callback.message.edit_text(  # type: ignore[union-attr]
+    await _edit_or_send(
+        callback.message,
         "Сбросить режим, стиль и язык перевода на значения по умолчанию?",
         reply_markup=kb,
     )
@@ -516,10 +568,8 @@ async def on_settings_reset_confirmed(callback: CallbackQuery, session: AsyncSes
         return
     await callback.answer("Сброшено")
     await save_user_settings(session, callback.from_user.id, target_lang="en", reset=True)
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        CHOOSE_MODE,
-        reply_markup=mode_keyboard(),
-        parse_mode="HTML",
+    await _edit_or_send(
+        callback.message, CHOOSE_MODE, reply_markup=mode_keyboard(), parse_mode="HTML"
     )
 
 
@@ -536,18 +586,14 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
         history = await get_user_history(session, user_id=user.id, limit=10)
     except Exception as exc:
         log.warning("history_db_unavailable", error=str(exc))
-        await callback.message.edit_text(  # type: ignore[union-attr]
-            DB_UNAVAILABLE,
-            reply_markup=mode_keyboard(),
-            parse_mode="HTML",
+        await _edit_or_send(
+            callback.message, DB_UNAVAILABLE, reply_markup=mode_keyboard(), parse_mode="HTML"
         )
         return
 
     if not history:
-        await callback.message.edit_text(  # type: ignore[union-attr]
-            "История пуста.",
-            reply_markup=mode_keyboard(),
-            parse_mode="HTML",
+        await _edit_or_send(
+            callback.message, "История пуста.", reply_markup=mode_keyboard(), parse_mode="HTML"
         )
         return
 
@@ -560,8 +606,6 @@ async def on_history(callback: CallbackQuery, session: AsyncSession) -> None:
         kind = type_ru.get(h.input_type, h.input_type)
         lines.append(f"• {when} · {mode_name} · {kind}\n  {escape_html(preview)}…")
 
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        "\n".join(lines),
-        reply_markup=mode_keyboard(),
-        parse_mode="HTML",
+    await _edit_or_send(
+        callback.message, "\n".join(lines), reply_markup=mode_keyboard(), parse_mode="HTML"
     )

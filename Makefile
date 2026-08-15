@@ -1,6 +1,12 @@
 COMPOSE ?= docker compose -f docker-compose.server.yml
 
-.PHONY: install up down restart logs status update shell backup test lint
+.PHONY: help install up down restart logs status update reconfigure shell backup migrate test lint
+
+# Голый `make` на новом сервере печатает шпаргалку, а не запускает установку.
+.DEFAULT_GOAL := help
+
+help:         ## Показать список команд
+	@grep -hE '^[a-z-]+:.*?##' $(MAKEFILE_LIST) | sed 's/:.*##/\t— /'
 
 install:      ## Первичная установка на сервер (спросит токен и ключ)
 	bash scripts/install-server.sh
@@ -31,8 +37,16 @@ shell:        ## Зайти внутрь контейнера
 	$(COMPOSE) exec bot sh
 
 backup:       ## Сохранить базу в backup-<дата>.db рядом с проектом
-	docker cp voice-bot:/app/data/voicebot.db ./backup-$$(date +%Y%m%d-%H%M).db && \
-	echo "Готово: backup-$$(date +%Y%m%d-%H%M).db"
+	@# База в WAL-режиме: сырой docker cp .db без -wal даёт устаревшую или битую
+	@# копию. Снимок делаем тем же sqlite3.backup(), что и миграция.
+	$(COMPOSE) exec -T bot python -c "from src.migrate import snapshot_db; snapshot_db('/app/data/backup.db')"
+	@f=backup-$$(date +%Y%m%d-%H%M).db; \
+	 docker cp voice-bot:/app/data/backup.db "./$$f" && \
+	 $(COMPOSE) exec -T bot rm -f /app/data/backup.db && \
+	 echo "Готово: $$f"
+
+migrate:      ## Прислать архив миграции (.env + база) админу в Telegram
+	$(COMPOSE) run --rm --no-deps --entrypoint "python -m src.migrate" bot
 
 test:         ## Прогнать тесты локально
 	python -m pytest tests/ -q

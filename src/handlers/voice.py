@@ -352,7 +352,7 @@ async def handle_voice(
     # кроме humanizer, и бот заново прогонял голос.
     if message.text and _pick_media(message)[0] is None:
         async with user_lock(user_tg.id):
-            await _process_text(
+            ok = await _process_text(
                 message,
                 session,
                 skills_db,
@@ -361,6 +361,21 @@ async def handle_voice(
                 style=style,
                 target_lang=ctx.target_lang,
                 db_user_id=ctx.db_user_id,
+            )
+        if ok:
+            # Под результатом висит result_keyboard с «Ещё вариант». Без
+            # save_last эта кнопка перегенерировала ЧУЖОЙ прошлый запрос
+            # (или отвечала «нечего повторять») — ветка просто забыла его.
+            save_last(
+                user_tg.id,
+                LastRequest(
+                    input_type="text",
+                    mode=mode,
+                    style=style,
+                    target_lang=ctx.target_lang,
+                    db_user_id=ctx.db_user_id,
+                    text=message.text,
+                ),
             )
         return
 
