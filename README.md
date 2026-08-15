@@ -1,180 +1,122 @@
 # Voice Polisher Bot
 
-Telegram-бот для обработки голосовых сообщений и текста с использованием Groq AI.
+Telegram-бот: голосовое или текст → чистый готовый результат. Работает на Groq
+(Whisper + LLM). Личный сервис на 10–50 человек, закрывается списком user_id.
 
-## Возможности
+## 5 режимов
 
-### 4 режима обработки
+| Режим | Вход | Что делает | Стили |
+|---|---|---|---|
+| ✎ **Полировка** | голос / текст | Убирает «э-э», повторы, ставит пунктуацию | Сырой · Обычный · Творческий · Деловой · Литературный |
+| ◇ **Промпт** | голос / текст | Идея → готовый промпт для ИИ (подтягивает skills) | Общий · Дизайнер · Кодер · Строгий |
+| ≈ **Очеловечить** | только текст | Убирает следы нейросети | Лёгкий · Сильный |
+| ⇄ **Перевод** | голос / текст | Перевод с сохранением тона | 14 языков |
+| ∑ **Саммари** | голос / текст | Сжимает в 3–7 пунктов | — |
 
-| Режим | Вход | Что делает |
-|-------|------|------------|
-| **Polish** | Голос / текст | Убирает слова-паразиты, расставляет пунктуацию, исправляет грамматику |
-| **Prompt Engineer** | Голос / текст | Превращает идею в структурированный промпт для LLM |
-| **Humanizer** | Только текст | Убирает признаки AI-генерации (em-dash, шаблонные фразы, идеальная структура) |
-| **Translator** | Голос / текст | Перевод с сохранением тона (14 языков) |
+**Вход:** голосовые, аудио, видео-кружки и видео — напрямую, пересланные или
+реплаем. Голосовые до 1 часа (длинные режутся на части). Транскрипт кэшируется.
 
-### Подстили
+**Выход:** результат приходит копируемой цитатой (тап — и текст в буфере).
+Длинное бьётся на части или уходит файлом. Под ответом: Ещё вариант · Другой
+режим · Скачать .txt · Транскрипт · Меню.
 
-- **Polish**: Default, Creative, Formal, Embellish
-- **Prompt Engineer**: General, Designer, Coder, Coder Strict
-- **Humanizer**: Lite, Strong
-- **Translator**: EN, RU, ES, FR, DE, ZH, JA, KO, AR, TR, PT, IT, PL, UK
+## Установка на свой сервер
 
-### Skills RAG
-
-Режим Prompt Engineer использует BM25-поиск по 8 skill-репозиториям для обогащения промптов релевантными знаниями.
-
-## Быстрый старт
-
-### 1. Клонируй и настрой
+Никаких внешних сервисов: база — файл SQLite внутри docker-тома. Нужны только
+**токен бота** и **бесплатный ключ Groq**.
 
 ```bash
-git clone <repo-url>
-cd voice-bot
-cp .env.example .env
+curl -fsSL https://raw.githubusercontent.com/Itosyro/voice-bot/main/scripts/install-server.sh | bash
 ```
 
-### 2. Заполни `.env`
+Скрипт сам поставит Docker/git/make (Debian/Ubuntu), склонирует репозиторий в
+`~/voice-bot`, спросит токен и ключ, соберёт образ и поднимет контейнер с
+автозапуском после перезагрузки. Если репозиторий уже клонирован — то же самое
+делает `bash scripts/install-server.sh` изнутри папки проекта.
 
-Минимально необходимые переменные:
+### Переезд на новый сервер
 
-```
-TELEGRAM_BOT_TOKEN=<от @BotFather>
-GROQ_API_KEY_FALLBACK=<ключ с console.groq.com>
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/voicebot
-```
+Арендуешь VPS на неделю? Переезд — две операции. На старом сервере отправь боту
+в личку `/migrate` — придёт архив (`.env` + база) и готовая команда. Вставь её
+на новом сервере: бот поднимется с теми же ключами, настройками, пользователями
+и историей. Подробности: [docs/DEPLOY-SERVER.md](docs/DEPLOY-SERVER.md) §2.
 
-Опционально — отдельный Groq ключ на каждый режим. ВАЖНО: лимиты Groq
-считаются на организацию, поэтому смысл в отдельных ключах есть только если
-это ключи **разных** аккаунтов Groq:
-
-```
-GROQ_API_KEY_POLISH=gsk_...
-GROQ_API_KEY_PROMPT=gsk_...
-GROQ_API_KEY_HUMANIZER=gsk_...
-GROQ_API_KEY_TRANSLATOR=gsk_...
-GROQ_API_KEY_SUMMARY=gsk_...
-```
-
-## 🚀 Вариант Б: свой сервер (рекомендуется)
-
-Никаких внешних сервисов: ни Supabase, ни Render. База — файл SQLite внутри
-docker-тома, нужен только **токен бота** и **бесплатный ключ Groq**.
-
-```bash
-git clone https://github.com/Itosyro/voice-bot.git
-cd voice-bot
-bash scripts/install-server.sh
-```
-
-Скрипт проверит Docker и место на диске, спросит токен и ключ, соберёт образ
-и поднимет контейнер с автозапуском после перезагрузки сервера.
-
-**Команды на каждый день** (из папки проекта):
+### Команды на каждый день
 
 | Что | Команда |
 |---|---|
+| Список команд | `make` |
 | Логи | `make logs` |
 | Статус | `make status` |
 | Перезапуск (подхватит новый `.env`) | `make restart` |
 | Переписать ключи заново | `make reconfigure` |
 | Обновиться с GitHub | `make update` |
 | Бэкап базы | `make backup` |
+| Архив для переезда в Telegram | `make migrate` |
 | Остановить | `make down` |
 
-Без `make` — то же самое через `docker compose -f docker-compose.server.yml …`.
+Без `make` — то же через `docker compose -f docker-compose.server.yml …`.
+Рантбук (неверный ключ, диагностика по логам, восстановление базы):
+**[docs/DEPLOY-SERVER.md](docs/DEPLOY-SERVER.md)**.
 
-Подробный рантбук (что делать при неверном ключе, как бэкапить базу,
-диагностика по логам): **[docs/DEPLOY-SERVER.md](docs/DEPLOY-SERVER.md)**.
+**Сколько занимает:** образ ~600 МБ, база растёт медленно (старое чистится по
+TTL). Мало места — `docker system prune -a`.
 
-**Сколько занимает:** образ ~600 МБ, база растёт медленно (TTL чистит старое
-автоматически). Если места мало — `docker system prune -a` освободит
-неиспользуемые образы.
+## Настройки
 
----
+Обязательных две переменные:
 
-### 3. Запусти через Docker
-
-```bash
-docker compose up --build
+```
+TELEGRAM_BOT_TOKEN=        # от @BotFather
+GROQ_API_KEY_FALLBACK=     # console.groq.com, бесплатно
 ```
 
-Бот автоматически:
-1. Поднимет PostgreSQL
-2. Применит миграции (`alembic upgrade head`)
-3. Синхронизирует skills из 8 репозиториев
-4. Запустит polling
+Полезные необязательные: `ADMIN_USER_IDS`, `ALLOWED_USER_IDS` (пусто = открыт
+всем), `OPENROUTER_API_KEY` (голосовые длиннее ~25 минут), `CEREBRAS_API_KEY`.
+Всё остальное с дефолтами — см. [`.env.example`](.env.example) и `src/config.py`.
 
-### Альтернатива: локально
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-# Postgres должен быть запущен
-export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/voicebot
-alembic upgrade head
-python scripts/sync_skills.py
-python -m src.main
-```
+> Отдельные ключи на режим (`GROQ_API_KEY_POLISH` и т.д.) имеют смысл только
+> если это ключи **разных аккаунтов** Groq — лимиты считаются на организацию.
+> И если задать их без `GROQ_API_KEY_FALLBACK`, режимы без своего ключа
+> перестанут работать.
 
 ## Команды бота
 
 | Команда | Описание |
-|---------|----------|
-| `/start` | Приветствие + выбор режима |
-| `/help` | Справка |
-| `/modes` | Выбор режима |
-| `/settings` | Настройки |
-| `/lang <код>` | Сменить язык перевода |
+|---|---|
+| `/start` · `/help` | Приветствие и справка |
+| `/modes` · `/settings` | Выбрать режим · настройки |
+| `/lang <код>` | Язык перевода |
 | `/history` | Последние 10 запросов |
-| `/cancel` | Отменить действие |
-| `/sync_skills` | Синхронизировать skills (admin) |
-| `/stats` | Статистика (admin) |
+| `/stats` · `/users` · `/user <id>` | Статистика и пользователи (admin) |
+| `/ban <id>` · `/unban <id>` | Блокировка (admin) |
+| `/sync_skills` | Перезалить skills из GitHub (admin) |
+| `/migrate` | Архив переезда: `.env` + база (admin, только в личке) |
 
-## Получение ключей
+## Разработка
 
-### Telegram Bot Token
-1. Открой [@BotFather](https://t.me/BotFather) в Telegram
-2. `/newbot` → следуй инструкциям
-3. Скопируй токен
+```bash
+python -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python -m src.main                     # база — файл data/voicebot.db
+python -m pytest tests/ -q             # 183 теста, на SQLite (как в проде)
+ruff check . && ruff format --check .
+docker compose up --build              # вариант с Postgres (docker-compose.yml)
+```
 
-### Groq API Keys
-1. Зарегистрируйся на [console.groq.com](https://console.groq.com)
-2. Создай 4 API ключа (один на каждый режим)
-3. Бесплатный тир включает достаточно запросов
+Тесты включают e2e через настоящий `Dispatcher` и настоящую SQLite
+(`tests/test_e2e_modes.py`) — новые кнопки и режимы покрывать там.
 
-## Стек
+**Стек:** Python 3.11+, aiogram 3.30, SQLAlchemy 2 async, SQLite (или Postgres),
+Groq SDK, rank-bm25, ffmpeg, Docker Compose.
 
-- **Python 3.11+**, aiogram 3
-- **Groq API** (Whisper + LLM)
-- **PostgreSQL 16** + SQLAlchemy 2.0 + Alembic
-- **BM25** для skills search
-- **Docker Compose** для деплоя
+Архитектура, принятые решения и грабли — в [CLAUDE.md](CLAUDE.md).
 
 ## Ограничения
 
-- Аудио до 10 минут
-- Текст до 10000 символов
-- 20 запросов в минуту на пользователя
-- Humanizer работает только с текстом (не голосом)
-- Зависит от Groq API (бесплатный тир имеет rate limits)
-
-## Деплой
-
-### Fly.io
-
-```bash
-fly auth login
-fly launch --config fly.toml
-fly secrets set TELEGRAM_BOT_TOKEN=... GROQ_API_KEY_FALLBACK=...
-fly deploy
-```
-
-### Railway
-
-Подключи GitHub репозиторий, добавь PostgreSQL addon, задай env variables.
+- Аудио до 1 часа, файл до 20 МБ (лимит Telegram для ботов)
+- Текст до 10 000 символов, 20 запросов в минуту на пользователя
+- «Очеловечить» работает только с текстом
+- Зависит от Groq (на бесплатном тарифе есть лимиты по токенам в минуту)
 
 ## Лицензия
 

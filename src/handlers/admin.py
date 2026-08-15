@@ -11,6 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
+from src.handlers.callbacks import _edit_or_send
+from src.migrate import send_migration
 from src.services.skills_db import SkillsDB
 from src.storage.db import get_session
 from src.storage.models import RequestHistory, SkillIndex, User
@@ -80,6 +82,24 @@ async def cmd_sync_skills(message: Message, skills_db: SkillsDB) -> None:
         await message.answer(f"Skills синхронизированы. {reload_note}\n\n{output}")
     else:
         await message.answer(f"Ошибка:\n{errors}")
+
+
+@router.message(Command("migrate"))
+async def cmd_migrate(message: Message) -> None:
+    if not message.from_user or not _is_admin(message.from_user.id):
+        await message.answer("Только для администраторов.")
+        return
+    # В архиве лежат токен и ключи — в группу такое отправлять нельзя.
+    if message.chat.type != "private":
+        await message.answer("Только в личке с ботом.")
+        return
+
+    await message.answer("Собираю архив…")
+    try:
+        await send_migration(message.bot, message.chat.id)  # type: ignore[arg-type]
+    except Exception as exc:
+        log.warning("migrate_failed", error=str(exc))
+        await message.answer(f"Не получилось собрать архив: {exc}")
 
 
 @router.message(Command("stats"))
@@ -265,6 +285,7 @@ async def on_admin_action(callback: CallbackQuery, session: AsyncSession) -> Non
         await callback.answer("Заблокирован." if blocked else "Разблокирован.")
 
     text, kb = await _render_user_card(session, target_id)
-    await callback.message.edit_text(  # type: ignore[union-attr]
-        text, reply_markup=kb, parse_mode="HTML"
-    )
+    # Через общий хелпер: «Обновить» на неизменившейся карточке даёт
+    # «message is not modified», а карточка старше 48 часов прилетает
+    # InaccessibleMessage — у неё нет edit_text вообще.
+    await _edit_or_send(callback.message, text, reply_markup=kb, parse_mode="HTML")

@@ -2,33 +2,36 @@
 name = "voice-polisher-bot"
 version = "0.1.0"
 requires-python = ">=3.11"
+# Верхние границы обязательны: `make update` пересобирает образ на сервере и
+# тянет свежие версии. Открытый `groq>=0.13` уже уехал на 1.6 (мажор!) сам по
+# себе — незамеченный breaking change тут = молча мёртвый бот.
 dependencies = [
     # Telegram
-    "aiogram>=3.30.0",
+    "aiogram>=3.30.0,<4",
 
     # AI
-    "groq>=0.13.0",
-    "openai>=1.60.0",  # Cerebras/OpenRouter фолбэк-провайдеры (OpenAI-совместимые)
+    "groq>=1.6.0,<2",
+    "openai>=3.1.0,<4",  # Cerebras/OpenRouter фолбэк-провайдеры (OpenAI-совместимые)
 
     # Database
-    "sqlalchemy[asyncio]>=2.0.30",
-    "asyncpg>=0.29.0",
-    "aiosqlite>=0.20.0",  # self-hosted режим: база — файл, без внешних сервисов
-    "alembic>=1.13.0",
+    "sqlalchemy[asyncio]>=2.0.30,<3",
+    "asyncpg>=0.29.0,<0.32",
+    "aiosqlite>=0.20.0,<1",  # self-hosted режим: база — файл, без внешних сервисов
+    "alembic>=1.13.0,<2",
 
     # Search
-    "rank-bm25>=0.2.2",
+    "rank-bm25>=0.2.2,<1",
 
     # Config
-    "pydantic-settings>=2.5.0",
-    "python-dotenv>=1.0.1",
+    "pydantic-settings>=2.5.0,<3",
+    "python-dotenv>=1.0.1,<2",
 
     # Logs
-    "structlog>=24.4.0",
+    "structlog>=24.4.0,<27",
 
     # HTTP
-    "httpx>=0.27.0",
-    "aiohttp>=3.9.0",
+    "httpx>=0.27.0,<1",
+    "aiohttp>=3.9.0,<4",
 ]
 
 [project.optional-dependencies]

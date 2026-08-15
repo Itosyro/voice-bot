@@ -27,7 +27,6 @@ class Settings(BaseSettings):
     # llama-3.3-70b-versatile / llama-3.1-8b-instant деприкейтнуты Groq 17.06.2026
     # (отключение до августа 2026). Официальная замена — openai/gpt-oss-120b.
     llm_model_default: str = "openai/gpt-oss-120b"
-    llm_model_fast: str = "openai/gpt-oss-20b"
     llm_model_strict: str = "openai/gpt-oss-120b"
     # Запасные модели: если основная отключена провайдером (404/decommissioned),
     # complete() пробует их по порядку.
@@ -47,9 +46,10 @@ class Settings(BaseSettings):
     # транскрипты, которые не влезают в 8K TPM Groq free. https://openrouter.ai
     openrouter_api_key: str | None = None
     openrouter_model: str = "openai/gpt-oss-120b:free"
-    # Примерный потолок токенов запроса для Groq free (TPM ~8K): длиннее — сразу
-    # роутим в OpenRouter (если ключ задан), иначе Groq вернёт 413.
-    groq_max_request_tokens: int = 7000
+    # Примерный потолок токенов ВХОДА для Groq free (TPM ~8K): длиннее — сразу
+    # роутим в OpenRouter (если ключ задан), иначе Groq вернёт 413. Бюджет
+    # ответа (max_tokens) сюда не входит — см. complete() в services/llm.py.
+    groq_max_request_tokens: int = 6000
 
     # Стриминг-превью через sendMessageDraft (Bot API 9.5+, aiogram 3.30+).
     # Выключен по умолчанию: включать после проверки вживую (см. грабли №1).

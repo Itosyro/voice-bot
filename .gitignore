@@ -1,4 +1,8 @@
 .env
+.env.bak
+# Архивы переезда содержат .env и базу целиком — в git им нельзя никогда.
+voicebot-migration-*.tar.gz
+backup-*.db
 .venv/
 __pycache__/
 *.pyc

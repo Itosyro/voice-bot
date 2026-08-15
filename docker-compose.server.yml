@@ -15,6 +15,9 @@ services:
       LOG_FORMAT: text
     volumes:
       - voicebot_data:/app/data
+      # Только для /migrate: бот кладёт .env в архив переезда байт-в-байт.
+      # На настройки не влияет — переменные из env_file всё равно приоритетнее.
+      - ./.env:/app/.env:ro
     # Скромные лимиты: на сервере уже крутится другой проект.
     mem_limit: 1g
     cpus: 1.5

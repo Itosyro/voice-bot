@@ -9,8 +9,10 @@ from src.handlers._last import save_last_result, save_result_for_message
 from src.services.llm import OnDelta
 from src.utils import escape_html
 
-# Telegram считает лимит 4096 в UTF-16 code units: кириллица = 1 юнит, но
-# каждый эмодзи = 2. Поэтому меряем длину именно в юнитах, а не в len().
+# Telegram считает лимит 4096 в UTF-16 code units, причём ПОСЛЕ парсинга
+# сущностей («1-4096 characters after entities parsing»): теги и `&amp;`
+# схлопываются, поэтому меряем ИСХОДНЫЙ текст, а не HTML. Кириллица = 1 юнит,
+# эмодзи = 2 — поэтому юниты, а не len(). Остаток до 4096 — на «i/N» и футер.
 _CHUNK = 3500
 _MAX_PARTS = 10  # beyond this, send the full text as a .txt file instead
 
@@ -36,8 +38,9 @@ def split_text(text: str) -> list[str]:
         # Максимальный префикс, влезающий в _CHUNK UTF-16 юнитов: len() всегда
         # <= tg_len(), поэтому стартуем с _CHUNK символов и ужимаем.
         window = min(len(text), _CHUNK)
-        while tg_len(text[:window]) > _CHUNK:
-            window = int(window * 0.9)
+        # window > 1 — страховка от бесконечного цикла: int(1 * 0.9) == 0.
+        while window > 1 and tg_len(text[:window]) > _CHUNK:
+            window = max(1, int(window * 0.9))
         split_at = text.rfind("\n\n", 0, window)
         if split_at <= 0:
             split_at = text.rfind(". ", 0, window)
@@ -122,9 +125,12 @@ async def send_result(
         await progress_msg.edit_text(
             f"📋 Ответ большой ({len(result_text)} симв.) — отправляю файлом."
         )
-        await message.answer_document(
+        sent_doc = await message.answer_document(
             document, caption=f"📄 Результат{skills_info}{timing}", reply_markup=kb
         )
+        # Кнопки под файлом тоже должны отдавать ИМЕННО этот результат, а не
+        # последний по чату (грабли №24: фикс не доехал до .txt-фолбэка).
+        save_result_for_message(message.chat.id, sent_doc.message_id, result_text)
         return
 
     total_parts = len(parts)

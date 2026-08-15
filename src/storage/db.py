@@ -74,6 +74,15 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             raise
 
 
+def _create_missing_indexes(conn) -> None:
+    """Досоздать индексы, которых нет в существующей базе (checkfirst=True)."""
+    from src.storage.models import Base
+
+    for table in Base.metadata.tables.values():
+        for index in table.indexes:
+            index.create(bind=conn, checkfirst=True)
+
+
 async def init_db() -> None:
     """Создать схему, если её ещё нет.
 
@@ -93,6 +102,10 @@ async def init_db() -> None:
             parent.mkdir(parents=True, exist_ok=True)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # create_all НЕ добавляет индексы в уже существующие таблицы — а база
+            # теперь переезжает с сервера на сервер целиком, так что «создастся
+            # при первом запуске» тут не работает. Досоздаём явно (idempotent).
+            await conn.run_sync(_create_missing_indexes)
         log.info("sqlite_schema_ready", url=settings.database_url)
         return
 

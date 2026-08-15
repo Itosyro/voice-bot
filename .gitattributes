@@ -1,0 +1,9 @@
+# Скрипты уезжают на Linux-сервер и запускаются через `curl … | bash`.
+# CRLF там = `bash: $'\r': команда не найдена`, поэтому пинним LF независимо
+# от core.autocrlf у того, кто коммитит (владелец правит репо с Windows).
+* text=auto eol=lf
+*.sh text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
