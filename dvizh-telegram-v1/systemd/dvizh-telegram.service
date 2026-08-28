@@ -1,0 +1,23 @@
+[Unit]
+Description=DVIZH Telegram companion bot
+After=network-online.target dvizh.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dvizh
+Group=dvizh
+WorkingDirectory=/opt/dvizh-telegram
+EnvironmentFile=/etc/dvizh/telegram.env
+ExecStart=/opt/dvizh-telegram/.venv/bin/python -m telegram_bot.main
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dvizh
+MemoryMax=192M
+
+[Install]
+WantedBy=multi-user.target
