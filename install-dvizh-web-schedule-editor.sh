@@ -6,6 +6,7 @@ BRANCH="codex/dvizh-web-schedule-editor-v1-2026-08-29"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${BRANCH}/web-week-editor-v1"
 DATA_DIR="/var/lib/dvizh"
 MODULE_DIR="/opt/dvizh-web-editor"
+WEEK_BRIDGE="/opt/dvizh-web-week/weekly_web_bridge.py"
 SERVICE_FILE="/etc/systemd/system/dvizh-web-editor.service"
 STATUS_FILE="$DATA_DIR/web-editor-status.json"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -39,6 +40,7 @@ rollback() {
       [[ -f "$BACKUP_DIR/static/$name" ]] && cp -a "$BACKUP_DIR/static/$name" "$APP_ROOT/$name"
     done
   fi
+  [[ -f "$BACKUP_DIR/weekly_web_bridge.py" ]] && install -m 0755 "$BACKUP_DIR/weekly_web_bridge.py" "$WEEK_BRIDGE"
   if [[ -f "$BACKUP_DIR/dvizh-web-editor.service" ]]; then
     cp -a "$BACKUP_DIR/dvizh-web-editor.service" "$SERVICE_FILE"
   else
@@ -50,6 +52,7 @@ rollback() {
     rm -f "$MODULE_DIR/web_schedule_editor_bridge.py"
   fi
   systemctl daemon-reload >/dev/null 2>&1 || true
+  systemctl restart dvizh-web-week.service >/dev/null 2>&1 || true
   [[ -f "$BACKUP_DIR/dvizh-web-editor.service" ]] && systemctl enable --now dvizh-web-editor.service >/dev/null 2>&1 || true
   cleanup
   exit "$code"
@@ -60,6 +63,7 @@ trap cleanup EXIT
 for required in index.html app.js styles.css sw.js; do
   [[ -f "$APP_ROOT/$required" ]] || { echo "Не найден $APP_ROOT/$required" >&2; exit 1; }
 done
+[[ -f "$WEEK_BRIDGE" ]] || { echo "Не найден действующий weekly web bridge." >&2; exit 1; }
 for unit in dvizh.service dvizh-auth.service dvizh-telegram.service dvizh-bridge.service dvizh-web-week.service; do
   systemctl is-active --quiet "$unit" || { echo "$unit не активен" >&2; exit 1; }
 done
@@ -69,16 +73,17 @@ grep -q 'DVIZH_WEEK_VIEW_V1' "$APP_ROOT/index.html"
 grep -q 'DVIZH_WEEK_WEB_V1' "$APP_ROOT/app.js"
 
 mkdir -p "$TMP_DIR"
-for file in patch_web_editor.py web_schedule_editor_bridge.py dvizh-web-editor.service; do
+for file in patch_web_editor.py patch_week_bridge_for_editor.py web_schedule_editor_bridge.py dvizh-web-editor.service; do
   curl --fail --silent --show-error --location --retry 4 --retry-delay 1 "$BASE_URL/$file" -o "$TMP_DIR/$file"
 done
-bash -n "$0" 2>/dev/null || true
-python3 -m py_compile "$TMP_DIR/patch_web_editor.py" "$TMP_DIR/web_schedule_editor_bridge.py"
+python3 -m py_compile "$TMP_DIR/patch_web_editor.py" "$TMP_DIR/patch_week_bridge_for_editor.py" "$TMP_DIR/web_schedule_editor_bridge.py"
 python3 "$TMP_DIR/patch_web_editor.py" --root "$APP_ROOT" --check
+python3 "$TMP_DIR/patch_week_bridge_for_editor.py" --file "$WEEK_BRIDGE" --check
 
-echo "[1/6] Делаю backup веб-интерфейса и Telegram-базы..."
+echo "[1/7] Делаю backup веб-интерфейса, мостов и Telegram-базы..."
 install -d -m 0700 "$BACKUP_DIR/static"
 for name in index.html app.js styles.css sw.js; do cp -a "$APP_ROOT/$name" "$BACKUP_DIR/static/$name"; done
+cp -a "$WEEK_BRIDGE" "$BACKUP_DIR/weekly_web_bridge.py"
 [[ -f "$SERVICE_FILE" ]] && cp -a "$SERVICE_FILE" "$BACKUP_DIR/dvizh-web-editor.service"
 [[ -f "$MODULE_DIR/web_schedule_editor_bridge.py" ]] && cp -a "$MODULE_DIR/web_schedule_editor_bridge.py" "$BACKUP_DIR/web_schedule_editor_bridge.py"
 python3 - "$DATA_DIR/telegram.db" "$BACKUP_DIR/telegram.db" <<'PY'
@@ -92,11 +97,18 @@ print('backup integrity=ok')
 PY
 chmod 0600 "$BACKUP_DIR/telegram.db"
 
-echo "[2/6] Добавляю создание и редактирование событий в веб-ДВИЖ..."
+echo "[2/7] Добавляю создание и редактирование событий в веб-ДВИЖ..."
 python3 "$TMP_DIR/patch_web_editor.py" --root "$APP_ROOT"
 python3 "$TMP_DIR/patch_web_editor.py" --root "$APP_ROOT" --check
 
-echo "[3/6] Добавляю безопасную очередь команд веб → Telegram..."
+echo "[3/7] Защищаю очередь веб-команд от перерисовки Telegram → web..."
+python3 "$TMP_DIR/patch_week_bridge_for_editor.py" --file "$WEEK_BRIDGE"
+python3 "$TMP_DIR/patch_week_bridge_for_editor.py" --file "$WEEK_BRIDGE" --check
+python3 -m py_compile "$WEEK_BRIDGE"
+systemctl restart dvizh-web-week.service
+systemctl is-active --quiet dvizh-web-week.service
+
+echo "[4/7] Добавляю безопасную очередь команд web → Telegram..."
 python3 - "$DATA_DIR/telegram.db" <<'PY'
 import sqlite3,sys
 with sqlite3.connect(sys.argv[1]) as db:
@@ -116,7 +128,7 @@ systemctl daemon-reload
 rm -f "$STATUS_FILE"
 systemctl enable --now dvizh-web-editor.service >/dev/null
 
- echo "[4/6] Проверяю новый мост и стабильный аккаунт..."
+echo "[5/7] Проверяю новый мост и стабильный аккаунт..."
 EDITOR_OK=0
 for _ in $(seq 1 40); do
   if [[ -f "$STATUS_FILE" ]] && python3 - "$STATUS_FILE" <<'PY' >/dev/null 2>&1
@@ -135,11 +147,12 @@ if [[ "$EDITOR_OK" -ne 1 ]]; then
 fi
 cat "$STATUS_FILE"
 
-echo "[5/6] Проверяю интерфейс и базы..."
+echo "[6/7] Проверяю интерфейс и базы..."
 grep -q 'DVIZH_WEEK_EDITOR_V1' "$APP_ROOT/index.html"
 grep -q 'DVIZH_WEEK_EDITOR_V1' "$APP_ROOT/app.js"
 grep -q 'DVIZH_WEEK_EDITOR_V1' "$APP_ROOT/styles.css"
 grep -q 'dvizh-week-editor-v1' "$APP_ROOT/sw.js"
+grep -q 'DVIZH_WEEK_EDITOR_COMMAND_PRESERVE_V1' "$WEEK_BRIDGE"
 python3 - "$DATA_DIR/telegram.db" "$DATA_DIR/dvizh.db" "$DATA_DIR/auth.db" <<'PY'
 import sqlite3,sys
 for path in sys.argv[1:]:
@@ -150,7 +163,7 @@ PY
 curl -fsS --max-time 8 http://127.0.0.1:8000/api/health >/dev/null
 curl -fsS --max-time 8 http://127.0.0.1:8002/health >/dev/null
 
-echo "[6/6] Проверяю службы..."
+echo "[7/7] Проверяю службы..."
 for unit in dvizh.service dvizh-auth.service dvizh-telegram.service dvizh-bridge.service dvizh-web-week.service dvizh-web-editor.service; do
   printf '%s: ' "$unit"; systemctl is-active "$unit"
 done
