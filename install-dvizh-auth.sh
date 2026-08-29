@@ -16,4 +16,8 @@ echo "$RELEASE_SHA256  $TMP_DIR/release.tar.gz" | sha256sum -c -
 tar -xzf "$TMP_DIR/release.tar.gz" -C "$TMP_DIR"
 BUILD_DIR="$TMP_DIR/dvizh-auth-build"
 [[ -x "$BUILD_DIR/install.sh" ]] || chmod +x "$BUILD_DIR/install.sh"
-DVIZH_AUTH_PAYLOAD_DIR="$BUILD_DIR" exec sudo -n bash "$BUILD_DIR/install.sh"
+
+# sudo normally removes custom environment variables. Pass the verified local
+# payload path explicitly through env so the inner installer does not attempt
+# to download an obsolete single-part payload.
+exec sudo -n env DVIZH_AUTH_PAYLOAD_DIR="$BUILD_DIR" bash "$BUILD_DIR/install.sh"
