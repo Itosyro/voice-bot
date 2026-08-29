@@ -34,3 +34,17 @@ jobs:
           python -m py_compile web-week-editor-v1/patch_web_editor.py web-week-editor-v1/web_schedule_editor_bridge.py
       - name: Editor bridge and UI upgrade tests
         run: pytest -q web-week-editor-v1/tests
+      - name: Browser JavaScript syntax after upgrade
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          from pathlib import Path
+          def load(name,path):
+              spec=importlib.util.spec_from_file_location(name,path); mod=importlib.util.module_from_spec(spec); sys.modules[name]=mod; spec.loader.exec_module(mod); return mod
+          week=load('week_patch_ci',Path('web-week-v1/patch_web.py'))
+          editor=load('editor_patch_ci',Path('web-week-editor-v1/patch_web_editor.py'))
+          js="""const VIEW_COPY = { direct: {\n      proof: 'Факты сильнее ощущения «я ничего не делаю».',\n      settings: 'x'\n}, calm: {\n      proof: 'Посмотри на реальные шаги, которые уже были.',\n      settings: 'y'\n}};\nfunction navigate(view) {\n    if (!['home', 'tasks', 'focus', 'proof', 'settings'].includes(view)) return;\n    if (view === 'proof') renderProof();\n}\n  function renderSettings() {}\nfunction renderAll() {\n    renderProof();\n    renderSettings();\n}\nconst actions = {\n        'install-app': installApp,\n        'reset-app': resetApp\n};"""
+          Path('/tmp/dvizh-editor-app.js').write_text(editor.patch_app(week.patch_app(js)),encoding='utf-8')
+          PY
+          node --check /tmp/dvizh-editor-app.js
