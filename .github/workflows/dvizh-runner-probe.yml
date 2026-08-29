@@ -1,0 +1,292 @@
+name: DVIZH live integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/dvizh-runner-probe.yml'
+      - 'dvizh-integration/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dvizh-live-integration-2026-08-29
+  cancel-in-progress: true
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      VM_HOST: rikarishi-dvizh.exe.xyz
+      HEAD_BRANCH: codex/dvizh-runner-probe-2026-08-29
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check out control branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Generate one-run SSH identity
+        id: key
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keygen -q -t ed25519 -N '' \
+            -C "chatgpt-dvizh-ephemeral-${GITHUB_RUN_ID}" \
+            -f "$HOME/.ssh/id_dvizh"
+          chmod 600 "$HOME/.ssh/id_dvizh"
+          public_key="$(cat "$HOME/.ssh/id_dvizh.pub")"
+          fingerprint="$(ssh-keygen -E sha256 -lf "$HOME/.ssh/id_dvizh.pub" | awk '{print $2}')"
+          printf 'fingerprint=%s\n' "$fingerprint" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$public_key" > /tmp/dvizh-public-key.txt
+
+      - name: Publish safe public key and wait for access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          public_key="$(cat /tmp/dvizh-public-key.txt)"
+          fingerprint='${{ steps.key.outputs.fingerprint }}'
+          cat > /tmp/key-comment.md <<EOF
+          <!-- dvizh-ephemeral-${GITHUB_RUN_ID} -->
+          ### Одноразовый ключ для текущей интеграции ДВИЖа
+
+          В лобби `exe.dev ▶` вставьте одну строку:
+
+          \`\`\`bash
+          ssh-key add --tag=dvizh '$public_key'
+          \`\`\`
+
+          Отпечаток: \`$fingerprint\`. Закрытая часть существует только внутри этого запущенного GitHub Runner и будет уничтожена после завершения. Workflow сам удалит ключ из exe.dev.
+          EOF
+          gh pr comment "$PR_NUMBER" --body-file /tmp/key-comment.md
+
+          for attempt in $(seq 1 240); do
+            if ssh -i "$HOME/.ssh/id_dvizh" \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=10 \
+              -o ServerAliveInterval=10 \
+              -o ServerAliveCountMax=2 \
+              "$VM_HOST" 'printf connected' >/tmp/ssh-ok 2>/tmp/ssh-error; then
+              cat /tmp/ssh-ok
+              exit 0
+            fi
+            echo "Waiting for the one-run key to be added ($attempt/240)..."
+            tail -n 2 /tmp/ssh-error || true
+            sleep 15
+          done
+          echo 'Timed out waiting for SSH access.' >&2
+          exit 1
+
+      - name: Create verified backups and sanitized snapshot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH=(ssh -i "$HOME/.ssh/id_dvizh" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=6)
+          "${SSH[@]}" "$VM_HOST" 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          root="/tmp/dvizh-integration-snapshot-$stamp"
+          sudo -n rm -rf "$root"
+          sudo -n mkdir -p "$root"/{web,telegram,system,db}
+
+          sudo -n python3 - "$stamp" <<'PY'
+          from pathlib import Path
+          import sqlite3
+          import sys
+
+          stamp = sys.argv[1]
+          backup_dir = Path('/var/lib/dvizh/backups')
+          backup_dir.mkdir(parents=True, exist_ok=True)
+          for source, label in (
+              (Path('/var/lib/dvizh/dvizh.db'), 'web'),
+              (Path('/var/lib/dvizh/telegram.db'), 'telegram'),
+          ):
+              if not source.exists():
+                  print(f'missing={source}')
+                  continue
+              target = backup_dir / f'pre-integration-{label}-{stamp}.db'
+              with sqlite3.connect(source) as src, sqlite3.connect(target) as dst:
+                  src.backup(dst)
+                  result = dst.execute('PRAGMA integrity_check').fetchone()[0]
+                  if result != 'ok':
+                      raise SystemExit(f'{target}: integrity={result}')
+              target.chmod(0o600)
+              print(f'backup={target} integrity=ok')
+          PY
+
+          sudo -n cp -a /opt/dvizh/. "$root/web/"
+          if sudo -n test -d /opt/dvizh-telegram/telegram_bot; then
+            sudo -n cp -a /opt/dvizh-telegram/telegram_bot "$root/telegram/telegram_bot"
+          fi
+          sudo -n cp -a /opt/dvizh-telegram/requirements.txt "$root/telegram/" 2>/dev/null || true
+          sudo -n cp -a /opt/dvizh-telegram/VERSION "$root/telegram/" 2>/dev/null || true
+
+          for unit in dvizh.service dvizh-telegram.service dvizh-backup.service dvizh-backup.timer; do
+            sudo -n systemctl cat "$unit" > "$root/system/$unit.txt" 2>&1 || true
+            sudo -n systemctl status "$unit" --no-pager --full > "$root/system/$unit.status.txt" 2>&1 || true
+          done
+
+          if sudo -n test -f /etc/dvizh/telegram.env; then
+            sudo -n sed -E \
+              -e 's/^(TELEGRAM_BOT_TOKEN)=.*/\1=<redacted>/' \
+              -e 's/^(DVIZH_TELEGRAM_PAIR_CODE)=.*/\1=<redacted>/' \
+              -e 's/^(DVIZH_GATEWAY_INTERNAL_TOKEN)=.*/\1=<redacted>/' \
+              /etc/dvizh/telegram.env > "$root/system/telegram.env.redacted"
+          fi
+
+          sudo -n python3 - "$root/db" <<'PY'
+          from pathlib import Path
+          import json
+          import sqlite3
+          import sys
+
+          output = Path(sys.argv[1])
+          for db_path, label in (
+              (Path('/var/lib/dvizh/dvizh.db'), 'web'),
+              (Path('/var/lib/dvizh/telegram.db'), 'telegram'),
+          ):
+              report = {'path': str(db_path), 'exists': db_path.exists(), 'tables': {}}
+              if db_path.exists():
+                  with sqlite3.connect(f'file:{db_path}?mode=ro', uri=True) as db:
+                      db.row_factory = sqlite3.Row
+                      report['integrity_check'] = db.execute('PRAGMA integrity_check').fetchone()[0]
+                      rows = db.execute("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").fetchall()
+                      for row in rows:
+                          name = row['name']
+                          columns = [dict(item) for item in db.execute(f'PRAGMA table_info("{name}")').fetchall()]
+                          count = db.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+                          report['tables'][name] = {'sql': row['sql'], 'columns': columns, 'row_count': count}
+              (output / f'{label}-schema.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+          PY
+
+          {
+            echo '=== identity'; id
+            echo '=== os'; cat /etc/os-release
+            echo '=== python'; python3 --version
+            echo '=== listening'; sudo -n ss -lntp || true
+            echo '=== enabled/active'
+            for unit in dvizh.service dvizh-telegram.service dvizh-backup.timer; do
+              printf '%s enabled=' "$unit"; sudo -n systemctl is-enabled "$unit" 2>/dev/null || true
+              printf '%s active=' "$unit"; sudo -n systemctl is-active "$unit" 2>/dev/null || true
+            done
+            echo '=== health'; curl -fsS http://127.0.0.1:8000/api/health || true; echo
+            echo '=== files'; sudo -n find /opt/dvizh /opt/dvizh-telegram /var/lib/dvizh -maxdepth 3 -printf '%M %u:%g %s %TY-%Tm-%TdT%TH:%TM:%TS %p\n' 2>/dev/null | sort
+          } > "$root/system/inventory.txt"
+
+          sudo -n chown -R "$(id -u):$(id -g)" "$root"
+          tar -C /tmp -czf /tmp/dvizh-integration-snapshot.tar.gz "$(basename "$root")"
+          rm -rf "$root"
+          REMOTE
+
+          scp -i "$HOME/.ssh/id_dvizh" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
+            "$VM_HOST:/tmp/dvizh-integration-snapshot.tar.gz" ./dvizh-integration-snapshot.tar.gz
+          "${SSH[@]}" "$VM_HOST" 'rm -f /tmp/dvizh-integration-snapshot.tar.gz'
+          test -s ./dvizh-integration-snapshot.tar.gz
+          sha256sum ./dvizh-integration-snapshot.tar.gz
+
+      - name: Upload sanitized snapshot for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-integration-snapshot
+          path: dvizh-integration-snapshot.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Wait for reviewed deployment payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for attempt in $(seq 1 540); do
+            git fetch -q --no-tags origin "+refs/heads/$HEAD_BRANCH:refs/remotes/origin/$HEAD_BRANCH"
+            if git cat-file -e "refs/remotes/origin/$HEAD_BRANCH:dvizh-integration/READY" 2>/dev/null; then
+              echo 'Reviewed payload is ready.'
+              exit 0
+            fi
+            echo "Waiting for reviewed payload ($attempt/540)..."
+            sleep 20
+          done
+          echo 'Timed out waiting for deployment payload.' >&2
+          exit 1
+
+      - name: Fetch and deploy reviewed payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -rf /tmp/dvizh-reviewed-payload
+          mkdir -p /tmp/dvizh-reviewed-payload
+          git fetch -q --no-tags origin "+refs/heads/$HEAD_BRANCH:refs/remotes/origin/$HEAD_BRANCH"
+          git archive "refs/remotes/origin/$HEAD_BRANCH" dvizh-integration | tar -x -C /tmp/dvizh-reviewed-payload
+          test -s /tmp/dvizh-reviewed-payload/dvizh-integration/deploy.sh
+          chmod +x /tmp/dvizh-reviewed-payload/dvizh-integration/deploy.sh
+          tar -C /tmp/dvizh-reviewed-payload -czf /tmp/dvizh-reviewed-payload.tar.gz dvizh-integration
+
+          SCP=(scp -i "$HOME/.ssh/id_dvizh" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20)
+          SSH=(ssh -i "$HOME/.ssh/id_dvizh" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o ServerAliveInterval=10 -o ServerAliveCountMax=12)
+          "${SCP[@]}" /tmp/dvizh-reviewed-payload.tar.gz "$VM_HOST:/tmp/dvizh-reviewed-payload.tar.gz"
+          "${SSH[@]}" "$VM_HOST" 'bash -s' <<'REMOTE'
+          set -Eeuo pipefail
+          rm -rf /tmp/dvizh-reviewed-payload
+          mkdir -p /tmp/dvizh-reviewed-payload
+          tar -xzf /tmp/dvizh-reviewed-payload.tar.gz -C /tmp/dvizh-reviewed-payload
+          chmod +x /tmp/dvizh-reviewed-payload/dvizh-integration/deploy.sh
+          sudo -n /tmp/dvizh-reviewed-payload/dvizh-integration/deploy.sh
+          rm -rf /tmp/dvizh-reviewed-payload /tmp/dvizh-reviewed-payload.tar.gz
+          REMOTE
+
+      - name: Verify live services and collect final report
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH=(ssh -i "$HOME/.ssh/id_dvizh" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20)
+          "${SSH[@]}" "$VM_HOST" 'bash -s' > dvizh-final-report.txt <<'REMOTE'
+          set -Eeuo pipefail
+          sudo -n systemctl is-active dvizh.service
+          sudo -n systemctl is-active dvizh-telegram.service
+          if sudo -n systemctl list-unit-files | grep -q '^dvizh-gateway.service'; then
+            sudo -n systemctl is-active dvizh-gateway.service
+          fi
+          curl -fsS http://127.0.0.1:8000/api/health; echo
+          if curl -fsS http://127.0.0.1:8002/health >/tmp/gateway-health 2>/dev/null; then
+            cat /tmp/gateway-health; echo
+          fi
+          sudo -n python3 - <<'PY'
+          import sqlite3
+          for path in ('/var/lib/dvizh/dvizh.db', '/var/lib/dvizh/telegram.db'):
+              with sqlite3.connect(path) as db:
+                  print(path, db.execute('PRAGMA integrity_check').fetchone()[0])
+          PY
+          REMOTE
+          cat dvizh-final-report.txt
+
+      - name: Upload final report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-final-report
+          path: dvizh-final-report.txt
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Revoke one-run key
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          fingerprint='${{ steps.key.outputs.fingerprint }}'
+          ssh -i "$HOME/.ssh/id_dvizh" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=20 \
+            exe.dev "ssh-key remove $fingerprint"
+          rm -f "$HOME/.ssh/id_dvizh" "$HOME/.ssh/id_dvizh.pub" /tmp/dvizh-public-key.txt
