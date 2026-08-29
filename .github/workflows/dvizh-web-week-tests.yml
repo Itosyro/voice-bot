@@ -8,12 +8,14 @@ on:
       - 'web-week-v1/**'
       - 'install-dvizh-web-week.sh'
       - 'install-dvizh-web-week-locked.sh'
+      - 'repair-dvizh-auth-sync.sh'
       - '.github/workflows/dvizh-web-week-tests.yml'
   pull_request:
     paths:
       - 'web-week-v1/**'
       - 'install-dvizh-web-week.sh'
       - 'install-dvizh-web-week-locked.sh'
+      - 'repair-dvizh-auth-sync.sh'
       - '.github/workflows/dvizh-web-week-tests.yml'
   workflow_dispatch:
 
@@ -34,6 +36,7 @@ jobs:
         run: |
           bash -n install-dvizh-web-week.sh
           bash -n install-dvizh-web-week-locked.sh
+          bash -n repair-dvizh-auth-sync.sh
           python -m py_compile web-week-v1/patch_web.py web-week-v1/weekly_web_bridge.py
       - name: Web patch and roundtrip tests
         run: pytest -q web-week-v1/tests
