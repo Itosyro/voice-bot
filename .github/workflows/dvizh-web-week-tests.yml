@@ -7,11 +7,13 @@ on:
     paths:
       - 'web-week-v1/**'
       - 'install-dvizh-web-week.sh'
+      - 'install-dvizh-web-week-locked.sh'
       - '.github/workflows/dvizh-web-week-tests.yml'
   pull_request:
     paths:
       - 'web-week-v1/**'
       - 'install-dvizh-web-week.sh'
+      - 'install-dvizh-web-week-locked.sh'
       - '.github/workflows/dvizh-web-week-tests.yml'
   workflow_dispatch:
 
@@ -31,6 +33,7 @@ jobs:
       - name: Static checks
         run: |
           bash -n install-dvizh-web-week.sh
+          bash -n install-dvizh-web-week-locked.sh
           python -m py_compile web-week-v1/patch_web.py web-week-v1/weekly_web_bridge.py
       - name: Web patch and roundtrip tests
         run: pytest -q web-week-v1/tests
