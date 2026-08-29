@@ -1,0 +1,36 @@
+name: DVIZH web weekly schedule tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-weekly-schedule-v1-2026-08-29
+    paths:
+      - 'web-week-v1/**'
+      - 'install-dvizh-web-week.sh'
+      - '.github/workflows/dvizh-web-week-tests.yml'
+  pull_request:
+    paths:
+      - 'web-week-v1/**'
+      - 'install-dvizh-web-week.sh'
+      - '.github/workflows/dvizh-web-week-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip pytest
+      - name: Static checks
+        run: |
+          bash -n install-dvizh-web-week.sh
+          python -m py_compile web-week-v1/patch_web.py web-week-v1/weekly_web_bridge.py
+      - name: Web patch and roundtrip tests
+        run: pytest -q web-week-v1/tests
