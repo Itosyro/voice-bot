@@ -1,0 +1,24 @@
+[Unit]
+Description=DVIZH Telegram to web synchronization bridge
+After=network-online.target dvizh.service dvizh-telegram.service
+Wants=network-online.target
+Requires=dvizh.service
+
+[Service]
+Type=simple
+User=dvizh
+Group=dvizh
+EnvironmentFile=/etc/dvizh/bridge.env
+ExecStart=/usr/bin/python3 /opt/dvizh-integration/bridge.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dvizh
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target
