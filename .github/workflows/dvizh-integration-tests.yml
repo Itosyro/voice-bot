@@ -1,0 +1,59 @@
+name: DVIZH integration tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-integration-transport-2026-08-29
+    paths:
+      - 'dvizh-integration-v1/**'
+      - 'install-dvizh-integration.sh'
+      - '.github/workflows/dvizh-integration-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip pytest
+      - name: Static checks
+        run: |
+          bash -n install-dvizh-integration.sh
+          python -m py_compile \
+            dvizh-integration-v1/bridge.py \
+            dvizh-integration-v1/runtime_patch.py \
+            dvizh-integration-v1/telegram_patch/main.py \
+            dvizh-integration-v1/telegram_patch/keyboards.py \
+            dvizh-integration-v1/telegram_patch/settings_router.py
+      - name: Bridge tests
+        run: pytest -q dvizh-integration-v1/tests/test_bridge.py
+      - name: Runtime patch is idempotent
+        run: |
+          tmp="$(mktemp -d)"
+          mkdir -p "$tmp/pkg"
+          cat > "$tmp/pkg/db.py" <<'PY'
+          class X:
+              def start_focus_session(self, chat_id: int, occurrence_id: int | None, source: str, minutes: int) -> int:
+                  return 1
+          PY
+          cat > "$tmp/pkg/bot.py" <<'PY'
+          async def a(callback):
+              _, _, occurrence_id, minutes = callback.data.split(":")
+              session_id = DB.start_focus_session(callback.message.chat.id, int(occurrence_id), "reminder", int(minutes))
+
+          async def b(callback):
+              raw = int(callback.data.rsplit(":", 1)[1])
+              occurrence_id = raw or None
+              session_id = DB.start_focus_session(callback.message.chat.id, occurrence_id, "doomscroll_rescue", 5)
+          PY
+          python dvizh-integration-v1/runtime_patch.py --package "$tmp/pkg"
+          python dvizh-integration-v1/runtime_patch.py --package "$tmp/pkg"
+          grep -q 'def active_focus_session' "$tmp/pkg/db.py"
+          test "$(grep -c 'Уже идёт другой фокус-раунд' "$tmp/pkg/bot.py")" -eq 2
