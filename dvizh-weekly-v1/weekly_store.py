@@ -259,6 +259,14 @@ class WeeklyStore:
                 "UPDATE schedule_items SET enabled=?,updated_at_utc=? WHERE id=? AND chat_id=?",
                 (int(enabled), iso(utcnow()), item_id, chat_id),
             )
+            if cur.rowcount and not enabled:
+                # Future pending rows are projections of the recurring rule, not
+                # history. Drop them so pausing immediately stops reminders;
+                # re-enabling can recreate the applicable dates safely.
+                db.execute(
+                    "DELETE FROM schedule_occurrences WHERE schedule_item_id=? AND chat_id=? AND status='pending'",
+                    (item_id, chat_id),
+                )
             return bool(cur.rowcount)
 
     def delete_item(self, chat_id: int, item_id: int) -> bool:
