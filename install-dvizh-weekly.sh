@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 VERSION="2026.08.29-weekly.1"
 BRANCH="codex/dvizh-weekly-schedule-v1-2026-08-29"
+SELF_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${BRANCH}/install-dvizh-weekly.sh"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${BRANCH}/dvizh-weekly-v1"
 TG_DIR="/opt/dvizh-telegram/telegram_bot"
 VENV_PY="/opt/dvizh-telegram/.venv/bin/python"
@@ -12,8 +13,19 @@ BACKUP_DIR="$DATA_DIR/backups/weekly-$(date -u +%Y%m%dT%H%M%SZ)"
 TMP_DIR="$(mktemp -d /tmp/dvizh-weekly.XXXXXX)"
 SUCCESS=0
 
+# When this installer is invoked as `curl ... | bash`, $0 is just `bash`.
+# Re-executing $0 through sudo would therefore continue from a partially-read
+# stdin stream and lose the variable declarations above. Download an intact
+# copy and run that copy as root instead.
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-  exec sudo -n "$0" "$@"
+  BOOTSTRAP="$(mktemp /tmp/dvizh-weekly-bootstrap.XXXXXX)"
+  curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
+    "$SELF_URL" -o "$BOOTSTRAP"
+  chmod 0700 "$BOOTSTRAP"
+  sudo -n bash "$BOOTSTRAP"
+  code=$?
+  rm -f "$BOOTSTRAP"
+  exit "$code"
 fi
 
 cleanup() { rm -rf "$TMP_DIR"; }
