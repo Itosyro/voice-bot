@@ -1,0 +1,55 @@
+name: DVIZH authentication gateway tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-auth-gateway-2026-08-29
+    paths:
+      - 'dvizh-auth-release/**'
+      - 'install-dvizh-auth.sh'
+      - '.github/workflows/dvizh-auth-tests.yml'
+  pull_request:
+    paths:
+      - 'dvizh-auth-release/**'
+      - 'install-dvizh-auth.sh'
+      - '.github/workflows/dvizh-auth-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct and verify release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat dvizh-auth-release/part-*.b64 | base64 --decode > /tmp/dvizh-auth-release.tar.gz
+          echo '1bdc9b0ed9ed7e4f2961d57a437dbdc3fc0424567303cb6760b3d029ca1d1be3  /tmp/dvizh-auth-release.tar.gz' | sha256sum -c -
+          mkdir -p /tmp/dvizh-auth-release
+          tar -xzf /tmp/dvizh-auth-release.tar.gz -C /tmp/dvizh-auth-release
+          test -s /tmp/dvizh-auth-release/dvizh-auth-build/auth_gateway.py
+          test -s /tmp/dvizh-auth-release/dvizh-auth-build/install.sh
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-auth.sh
+          bash -n /tmp/dvizh-auth-release/dvizh-auth-build/install.sh
+          bash -n /tmp/dvizh-auth-release/dvizh-auth-build/run-bridge.sh
+          python -m py_compile /tmp/dvizh-auth-release/dvizh-auth-build/auth_gateway.py
+
+      - name: Gateway tests
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip pytest
+          pytest -q /tmp/dvizh-auth-release/dvizh-auth-build/tests/test_auth_gateway.py
