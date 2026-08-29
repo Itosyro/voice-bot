@@ -7,6 +7,7 @@ on:
     paths:
       - 'dvizh-integration-v1/**'
       - 'install-dvizh-integration.sh'
+      - 'fix-dvizh-web-user.sh'
       - '.github/workflows/dvizh-integration-tests.yml'
   workflow_dispatch:
 
@@ -26,6 +27,7 @@ jobs:
       - name: Static checks
         run: |
           bash -n install-dvizh-integration.sh
+          bash -n fix-dvizh-web-user.sh
           python -m py_compile \
             dvizh-integration-v1/bridge.py \
             dvizh-integration-v1/runtime_patch.py \
