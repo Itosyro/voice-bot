@@ -1,0 +1,64 @@
+name: DVIZH weekly schedule tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-weekly-schedule-v1-2026-08-29
+    paths:
+      - 'dvizh-weekly-v1/**'
+      - 'install-dvizh-weekly.sh'
+      - '.github/workflows/dvizh-weekly-tests.yml'
+  pull_request:
+    paths:
+      - 'dvizh-weekly-v1/**'
+      - 'install-dvizh-weekly.sh'
+      - '.github/workflows/dvizh-weekly-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r dvizh-telegram-v1/requirements.txt pytest
+
+      - name: Build deployed-package shape
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/dvizh/telegram_bot
+          cp -a dvizh-telegram-v1/telegram_bot/. /tmp/dvizh/telegram_bot/
+          cp dvizh-integration-v1/telegram_patch/settings_router.py /tmp/dvizh/telegram_bot/settings_router.py
+          cp dvizh-weekly-v1/weekly_store.py /tmp/dvizh/telegram_bot/weekly_store.py
+          cp dvizh-weekly-v1/weekly_router.py /tmp/dvizh/telegram_bot/weekly_router.py
+          cp dvizh-weekly-v1/weekly_scheduler.py /tmp/dvizh/telegram_bot/weekly_scheduler.py
+          cp dvizh-weekly-v1/main.py /tmp/dvizh/telegram_bot/main.py
+          cp dvizh-weekly-v1/keyboards.py /tmp/dvizh/telegram_bot/keyboards.py
+          touch /tmp/dvizh/telegram_bot/__init__.py
+
+      - name: Static and import checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-weekly.sh
+          PYTHONPATH=/tmp/dvizh python -m compileall -q /tmp/dvizh/telegram_bot
+          PYTHONPATH=/tmp/dvizh python - <<'PY'
+          import telegram_bot.main
+          import telegram_bot.weekly_router
+          import telegram_bot.weekly_scheduler
+          import telegram_bot.weekly_store
+          print('weekly imports=ok')
+          PY
+
+      - name: Persistence tests
+        shell: bash
+        run: |
+          PYTHONPATH=/tmp/dvizh pytest -q dvizh-weekly-v1/tests/test_weekly_store.py
