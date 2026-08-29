@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.08.29-web-week.1"
+VERSION="2026.08.29-web-week.2"
 BRANCH="codex/dvizh-weekly-schedule-v1-2026-08-29"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${BRANCH}/web-week-v1"
 APP_ROOT=""
@@ -15,6 +15,7 @@ else
 fi
 MODULE_DIR="/opt/dvizh-web-week"
 DATA_DIR="/var/lib/dvizh"
+STATUS_FILE="$DATA_DIR/weekly-web-status.json"
 BACKUP_DIR="$DATA_DIR/backups/web-week-$(date -u +%Y%m%dT%H%M%SZ)"
 SERVICE_FILE="/etc/systemd/system/dvizh-web-week.service"
 TMP_DIR="$(mktemp -d /tmp/dvizh-web-week.XXXXXX)"
@@ -42,7 +43,6 @@ rollback() {
     rm -f "$SERVICE_FILE"
   fi
   systemctl daemon-reload >/dev/null 2>&1 || true
-  systemctl restart dvizh.service >/dev/null 2>&1 || true
   cleanup
   exit "$code"
 }
@@ -73,6 +73,12 @@ done
 python3 -m py_compile "$TMP_DIR/patch_web.py" "$TMP_DIR/weekly_web_bridge.py"
 python3 "$TMP_DIR/patch_web.py" --root "$APP_ROOT" --check
 
+# The existing backend and auth gateway are already live. Static assets are read
+# from disk per request, so restarting dvizh.service here only creates a race in
+# which the new bridge can observe a transient connection refusal.
+curl -fsS --max-time 8 http://127.0.0.1:8000/api/health >/dev/null
+curl -fsS --max-time 8 http://127.0.0.1:8002/health >/dev/null
+
 echo "[1/5] Делаю backup текущего веб-интерфейса..."
 install -d -m 0700 "$BACKUP_DIR/static"
 for name in index.html app.js styles.css sw.js; do cp -a "$APP_ROOT/$name" "$BACKUP_DIR/static/$name"; done
@@ -89,16 +95,31 @@ printf '%s\n' "$VERSION" > "$MODULE_DIR/VERSION"
 chmod 0644 "$MODULE_DIR/VERSION"
 install -m 0644 -o root -g root "$TMP_DIR/dvizh-web-week.service" "$SERVICE_FILE"
 systemctl daemon-reload
+rm -f "$STATUS_FILE"
 systemctl enable --now dvizh-web-week.service >/dev/null
-systemctl restart dvizh.service
-
-for _ in $(seq 1 30); do
-  systemctl is-active --quiet dvizh-web-week.service && [[ -f "$DATA_DIR/weekly-web-status.json" ]] && break
-  sleep 1
-done
 systemctl is-active --quiet dvizh-web-week.service
 
-echo "[4/5] Проверяю синхронизацию и интерфейс..."
+echo "[4/5] Жду успешную синхронизацию и проверяю интерфейс..."
+SYNC_OK=0
+for _ in $(seq 1 60); do
+  if [[ -f "$STATUS_FILE" ]] && python3 - "$STATUS_FILE" <<'PY' >/dev/null 2>&1
+import json,sys
+p=json.load(open(sys.argv[1],encoding='utf-8'))
+raise SystemExit(0 if p.get('ok') else 1)
+PY
+  then
+    SYNC_OK=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$SYNC_OK" -ne 1 ]]; then
+  echo "Мост не вышел в состояние ok за 60 секунд." >&2
+  [[ -f "$STATUS_FILE" ]] && cat "$STATUS_FILE" >&2 || true
+  journalctl -u dvizh-web-week.service -n 30 --no-pager >&2 || true
+  exit 1
+fi
+
 grep -q 'DVIZH_WEEK_VIEW_V1' "$APP_ROOT/index.html"
 grep -q 'DVIZH_WEEK_WEB_V1' "$APP_ROOT/app.js"
 grep -q 'DVIZH_WEEK_WEB_V1' "$APP_ROOT/styles.css"
@@ -112,18 +133,17 @@ with sqlite3.connect(sys.argv[1]) as db:
     print('schedule_items='+str(db.execute('SELECT COUNT(*) FROM schedule_items').fetchone()[0]))
     print('schedule_occurrences='+str(db.execute('SELECT COUNT(*) FROM schedule_occurrences').fetchone()[0]))
 PY
-if [[ -f "$DATA_DIR/weekly-web-status.json" ]]; then
-  python3 - "$DATA_DIR/weekly-web-status.json" <<'PY'
+python3 - "$STATUS_FILE" <<'PY'
 import json,sys
 p=json.load(open(sys.argv[1],encoding='utf-8'))
-print('web-week:', 'ok' if p.get('ok') else 'waiting' if p.get('waiting') else 'error')
+print('web-week:', 'ok' if p.get('ok') else 'error')
 print('mirrored items:', p.get('items',0))
 print('mirrored occurrences:', p.get('occurrences',0))
+print('web revision:', p.get('webRevision','—'))
 if not p.get('ok'):
     print('detail:', p.get('error','—'))
     raise SystemExit(1)
 PY
-fi
 
 echo "[5/5] Проверяю все основные службы..."
 for unit in dvizh.service dvizh-auth.service dvizh-telegram.service dvizh-bridge.service dvizh-web-week.service; do
