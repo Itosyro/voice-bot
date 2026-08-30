@@ -7,11 +7,13 @@ on:
     paths:
       - 'training-readiness-v1/**'
       - 'install-dvizh-training.sh'
+      - 'install-dvizh-training-locked.sh'
       - '.github/workflows/dvizh-training-tests.yml'
   pull_request:
     paths:
       - 'training-readiness-v1/**'
       - 'install-dvizh-training.sh'
+      - 'install-dvizh-training-locked.sh'
       - '.github/workflows/dvizh-training-tests.yml'
   workflow_dispatch:
 
@@ -34,6 +36,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           bash -n install-dvizh-training.sh
+          bash -n install-dvizh-training-locked.sh
+          grep -q 'PINNED_REF="2dfa291fa15d7983b63ee4002ee4aecf4e5e5d92"' install-dvizh-training-locked.sh
           python -m py_compile \
             training-readiness-v1/readiness.py \
             training-readiness-v1/training_store.py \
