@@ -1,0 +1,32 @@
+name: DVIZH training recovery installer tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-training-readiness-v1-2026-08-30
+    paths:
+      - 'install-dvizh-training-recovery.sh'
+      - '.github/workflows/dvizh-training-recovery-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate recovery wrapper and generated installer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-training-recovery.sh
+          DVIZH_TRAINING_PREPARE_ONLY=1 bash install-dvizh-training-recovery.sh > /tmp/training-installer.sh
+          bash -n /tmp/training-installer.sh
+          grep -q 'DVIZH_TRAINING_DEPENDENCY_RECOVERY_V2' /tmp/training-installer.sh
+          grep -q 'systemctl start dvizh-web-week.service dvizh-web-editor.service' /tmp/training-installer.sh
+          test "$(grep -c 'systemctl start dvizh-web-week.service dvizh-web-editor.service' /tmp/training-installer.sh)" -ge 3
+          grep -q '^VERSION="2026.09.02-training.2"$' /tmp/training-installer.sh
+          grep -q '^BRANCH="2dfa291fa15d7983b63ee4002ee4aecf4e5e5d92"$' /tmp/training-installer.sh
