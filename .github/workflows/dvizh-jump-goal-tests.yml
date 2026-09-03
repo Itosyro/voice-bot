@@ -104,3 +104,12 @@ jobs:
           assert any(row['review_required'] for row in mod.DEFAULT_EXERCISES if row['category']=='jump')
           assert len(mod.DEFAULT_EXERCISES) >= 30
           PY
+
+      - name: Upload reconstructed Jump Lab source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-jump-build-source
+          path: /tmp/dvizh-jump-release/dvizh-jump-build
+          if-no-files-found: error
+          retention-days: 1
