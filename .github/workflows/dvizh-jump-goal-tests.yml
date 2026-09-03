@@ -1,0 +1,106 @@
+name: DVIZH Jump Lab tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-jump-goal-v1-2026-09-03
+    paths:
+      - 'jump-goal-release/**'
+      - 'install-dvizh-jump-goal.sh'
+      - '.github/workflows/dvizh-jump-goal-tests.yml'
+  pull_request:
+    paths:
+      - 'jump-goal-release/**'
+      - 'install-dvizh-jump-goal.sh'
+      - '.github/workflows/dvizh-jump-goal-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install --upgrade pip pytest
+
+      - name: Reconstruct and verify immutable release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat \
+            jump-goal-release/part-00.b64 \
+            jump-goal-release/part-01.b64 \
+            jump-goal-release/part-02.b64 \
+            jump-goal-release/part-03.b64 \
+            jump-goal-release/part-04.b64 \
+            jump-goal-release/part-05.b64 \
+            jump-goal-release/part-06.b64 \
+            jump-goal-release/part-07.b64 \
+            jump-goal-release/part-08.b64 \
+            jump-goal-release/part-09.b64 \
+            > /tmp/dvizh-jump-release.b64
+          base64 --decode /tmp/dvizh-jump-release.b64 > /tmp/dvizh-jump-release.tar.gz
+          echo 'd1c26b523e56093fb710d2ab31036c65a78ed870e509f7f451f85848daba51db  /tmp/dvizh-jump-release.tar.gz' | sha256sum -c -
+          mkdir -p /tmp/dvizh-jump-release
+          tar -xzf /tmp/dvizh-jump-release.tar.gz -C /tmp/dvizh-jump-release
+          test -s /tmp/dvizh-jump-release/dvizh-jump-build/install.sh
+          test -s /tmp/dvizh-jump-release/dvizh-jump-build/jump-goal-v1/jump_store.py
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILD=/tmp/dvizh-jump-release/dvizh-jump-build
+          bash -n "$BUILD/install.sh"
+          if [[ -f install-dvizh-jump-goal.sh ]]; then bash -n install-dvizh-jump-goal.sh; fi
+          python -m py_compile \
+            "$BUILD/jump-goal-v1/jump_store.py" \
+            "$BUILD/jump-goal-v1/jump_router.py" \
+            "$BUILD/jump-goal-v1/jump_web_bridge.py" \
+            "$BUILD/jump-goal-v1/patch_jump_runtime.py" \
+            "$BUILD/jump-goal-v1/patch_jump_web.py"
+
+      - name: Store, bridge and patch tests
+        shell: bash
+        run: |
+          BUILD=/tmp/dvizh-jump-release/dvizh-jump-build
+          pytest -q "$BUILD/jump-goal-v1/tests"
+
+      - name: Browser JavaScript syntax after Jump Lab patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          from pathlib import Path
+          p=Path('/tmp/dvizh-jump-release/dvizh-jump-build/jump-goal-v1/patch_jump_web.py')
+          spec=importlib.util.spec_from_file_location('jump_patch_ci',p)
+          mod=importlib.util.module_from_spec(spec); sys.modules[spec.name]=mod; spec.loader.exec_module(mod)
+          base="""function navigate(view) {\n    if (view === 'training') renderTraining();\n}\n  function renderSettings() {}\nfunction renderAll() {\n    renderTraining();\n    renderSettings();\n}\n"""
+          Path('/tmp/dvizh-jump-app.js').write_text(mod.patch_app(base),encoding='utf-8')
+          PY
+          node --check /tmp/dvizh-jump-app.js
+
+      - name: Safety invariants in default template
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib.util, sys
+          from pathlib import Path
+          p=Path('/tmp/dvizh-jump-release/dvizh-jump-build/jump-goal-v1/jump_store.py')
+          spec=importlib.util.spec_from_file_location('jump_store_ci',p)
+          mod=importlib.util.module_from_spec(spec); sys.modules[spec.name]=mod; spec.loader.exec_module(mod)
+          text=' '.join(row['title'].lower() for row in mod.DEFAULT_EXERCISES)
+          assert 'depth jump' not in text and 'прыжок в глубину' not in text
+          assert max(row['impact_contacts'] for row in mod.DEFAULT_EXERCISES) <= 16
+          assert any(row['review_required'] for row in mod.DEFAULT_EXERCISES if row['category']=='jump')
+          assert len(mod.DEFAULT_EXERCISES) >= 30
+          PY
