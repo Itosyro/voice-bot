@@ -1,0 +1,97 @@
+name: DVIZH training readiness tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-training-readiness-v1-2026-08-30
+    paths:
+      - 'training-readiness-v1/**'
+      - 'install-dvizh-training.sh'
+      - 'install-dvizh-training-locked.sh'
+      - '.github/workflows/dvizh-training-tests.yml'
+  pull_request:
+    paths:
+      - 'training-readiness-v1/**'
+      - 'install-dvizh-training.sh'
+      - 'install-dvizh-training-locked.sh'
+      - '.github/workflows/dvizh-training-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --upgrade pip pytest
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-training.sh
+          bash -n install-dvizh-training-locked.sh
+          grep -q 'PINNED_REF="2dfa291fa15d7983b63ee4002ee4aecf4e5e5d92"' install-dvizh-training-locked.sh
+          python -m py_compile \
+            training-readiness-v1/readiness.py \
+            training-readiness-v1/training_store.py \
+            training-readiness-v1/training_router.py \
+            training-readiness-v1/training_scheduler.py \
+            training-readiness-v1/training_web_bridge.py \
+            training-readiness-v1/patch_training_web.py \
+            training-readiness-v1/main.py \
+            training-readiness-v1/keyboards.py
+
+      - name: Readiness, storage, bridge and patch tests
+        run: pytest -q training-readiness-v1/tests
+
+      - name: Browser JavaScript syntax after all upgrades
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+
+          def load(name, path):
+              spec = importlib.util.spec_from_file_location(name, path)
+              module = importlib.util.module_from_spec(spec)
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          week = load('week_patch_training_ci', Path('web-week-v1/patch_web.py'))
+          editor = load('editor_patch_training_ci', Path('web-week-editor-v1/patch_web_editor.py'))
+          training = load('training_patch_ci', Path('training-readiness-v1/patch_training_web.py'))
+
+          js = """const VIEW_COPY = { direct: {
+                proof: 'Факты сильнее ощущения «я ничего не делаю».',
+                settings: 'x'
+          }, calm: {
+                proof: 'Посмотри на реальные шаги, которые уже были.',
+                settings: 'y'
+          }};
+          function navigate(view) {
+              if (!['home', 'tasks', 'focus', 'proof', 'settings'].includes(view)) return;
+              if (view === 'proof') renderProof();
+          }
+            function renderSettings() {}
+          function renderAll() {
+              renderProof();
+              renderSettings();
+          }
+          const actions = {
+                  'install-app': installApp,
+                  'reset-app': resetApp
+          };"""
+          result = training.patch_app(editor.patch_app(week.patch_app(js)))
+          Path('/tmp/dvizh-training-app.js').write_text(result, encoding='utf-8')
+          PY
+          node --check /tmp/dvizh-training-app.js

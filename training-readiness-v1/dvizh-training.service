@@ -1,0 +1,29 @@
+[Unit]
+Description=DVIZH training readiness and web synchronization
+After=network-online.target dvizh.service dvizh-auth.service dvizh-telegram.service
+Wants=network-online.target
+Requires=dvizh.service
+
+[Service]
+Type=simple
+User=dvizh
+Group=dvizh
+WorkingDirectory=/opt/dvizh-training
+Environment=PYTHONPATH=/opt/dvizh-training
+Environment=DVIZH_TELEGRAM_DB=/var/lib/dvizh/telegram.db
+Environment=DVIZH_WEB_API=http://127.0.0.1:8000
+Environment=DVIZH_AUTH_IDENTITY=/var/lib/dvizh/auth-identity.json
+Environment=DVIZH_TRAINING_STATUS=/var/lib/dvizh/training-status.json
+ExecStart=/usr/bin/python3 -m dvizh_training.training_web_bridge
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dvizh
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=160M
+
+[Install]
+WantedBy=multi-user.target
