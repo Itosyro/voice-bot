@@ -45,6 +45,21 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          cat > /tmp/social-parts.sha256 <<'EOF'
+          59a41b9cb3c31ec78175e232443fc5d355c86aa87e79a560c382ba9f122696ff  social-release-v2/part-00.b64
+          259f7ff42d5d0ad90fb27900373519af9ab627e277ac785928f07c41cb865140  social-release-v2/part-01.b64
+          ac9888b04e5c2a30e11769ee32c1d78c96dde1f9604ca8283ada0579e36c51a3  social-release-v2/part-02.b64
+          0dd813290c06f01bbfd4ef040808f54b7a177eac70f05fafe4f10a1e7b09d9f5  social-release-v2/part-03.b64
+          def92f98324035725cdf1a9c0249c24e57177177984aa2aff77c570eeb9f2837  social-release-v2/part-04.b64
+          1d9bceda406a2e131a8282cd14ba58b22ab4abbf4293f9f59e46c6e05efc6214  social-release-v2/part-05.b64
+          bcde266227dfdcc1f3c61fdacce0d8b407daad20dc11cbd76d4ebf21596c805d  social-release-v2/part-06.b64
+          EOF
+          echo '=== CHECKED-OUT PART LENGTHS ==='
+          wc -c social-release-v2/part-*.b64
+          echo '=== CHECKED-OUT PART HASHES ==='
+          sha256sum social-release-v2/part-*.b64
+          echo '=== EXPECTED PART VERIFICATION ==='
+          sha256sum -c /tmp/social-parts.sha256
           cat \
             social-release-v2/part-00.b64 \
             social-release-v2/part-01.b64 \
