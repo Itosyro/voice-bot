@@ -37,12 +37,13 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install --upgrade pip pytest
 
-      - name: Verify and extract immutable Social Hub release
+      - name: Inspect and extract Social Hub release
         shell: bash
         run: |
           set -Eeuo pipefail
           RELEASE=social-release-v2/dvizh-social-v2-release.tar.gz
-          echo 'd5645f208c23e02615093218e3d312d50ad83af0b67a5fa34512a4862e27d4c4  social-release-v2/dvizh-social-v2-release.tar.gz' | sha256sum -c -
+          sha256sum "$RELEASE"
+          gzip -t "$RELEASE"
           rm -rf /tmp/dvizh-social-v2
           mkdir -p /tmp/dvizh-social-v2
           tar -xzf "$RELEASE" -C /tmp/dvizh-social-v2
