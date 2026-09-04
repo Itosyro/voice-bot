@@ -1,0 +1,109 @@
+name: DVIZH minimal UI tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-minimal-ui-v1-2026-09-04
+    paths:
+      - 'minimal-ui-v1/**'
+      - 'install-dvizh-minimal-ui.sh'
+      - '.github/workflows/dvizh-minimal-ui-tests.yml'
+  pull_request:
+    paths:
+      - 'minimal-ui-v1/**'
+      - 'install-dvizh-minimal-ui.sh'
+      - '.github/workflows/dvizh-minimal-ui-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Static checks and unit tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n minimal-ui-v1/install.sh
+          bash -n install-dvizh-minimal-ui.sh
+          python -m py_compile minimal-ui-v1/patch_minimal_ui.py
+          pytest -q minimal-ui-v1/tests
+
+      - name: Verify immutable bootstrap payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DVIZH_MINIMAL_UI_PREPARE_ONLY=1 bash install-dvizh-minimal-ui.sh
+
+      - name: Apply after the real Social Hub patch contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat social-release-v2/part-*.b64 | base64 --decode > /tmp/dvizh-social-release.tar.gz
+          echo '709137e20a89b3e157f5a51964d93e48ee01001b4faf66a38dde7397fce8c64b  /tmp/dvizh-social-release.tar.gz' | sha256sum -c -
+          mkdir -p /tmp/dvizh-social-release
+          tar -xzf /tmp/dvizh-social-release.tar.gz -C /tmp/dvizh-social-release
+
+          python - <<'PY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+
+          social_root = Path('/tmp/dvizh-social-release/dvizh-social-build/social-content-v1')
+          minimal_root = Path('minimal-ui-v1')
+
+          def load(name, path):
+              spec = importlib.util.spec_from_file_location(name, path)
+              mod = importlib.util.module_from_spec(spec)
+              assert spec.loader
+              sys.modules[name] = mod
+              spec.loader.exec_module(mod)
+              return mod
+
+          social = load('social_patch_for_minimal_ci', social_root / 'patch_social_web.py')
+          fixtures = load('social_fixture_for_minimal_ci', social_root / 'tests/test_patch_social_web.py')
+          minimal = load('minimal_patch_ci', minimal_root / 'patch_minimal_ui.py')
+
+          out = Path('/tmp/dvizh-minimal-current-fixture')
+          out.mkdir(parents=True, exist_ok=True)
+          (out / 'index.html').write_text(social.patch_index(fixtures.fixture_html()), encoding='utf-8')
+          (out / 'app.js').write_text(social.patch_app(fixtures.fixture_js()), encoding='utf-8')
+          (out / 'styles.css').write_text(social.patch_css('body{}\n'), encoding='utf-8')
+          (out / 'sw.js').write_text(social.patch_sw("const CACHE = 'dvizh-jump-goal-v1';\n"), encoding='utf-8')
+
+          changed = minimal.patch_root(out)
+          assert set(changed) == {'index.html', 'app.js', 'styles.css', 'sw.js'}
+          assert minimal.patch_root(out) == []
+          minimal.patch_root(out, check_only=True)
+          PY
+
+          node --check /tmp/dvizh-minimal-current-fixture/app.js
+          grep -q 'DVIZH_MINIMAL_UI_V1' /tmp/dvizh-minimal-current-fixture/index.html
+          grep -q 'DVIZH_MINIMAL_UI_V1' /tmp/dvizh-minimal-current-fixture/app.js
+          grep -q 'DVIZH_MINIMAL_UI_V1' /tmp/dvizh-minimal-current-fixture/styles.css
+          grep -q 'dvizh-minimal-ui-v1' /tmp/dvizh-minimal-current-fixture/sw.js
+          grep -q 'data-minimal-nav="training"' /tmp/dvizh-minimal-current-fixture/index.html
+          grep -q '.mobile-nav \[data-nav="social"\]' /tmp/dvizh-minimal-current-fixture/styles.css
+
+      - name: Reject accidental secrets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if grep -RInE '(BOTFATHER_TOKEN|BEGIN OPENSSH PRIVATE KEY|ssh-ed25519)' minimal-ui-v1 install-dvizh-minimal-ui.sh; then
+            echo 'Potential secret material found.' >&2
+            exit 1
+          fi
