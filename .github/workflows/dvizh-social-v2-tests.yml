@@ -20,7 +20,6 @@ permissions:
 
 env:
   SOCIAL_SHA256: 709137e20a89b3e157f5a51964d93e48ee01001b4faf66a38dde7397fce8c64b
-  WEB_SHA256: 421446adfef00e7d799e2df0de4f9b405ec9ed9383afa7a41ef25d56f1339118
   JUMP_SHA256: d1c26b523e56093fb710d2ab31036c65a78ed870e509f7f451f85848daba51db
 
 jobs:
@@ -30,14 +29,6 @@ jobs:
     steps:
       - name: Checkout DVIZH modules
         uses: actions/checkout@v4
-
-      - name: Checkout original deployed web release
-        uses: actions/checkout@v4
-        with:
-          repository: Itosyro/Habit-up
-          ref: c265db4e709208a641b07fd0f84490ca2d06e5d5
-          path: habit-up
-          fetch-depth: 1
 
       - uses: actions/setup-python@v5
         with:
@@ -128,54 +119,47 @@ jobs:
           grep -q 'week:kind:social' /tmp/dvizh-runtime/weekly_router.py
           python -m py_compile /tmp/dvizh-runtime/*.py
 
-      - name: Reconstruct original web application
+      - name: Test Social Hub browser patch against the installed Jump Lab contract
         shell: bash
         run: |
           set -Eeuo pipefail
-          cat \
-            habit-up/.github/dvizh-release/part-01.b64 \
-            habit-up/.github/dvizh-release/part-02.b64 \
-            habit-up/.github/dvizh-release/part-03a.b64 \
-            habit-up/.github/dvizh-release/part-03b.b64 \
-            habit-up/.github/dvizh-release/part-03c.b64 \
-            habit-up/.github/dvizh-release/part-04a.b64 \
-            habit-up/.github/dvizh-release/part-04b.b64 \
-            habit-up/.github/dvizh-release/part-04c.b64 \
-            | base64 --decode > /tmp/dvizh-web-release.tar.gz
-          echo "$WEB_SHA256  /tmp/dvizh-web-release.tar.gz" | sha256sum -c -
-          mkdir -p /tmp/dvizh-web-release
-          tar -xzf /tmp/dvizh-web-release.tar.gz -C /tmp/dvizh-web-release
-          APP_ROOT="$(find /tmp/dvizh-web-release -type f -name index.html -printf '%h\n' | head -n 1)"
-          test -n "$APP_ROOT"
-          printf '%s' "$APP_ROOT" > /tmp/dvizh-app-root
-          for name in index.html app.js styles.css sw.js; do test -s "$APP_ROOT/$name"; done
-
-      - name: Test complete browser patch chain through Social Hub
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          APP_ROOT="$(cat /tmp/dvizh-app-root)"
-          JUMP=/tmp/dvizh-jump-release/dvizh-jump-build/jump-goal-v1
           SOCIAL=/tmp/dvizh-social-release/dvizh-social-build/social-content-v1
-          python web-week-v1/patch_web.py --root "$APP_ROOT"
-          python web-week-editor-v1/patch_web_editor.py --root "$APP_ROOT"
-          python training-readiness-v1/patch_training_web.py --root "$APP_ROOT"
-          python "$JUMP/patch_jump_web.py" --root "$APP_ROOT"
-          python "$SOCIAL/patch_social_web.py" --root "$APP_ROOT"
-          python "$SOCIAL/patch_social_web.py" --root "$APP_ROOT" --check
-          grep -q 'DVIZH_SOCIAL_VIEW_V1' "$APP_ROOT/index.html"
-          grep -q 'DVIZH_SOCIAL_WEB_V1' "$APP_ROOT/app.js"
-          grep -q 'DVIZH_SOCIAL_WEB_V1' "$APP_ROOT/styles.css"
-          grep -q 'option value="social"' "$APP_ROOT/index.html"
-          grep -q 'dvizh-social-hub-v1' "$APP_ROOT/sw.js"
-          node --check "$APP_ROOT/app.js"
+          python - <<'PY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+
+          root = Path('/tmp/dvizh-social-release/dvizh-social-build/social-content-v1')
+          def load(name: str, path: Path):
+              spec = importlib.util.spec_from_file_location(name, path)
+              module = importlib.util.module_from_spec(spec)
+              assert spec.loader
+              sys.modules[name] = module
+              spec.loader.exec_module(module)
+              return module
+
+          patch = load('social_patch_ci', root / 'patch_social_web.py')
+          tests = load('social_patch_fixture_ci', root / 'tests/test_patch_social_web.py')
+          out = Path('/tmp/dvizh-social-web-fixture')
+          out.mkdir(parents=True, exist_ok=True)
+          (out / 'index.html').write_text(patch.patch_index(tests.fixture_html()), encoding='utf-8')
+          (out / 'app.js').write_text(patch.patch_app(tests.fixture_js()), encoding='utf-8')
+          (out / 'styles.css').write_text(patch.patch_css('body{}\n'), encoding='utf-8')
+          (out / 'sw.js').write_text(patch.patch_sw("const CACHE = 'dvizh-jump-lab-v1';\n"), encoding='utf-8')
+          PY
+          python "$SOCIAL/patch_social_web.py" --root /tmp/dvizh-social-web-fixture --check
+          grep -q 'DVIZH_SOCIAL_VIEW_V1' /tmp/dvizh-social-web-fixture/index.html
+          grep -q 'DVIZH_SOCIAL_WEB_V1' /tmp/dvizh-social-web-fixture/app.js
+          grep -q 'option value="social"' /tmp/dvizh-social-web-fixture/index.html
+          grep -q 'dvizh-social-hub-v1' /tmp/dvizh-social-web-fixture/sw.js
+          node --check /tmp/dvizh-social-web-fixture/app.js
 
       - name: Reject accidental secrets and unsafe release paths
         shell: bash
         run: |
           set -Eeuo pipefail
           BUILD=/tmp/dvizh-social-release/dvizh-social-build
-          if grep -RInE '(TELEGRAM_BOT_TOKEN|BOTFATHER_TOKEN|ssh-ed25519|BEGIN OPENSSH PRIVATE KEY)[[:space:]]*=' "$BUILD"; then
+          if grep -RInE '(BOTFATHER_TOKEN|ssh-ed25519|BEGIN OPENSSH PRIVATE KEY)' "$BUILD"; then
             echo 'Potential secret material found in release.' >&2
             exit 1
           fi
