@@ -163,8 +163,9 @@ jobs:
           (out / 'sw.js').write_text(patch.patch_sw("const CACHE = 'dvizh-jump-lab-v1';\n"), encoding='utf-8')
           PY
           python "$SOCIAL/patch_social_web.py" --root /tmp/dvizh-social-web-fixture --check
-          grep -q 'DVIZH_SOCIAL_VIEW_V1' /tmp/dvizh-social-web-fixture/index.html
-          grep -q 'DVIZH_SOCIAL_WEB_V1' /tmp/dvizh-social-web-fixture/app.js
+          grep -q 'DVIZH_SOCIAL_HUB_V1' /tmp/dvizh-social-web-fixture/index.html
+          grep -q 'DVIZH_SOCIAL_HUB_V1' /tmp/dvizh-social-web-fixture/app.js
+          grep -q 'DVIZH_SOCIAL_HUB_V1' /tmp/dvizh-social-web-fixture/styles.css
           grep -q 'option value="social"' /tmp/dvizh-social-web-fixture/index.html
           grep -q 'dvizh-social-hub-v1' /tmp/dvizh-social-web-fixture/sw.js
           node --check /tmp/dvizh-social-web-fixture/app.js
