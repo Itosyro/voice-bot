@@ -21,18 +21,33 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Reconstruct archive
+      - name: Diagnose and reconstruct archive
         shell: bash
         run: |
           set -Eeuo pipefail
-          cat social-release/part-*.b64 | base64 --decode > /tmp/dvizh-social-release.tar.gz
+          echo '===== PART SIZES ====='
+          wc -c social-release/part-*.b64
+          echo '===== INVALID CHARACTERS ====='
+          python - <<'PY'
+          from pathlib import Path
+          allowed=set(b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\r\n')
+          for p in sorted(Path('social-release').glob('part-*.b64')):
+              data=p.read_bytes()
+              bad=[(i,b) for i,b in enumerate(data) if b not in allowed]
+              print(p, 'len=',len(data),'bad=',bad[:20], 'count=',len(bad))
+              print(' head=',data[:24])
+              print(' tail=',data[-40:])
+          joined=b''.join(p.read_bytes() for p in sorted(Path('social-release').glob('part-*.b64')))
+          print('joined len=',len(joined),'mod4=',len(joined.replace(b'\n',b'').replace(b'\r',b''))%4)
+          PY
+          cat social-release/part-*.b64 | base64 --ignore-garbage --decode > /tmp/dvizh-social-release.tar.gz
           sha256sum /tmp/dvizh-social-release.tar.gz
+          file /tmp/dvizh-social-release.tar.gz
+          gzip -t /tmp/dvizh-social-release.tar.gz
           mkdir -p /tmp/dvizh-social-release
           tar -xzf /tmp/dvizh-social-release.tar.gz -C /tmp/dvizh-social-release
           echo '===== FILES ====='
           find /tmp/dvizh-social-release -type f -printf '%P\n' | sort
-          echo '===== TOP LEVEL ====='
-          find /tmp/dvizh-social-release -maxdepth 2 -type f -printf '%p\n' | sort
       - name: Static checks and tests
         shell: bash
         run: |
@@ -46,9 +61,12 @@ jobs:
             pytest -q "$root"
           fi
       - name: Upload reconstructed source
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dvizh-social-release-inspect
-          path: /tmp/dvizh-social-release
-          if-no-files-found: error
+          path: |
+            /tmp/dvizh-social-release.tar.gz
+            /tmp/dvizh-social-release
+          if-no-files-found: warn
           retention-days: 1
