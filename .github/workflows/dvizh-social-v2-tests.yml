@@ -1,0 +1,148 @@
+name: DVIZH Social Hub v2 tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-social-content-v2-2026-09-04
+    paths:
+      - 'social-release-v2/**'
+      - 'install-dvizh-social.sh'
+      - '.github/workflows/dvizh-social-v2-tests.yml'
+  pull_request:
+    paths:
+      - 'social-release-v2/**'
+      - 'install-dvizh-social.sh'
+      - '.github/workflows/dvizh-social-v2-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Social Hub branch
+        uses: actions/checkout@v4
+
+      - name: Checkout deployed web release source
+        uses: actions/checkout@v4
+        with:
+          repository: Itosyro/Habit-up
+          ref: c265db4e709208a641b07fd0f84490ca2d06e5d5
+          path: habit-up
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Verify and extract immutable Social Hub release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          RELEASE=social-release-v2/dvizh-social-v2-release.tar.gz
+          echo 'd5645f208c23e02615093218e3d312d50ad83af0b67a5fa34512a4862e27d4c4  social-release-v2/dvizh-social-v2-release.tar.gz' | sha256sum -c -
+          mkdir -p /tmp/dvizh-social-v2
+          tar -xzf "$RELEASE" -C /tmp/dvizh-social-v2
+          test -s /tmp/dvizh-social-v2/dvizh-social-build/install.sh
+          test -s /tmp/dvizh-social-v2/dvizh-social-build/social-content-v2/dvizh_social/social_store.py
+
+      - name: Static checks and module tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILD=/tmp/dvizh-social-v2/dvizh-social-build
+          bash -n "$BUILD/install.sh"
+          if [[ -f install-dvizh-social.sh ]]; then bash -n install-dvizh-social.sh; fi
+          python -m compileall -q "$BUILD"
+          pytest -q "$BUILD/social-content-v2/tests"
+
+      - name: Rebuild current Telegram runtime and apply Social Hub overlay
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILD=/tmp/dvizh-social-v2/dvizh-social-build
+          PKG=/tmp/dvizh-social-runtime/telegram_bot
+          rm -rf /tmp/dvizh-social-runtime
+          mkdir -p "$PKG"
+          cp -a dvizh-telegram-v1/telegram_bot/. "$PKG/"
+
+          python dvizh-integration-v1/runtime_patch.py --package "$PKG"
+          cp dvizh-integration-v1/telegram_patch/main.py "$PKG/main.py"
+          cp dvizh-integration-v1/telegram_patch/keyboards.py "$PKG/keyboards.py"
+          cp dvizh-integration-v1/telegram_patch/settings_router.py "$PKG/settings_router.py"
+
+          cp dvizh-weekly-v1/main.py "$PKG/main.py"
+          cp dvizh-weekly-v1/keyboards.py "$PKG/keyboards.py"
+          cp dvizh-weekly-v1/weekly_store.py "$PKG/weekly_store.py"
+          cp dvizh-weekly-v1/weekly_router.py "$PKG/weekly_router.py"
+          cp dvizh-weekly-v1/weekly_scheduler.py "$PKG/weekly_scheduler.py"
+
+          cp training-readiness-v1/main.py "$PKG/main.py"
+          cp training-readiness-v1/keyboards.py "$PKG/keyboards.py"
+          cp training-readiness-v1/readiness.py "$PKG/readiness.py"
+          cp training-readiness-v1/training_store.py "$PKG/training_store.py"
+          cp training-readiness-v1/training_router.py "$PKG/training_router.py"
+          cp training-readiness-v1/training_scheduler.py "$PKG/training_scheduler.py"
+
+          cat jump-goal-release/part-*.b64 | base64 --decode > /tmp/dvizh-jump-current.tar.gz
+          echo 'd1c26b523e56093fb710d2ab31036c65a78ed870e509f7f451f85848daba51db  /tmp/dvizh-jump-current.tar.gz' | sha256sum -c -
+          mkdir -p /tmp/dvizh-jump-current
+          tar -xzf /tmp/dvizh-jump-current.tar.gz -C /tmp/dvizh-jump-current
+          JUMP=/tmp/dvizh-jump-current/dvizh-jump-build/jump-goal-v1
+          cp "$JUMP/jump_store.py" "$PKG/jump_store.py"
+          cp "$JUMP/jump_router.py" "$PKG/jump_router.py"
+          python "$JUMP/patch_jump_runtime.py" --package "$PKG"
+
+          python "$BUILD/social-content-v2/patch_social_runtime.py" --package "$PKG"
+          cp -a "$BUILD/social-content-v2/dvizh_social/." "$PKG/"
+          python -m compileall -q "$PKG"
+          grep -q 'menu:social' "$PKG/keyboards.py"
+          grep -q 'social_store = SocialStore' "$PKG/main.py"
+          grep -q 'week:kind:social' "$PKG/weekly_router.py"
+          grep -q '"social": "📱 Соцсети"' "$PKG/weekly_store.py"
+
+      - name: Rebuild deployed web stack and apply Social Hub overlay
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BUILD=/tmp/dvizh-social-v2/dvizh-social-build
+          cat \
+            habit-up/.github/dvizh-release/part-01.b64 \
+            habit-up/.github/dvizh-release/part-02.b64 \
+            habit-up/.github/dvizh-release/part-03a.b64 \
+            habit-up/.github/dvizh-release/part-03b.b64 \
+            habit-up/.github/dvizh-release/part-03c.b64 \
+            habit-up/.github/dvizh-release/part-04a.b64 \
+            habit-up/.github/dvizh-release/part-04b.b64 \
+            habit-up/.github/dvizh-release/part-04c.b64 \
+            | base64 --decode > /tmp/dvizh-web-base.tar.gz
+          echo '421446adfef00e7d799e2df0de4f9b405ec9ed9383afa7a41ef25d56f1339118  /tmp/dvizh-web-base.tar.gz' | sha256sum -c -
+          rm -rf /tmp/dvizh-web-base
+          mkdir -p /tmp/dvizh-web-base
+          tar -xzf /tmp/dvizh-web-base.tar.gz -C /tmp/dvizh-web-base
+          APP_ROOT="$(find /tmp/dvizh-web-base -type f -name index.html -printf '%h\n' | head -n1)"
+          test -n "$APP_ROOT"
+          for file in index.html app.js styles.css sw.js; do test -s "$APP_ROOT/$file"; done
+
+          python web-week-v1/patch_web.py --root "$APP_ROOT"
+          python web-week-editor-v1/patch_web_editor.py --root "$APP_ROOT"
+          python training-readiness-v1/patch_training_web.py --root "$APP_ROOT"
+
+          JUMP=/tmp/dvizh-jump-current/dvizh-jump-build/jump-goal-v1
+          python "$JUMP/patch_jump_web.py" --root "$APP_ROOT"
+          python "$BUILD/social-content-v2/patch_social_web.py" --root "$APP_ROOT"
+          python "$BUILD/social-content-v2/patch_social_web.py" --root "$APP_ROOT" --check
+          node --check "$APP_ROOT/app.js"
+          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP_ROOT/index.html"
+          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP_ROOT/app.js"
+          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP_ROOT/styles.css"
+          grep -q 'dvizh-social-hub-v1' "$APP_ROOT/sw.js"
