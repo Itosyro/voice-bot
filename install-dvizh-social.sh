@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Immutable, fully reconstructed Social Hub release.
-ARCHIVE_REF="03529ca8606df63132f212cdfe4eb2f1c25a875f"
+ARCHIVE_REF="631777cc875cd34a7f75624651b1d429f816a758"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${ARCHIVE_REF}/social-release-v2"
 RELEASE_SHA256="709137e20a89b3e157f5a51964d93e48ee01001b4faf66a38dde7397fce8c64b"
 TMP_DIR="$(mktemp -d /tmp/dvizh-social-bootstrap.XXXXXX)"
