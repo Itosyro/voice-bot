@@ -1,0 +1,73 @@
+name: DVIZH social release inspection
+
+on:
+  push:
+    branches:
+      - codex/dvizh-social-content-v1-2026-09-03
+    paths:
+      - 'social-release/**'
+      - '.github/workflows/dvizh-social-release-inspect.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reconstruct release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat \
+            social-release/part-00.b64 \
+            social-release/part-01.b64 \
+            social-release/part-02.b64 \
+            social-release/part-03.b64 \
+            | base64 --decode > /tmp/dvizh-social-release.tar.gz
+          echo "SHA256=$(sha256sum /tmp/dvizh-social-release.tar.gz | awk '{print $1}')"
+          echo "SIZE=$(stat -c '%s' /tmp/dvizh-social-release.tar.gz)"
+          gzip -t /tmp/dvizh-social-release.tar.gz
+          mkdir -p /tmp/dvizh-social-release
+          tar -xzf /tmp/dvizh-social-release.tar.gz -C /tmp/dvizh-social-release
+          echo '=== RELEASE FILES ==='
+          find /tmp/dvizh-social-release -type f -printf '%P %s bytes\n' | sort
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          while IFS= read -r file; do bash -n "$file"; done < <(find /tmp/dvizh-social-release -type f -name '*.sh' | sort)
+          while IFS= read -r file; do python -m py_compile "$file"; done < <(find /tmp/dvizh-social-release -type f -name '*.py' | sort)
+      - name: Test release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip pytest
+          mapfile -t tests < <(find /tmp/dvizh-social-release -type f -path '*/tests/test_*.py' -printf '%h\n' | sort -u)
+          if ((${#tests[@]})); then pytest -q "${tests[@]}"; else echo 'No pytest suite found'; fi
+      - name: Scan release metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '=== VERSION / MARKERS ==='
+          grep -RInE '2026\.|DVIZH_SOCIAL|social-content|dvizh-social|/social|/idea' /tmp/dvizh-social-release | head -n 250 || true
+          echo '=== SYSTEMD ==='
+          find /tmp/dvizh-social-release -type f -name '*.service' -print -exec cat {} \;
+      - name: Upload reconstructed source
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-social-release-inspect
+          path: |
+            /tmp/dvizh-social-release.tar.gz
+            /tmp/dvizh-social-release
+          if-no-files-found: error
+          retention-days: 1
