@@ -1,0 +1,54 @@
+name: DVIZH social release inspect
+
+on:
+  push:
+    branches:
+      - codex/dvizh-social-content-v1-2026-09-03-inspect
+    paths:
+      - 'social-release/**'
+      - '.github/workflows/dvizh-social-release-inspect.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reconstruct archive
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat social-release/part-*.b64 | base64 --decode > /tmp/dvizh-social-release.tar.gz
+          sha256sum /tmp/dvizh-social-release.tar.gz
+          mkdir -p /tmp/dvizh-social-release
+          tar -xzf /tmp/dvizh-social-release.tar.gz -C /tmp/dvizh-social-release
+          echo '===== FILES ====='
+          find /tmp/dvizh-social-release -type f -printf '%P\n' | sort
+          echo '===== TOP LEVEL ====='
+          find /tmp/dvizh-social-release -maxdepth 2 -type f -printf '%p\n' | sort
+      - name: Static checks and tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="$(find /tmp/dvizh-social-release -mindepth 1 -maxdepth 1 -type d | head -n1)"
+          test -n "$root"
+          find "$root" -name '*.sh' -type f -print0 | xargs -0 -r -n1 bash -n
+          python -m compileall -q "$root"
+          if find "$root" -type f -path '*/tests/test_*.py' | grep -q .; then
+            python -m pip install --upgrade pip pytest
+            pytest -q "$root"
+          fi
+      - name: Upload reconstructed source
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-social-release-inspect
+          path: /tmp/dvizh-social-release
+          if-no-files-found: error
+          retention-days: 1
