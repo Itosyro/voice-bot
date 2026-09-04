@@ -1,0 +1,36 @@
+name: Export current DVIZH web patch sources
+
+on:
+  push:
+    branches:
+      - codex/dvizh-minimal-ui-v1-2026-09-04
+    paths:
+      - '.github/workflows/dvizh-minimal-ui-source-export.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct Social Hub release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat social-release-v2/part-*.b64 | base64 --decode > /tmp/dvizh-social-release.tar.gz
+          echo '709137e20a89b3e157f5a51964d93e48ee01001b4faf66a38dde7397fce8c64b  /tmp/dvizh-social-release.tar.gz' | sha256sum -c -
+          mkdir -p /tmp/dvizh-current-sources
+          tar -xzf /tmp/dvizh-social-release.tar.gz -C /tmp/dvizh-current-sources
+
+      - name: Upload current patch sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-current-web-patch-sources
+          path: /tmp/dvizh-current-sources
+          if-no-files-found: error
+          retention-days: 1
