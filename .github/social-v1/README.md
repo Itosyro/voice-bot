@@ -1,0 +1,1 @@
+The immutable Social Hub payload is stored in `social-release-v2/`. Its reconstructed archive SHA-256 is `709137e20a89b3e157f5a51964d93e48ee01001b4faf66a38dde7397fce8c64b`. Commit `b995498eea3d476dee52958183a07fbf18440765` passed the full integration workflow.
