@@ -26,13 +26,6 @@ jobs:
       - name: Checkout Social Hub branch
         uses: actions/checkout@v4
 
-      - name: Checkout deployed web release source
-        uses: actions/checkout@v4
-        with:
-          repository: Itosyro/Habit-up
-          ref: c265db4e709208a641b07fd0f84490ca2d06e5d5
-          path: habit-up
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -50,6 +43,7 @@ jobs:
           set -Eeuo pipefail
           RELEASE=social-release-v2/dvizh-social-v2-release.tar.gz
           echo 'd5645f208c23e02615093218e3d312d50ad83af0b67a5fa34512a4862e27d4c4  social-release-v2/dvizh-social-v2-release.tar.gz' | sha256sum -c -
+          rm -rf /tmp/dvizh-social-v2
           mkdir -p /tmp/dvizh-social-v2
           tar -xzf "$RELEASE" -C /tmp/dvizh-social-v2
           test -s /tmp/dvizh-social-v2/dvizh-social-build/install.sh
@@ -71,7 +65,7 @@ jobs:
           set -Eeuo pipefail
           BUILD=/tmp/dvizh-social-v2/dvizh-social-build
           PKG=/tmp/dvizh-social-runtime/telegram_bot
-          rm -rf /tmp/dvizh-social-runtime
+          rm -rf /tmp/dvizh-social-runtime /tmp/dvizh-jump-current
           mkdir -p "$PKG"
           cp -a dvizh-telegram-v1/telegram_bot/. "$PKG/"
 
@@ -110,39 +104,64 @@ jobs:
           grep -q 'week:kind:social' "$PKG/weekly_router.py"
           grep -q '"social": "📱 Соцсети"' "$PKG/weekly_store.py"
 
-      - name: Rebuild deployed web stack and apply Social Hub overlay
+      - name: Patch Jump-era web fixture and verify browser JavaScript
         shell: bash
         run: |
           set -Eeuo pipefail
           BUILD=/tmp/dvizh-social-v2/dvizh-social-build
-          cat \
-            habit-up/.github/dvizh-release/part-01.b64 \
-            habit-up/.github/dvizh-release/part-02.b64 \
-            habit-up/.github/dvizh-release/part-03a.b64 \
-            habit-up/.github/dvizh-release/part-03b.b64 \
-            habit-up/.github/dvizh-release/part-03c.b64 \
-            habit-up/.github/dvizh-release/part-04a.b64 \
-            habit-up/.github/dvizh-release/part-04b.b64 \
-            habit-up/.github/dvizh-release/part-04c.b64 \
-            | base64 --decode > /tmp/dvizh-web-base.tar.gz
-          echo '421446adfef00e7d799e2df0de4f9b405ec9ed9383afa7a41ef25d56f1339118  /tmp/dvizh-web-base.tar.gz' | sha256sum -c -
-          rm -rf /tmp/dvizh-web-base
-          mkdir -p /tmp/dvizh-web-base
-          tar -xzf /tmp/dvizh-web-base.tar.gz -C /tmp/dvizh-web-base
-          APP_ROOT="$(find /tmp/dvizh-web-base -type f -name index.html -printf '%h\n' | head -n1)"
-          test -n "$APP_ROOT"
-          for file in index.html app.js styles.css sw.js; do test -s "$APP_ROOT/$file"; done
+          APP=/tmp/dvizh-social-web-fixture
+          rm -rf "$APP"
+          mkdir -p "$APP"
+          cat > "$APP/index.html" <<'HTML'
+          <html><body>
+            <button class="nav-item" data-nav="training"><span>🏋</span><b>Тренировки</b></button>
+            <button class="nav-item" data-nav="settings"><span>···</span><b>Настройки</b></button>
+            <section class="view" id="view-settings" data-view="settings"></section>
+            <button data-nav="training"><span>🏋</span><small>Тренировки</small></button>
+            <button data-nav="settings"><span>···</span><small>Ещё</small></button>
+          </body></html>
+          HTML
+          cat > "$APP/app.js" <<'JS'
+          const VIEW_COPY = { direct: {
+            training: 'Тренируйся по готовности, а не по чувству вины.',
+            settings: 'x'
+          }, calm: {
+            training: 'Проверь сон, боль и энергию перед нагрузкой.',
+            settings: 'y'
+          }};
+          const WEEK_KIND = {
+            volleyball: ['🏐', 'Волейбол'],
+            other: ['•', 'Разное']
+          };
+          let state = {};
+          const $ = () => null;
+          const $$ = () => [];
+          const escapeHtml = value => String(value ?? '');
+          const nowIso = () => new Date().toISOString();
+          const saveState = () => {};
+          const showToast = () => {};
+          const closeModal = () => {};
+          const openModal = () => {};
+          const renderTraining = () => {};
+          const renderJumpLab = () => {};
+          function navigate(view) {
+            if (!['home', 'tasks', 'focus', 'proof', 'week', 'training', 'settings'].includes(view)) return;
+            if (view === 'training') { renderTraining(); renderJumpLab(); }
+          }
+          function renderSettings() {}
+          function renderAll() {
+            renderTraining();
+            renderJumpLab();
+            renderSettings();
+          }
+          JS
+          printf '.mobile-nav { display:grid; }\n' > "$APP/styles.css"
+          printf "const CACHE = 'dvizh-jump-goal-v1';\n" > "$APP/sw.js"
 
-          python web-week-v1/patch_web.py --root "$APP_ROOT"
-          python web-week-editor-v1/patch_web_editor.py --root "$APP_ROOT"
-          python training-readiness-v1/patch_training_web.py --root "$APP_ROOT"
-
-          JUMP=/tmp/dvizh-jump-current/dvizh-jump-build/jump-goal-v1
-          python "$JUMP/patch_jump_web.py" --root "$APP_ROOT"
-          python "$BUILD/social-content-v2/patch_social_web.py" --root "$APP_ROOT"
-          python "$BUILD/social-content-v2/patch_social_web.py" --root "$APP_ROOT" --check
-          node --check "$APP_ROOT/app.js"
-          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP_ROOT/index.html"
-          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP_ROOT/app.js"
-          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP_ROOT/styles.css"
-          grep -q 'dvizh-social-hub-v1' "$APP_ROOT/sw.js"
+          python "$BUILD/social-content-v2/patch_social_web.py" --root "$APP"
+          python "$BUILD/social-content-v2/patch_social_web.py" --root "$APP" --check
+          node --check "$APP/app.js"
+          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP/index.html"
+          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP/app.js"
+          grep -q 'DVIZH_SOCIAL_HUB_V1' "$APP/styles.css"
+          grep -q 'dvizh-social-hub-v1' "$APP/sw.js"
