@@ -17,4 +17,11 @@ echo "$PATCH_SHA256  $TMP_DIR/patch_minimal_ui.py" | sha256sum -c -
 echo "$INSTALL_SHA256  $TMP_DIR/install.sh" | sha256sum -c -
 chmod +x "$TMP_DIR/install.sh" "$TMP_DIR/patch_minimal_ui.py"
 
+if [[ "${DVIZH_MINIMAL_UI_PREPARE_ONLY:-0}" == "1" ]]; then
+  python3 -m py_compile "$TMP_DIR/patch_minimal_ui.py"
+  bash -n "$TMP_DIR/install.sh"
+  echo "DVIZH minimal UI payload verified."
+  exit 0
+fi
+
 exec sudo -n env DVIZH_MINIMAL_UI_PAYLOAD_DIR="$TMP_DIR" bash "$TMP_DIR/install.sh"
