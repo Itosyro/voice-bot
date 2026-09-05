@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.05-hermes-control.3"
+VERSION="2026.09.05-hermes-control.4"
 
 SERVICES=(
   dvizh
@@ -17,18 +17,25 @@ SERVICES=(
 
 usage() {
   cat <<'EOF'
-dvizhctl — read-only DVIZH server control surface
+dvizhctl — safe DVIZH control surface for Hermes
 
-Usage:
+Read-only diagnostics:
   dvizhctl status
   dvizhctl doctor
   dvizhctl logs <service> [lines]
   dvizhctl context [today|week|training|jump|social|health|full]
+
+AI proposals (proposal queue only; NEVER applies them):
+  dvizhctl propose <task_create|task_complete|schedule_move|day_plan> <summary> <payload_json>
+  dvizhctl proposals [pending|rejected|superseded]
+  dvizhctl proposal-reject <proposal_id>
+
+Other:
   dvizhctl paths
   dvizhctl version
 
-This control layer is intentionally read-only. It cannot restart, deploy,
-delete, edit databases, install packages, or change configuration.
+Important: proposals are inert. This layer still cannot apply a task/schedule
+change, restart/deploy services, edit DVIZH databases, or change configuration.
 EOF
 }
 
@@ -187,11 +194,38 @@ cmd_context() {
   sudo -n -u dvizh /usr/local/libexec/dvizh-context "$view"
 }
 
+proposal_helper() {
+  [[ -x /usr/local/libexec/dvizh-proposals ]] || {
+    echo 'DVIZH proposal helper is not installed.' >&2
+    exit 4
+  }
+  /usr/local/libexec/dvizh-proposals "$@"
+}
+
+cmd_propose() {
+  [[ $# -eq 3 ]] || {
+    echo 'Usage: dvizhctl propose <action> <summary> <payload_json>' >&2
+    exit 2
+  }
+  proposal_helper create "$1" "$2" "$3"
+}
+
+cmd_proposals() {
+  local status="${1:-}"
+  if [[ -n "$status" ]]; then
+    case "$status" in pending|rejected|superseded) ;; *) echo "Bad proposal status: $status" >&2; exit 2;; esac
+    proposal_helper list --status "$status"
+  else
+    proposal_helper list
+  fi
+}
+
 cmd_paths() {
   cat <<'EOF'
 DVIZH non-secret paths
 backups=/var/lib/dvizh/backups
 telegram=/opt/dvizh-telegram
+proposal_queue=/var/lib/dvizh/hermes-proposals
 hermes_home=~/.hermes
 
 Sensitive files are intentionally not enumerated. Do not inspect .env,
@@ -204,11 +238,14 @@ case "${1:-help}" in
   doctor) cmd_doctor ;;
   logs) shift; cmd_logs "$@" ;;
   context) shift; cmd_context "$@" ;;
+  propose) shift; cmd_propose "$@" ;;
+  proposals) shift; cmd_proposals "$@" ;;
+  proposal-reject) shift; [[ $# -eq 1 ]] || { echo 'Usage: dvizhctl proposal-reject <proposal_id>' >&2; exit 2; }; proposal_helper reject "$1" ;;
   paths) cmd_paths ;;
   version) printf '%s\n' "$VERSION" ;;
   help|-h|--help) usage ;;
-  restart|deploy|rollback|delete|remove|edit|write|migrate|install|update)
-    echo "Refused: dvizhctl is read-only. '$1' is not available." >&2
+  apply|approve|restart|deploy|rollback|delete|remove|edit|write|migrate|install|update)
+    echo "Refused: '$1' is not available through Hermes control. Proposals must be approved inside DVIZH UI." >&2
     exit 3
     ;;
   *)
