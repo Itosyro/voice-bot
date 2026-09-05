@@ -33,7 +33,9 @@ HERMES_HOME="$(getent passwd "$HERMES_USER" | cut -d: -f6)"
 HERMES_UID="$(id -u "$HERMES_USER")"
 HERMES_ENV="$HERMES_HOME/.hermes/.env"
 [[ -d "$HERMES_HOME/.hermes" ]] || { echo "Hermes не установлен для $HERMES_USER" >&2; exit 1; }
-install -o "$HERMES_USER" -g "$(id -gn "$HERMES_USER")" -m 0600 /dev/null "$HERMES_ENV" 2>/dev/null || true
+if [[ ! -f "$HERMES_ENV" ]]; then
+  install -o "$HERMES_USER" -g "$(id -gn "$HERMES_USER")" -m 0600 /dev/null "$HERMES_ENV"
+fi
 
 LOCK_FILE="/run/lock/dvizh-ai-home-install.lock"
 exec 9>"$LOCK_FILE"
