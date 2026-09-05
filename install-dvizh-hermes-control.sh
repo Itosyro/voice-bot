@@ -7,17 +7,6 @@ BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/her
 TMP_DIR="$(mktemp -d /tmp/dvizh-hermes-control.XXXXXX)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-if [[ "$(id -u)" -eq 0 ]]; then
-  TARGET_USER="${SUDO_USER:-exedev}"
-else
-  TARGET_USER="$(id -un)"
-fi
-[[ "$TARGET_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "Unexpected target user" >&2; exit 1; }
-id "$TARGET_USER" >/dev/null 2>&1 || { echo "Target user not found: $TARGET_USER" >&2; exit 1; }
-id dvizh >/dev/null 2>&1 || { echo "Required service user 'dvizh' not found" >&2; exit 1; }
-TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
-[[ -n "$TARGET_HOME" && -d "$TARGET_HOME" ]] || { echo "Cannot resolve home for $TARGET_USER" >&2; exit 1; }
-
 curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
   "$BASE_URL/dvizhctl" -o "$TMP_DIR/dvizhctl"
 curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
@@ -37,6 +26,17 @@ if [[ "${DVIZH_HERMES_CONTROL_PREPARE_ONLY:-0}" == "1" ]]; then
   echo "DVIZH Hermes control payload verified from $PAYLOAD_REF."
   exit 0
 fi
+
+if [[ "$(id -u)" -eq 0 ]]; then
+  TARGET_USER="${SUDO_USER:-exedev}"
+else
+  TARGET_USER="$(id -un)"
+fi
+[[ "$TARGET_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "Unexpected target user" >&2; exit 1; }
+id "$TARGET_USER" >/dev/null 2>&1 || { echo "Target user not found: $TARGET_USER" >&2; exit 1; }
+id dvizh >/dev/null 2>&1 || { echo "Required service user 'dvizh' not found" >&2; exit 1; }
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+[[ -n "$TARGET_HOME" && -d "$TARGET_HOME" ]] || { echo "Cannot resolve home for $TARGET_USER" >&2; exit 1; }
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_DIR="$TARGET_HOME/.hermes/backups/dvizh-control-$STAMP"
