@@ -24,7 +24,8 @@ jobs:
           grep -q "location.assign('/manual.html')" ai-home-v2/ai-home-v2.js
           grep -q '/ai-home-v2.js?v=20260905-1' ai-home-v2/index.html
           grep -q '/ai-home-v2.css?v=20260905-1' ai-home-v2/index.html
-          ! grep -qE 'src=["'"'](?:\./|/)?app\.js' ai-home-v2/index.html
+          ! grep -q 'src="/app.js' ai-home-v2/index.html
+          ! grep -q 'src="app.js' ai-home-v2/index.html
 
       - name: Exercise isolated installer
         run: |
