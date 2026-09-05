@@ -1,7 +1,7 @@
 ---
 name: dvizh-server
 description: Safely inspect and diagnose the DVIZH planner server through the read-only dvizhctl interface. Use for DVIZH status, health checks, service logs, outages, sync problems, and server diagnostics.
-version: 1.0.0
+version: 1.0.1
 author: DVIZH
 platforms: [linux]
 metadata:
@@ -56,6 +56,8 @@ Prefer it over ad-hoc shell commands for DVIZH diagnostics.
    - `dvizh-jump`
    - `dvizh-social`
 
+   `dvizhctl logs` automatically redacts common token/key/password patterns before output. Do not bypass this with direct `journalctl` for routine DVIZH diagnosis.
+
 4. Summarize the cause in plain language. Distinguish confirmed evidence from guesses.
 
 ## Safety boundary — mandatory
@@ -77,7 +79,7 @@ If the user asks for one of those actions, first diagnose read-only, explain the
 
 ## Secrets
 
-Never include secrets in chat output. If logs accidentally expose something token-like, redact it before replying.
+Never include secrets in chat output. If any output still appears token-like, redact it before replying.
 
 Do not inspect `~/.hermes/.env`, `~/.hermes/auth.json`, `~/.codex/auth.json`, or DVIZH secret files as part of routine diagnosis.
 
