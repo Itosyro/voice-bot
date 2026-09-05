@@ -1,0 +1,27 @@
+[Unit]
+Description=DVIZH AI Home bridge to local Hermes API
+After=network-online.target dvizh.service dvizh-auth.service hermes-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dvizh
+Group=dvizh
+EnvironmentFile=/etc/dvizh/ai-home.env
+ExecStart=/usr/bin/python3 /opt/dvizh-ai-home/ai_home_bridge.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+ReadWritePaths=/var/lib/dvizh
+
+[Install]
+WantedBy=multi-user.target
