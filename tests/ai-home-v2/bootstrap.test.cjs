@@ -89,11 +89,11 @@ test('bootstrap cannot be used as a promotion entry point', t => {
 
 test('bootstrap release source and blob identities are immutable', () => {
   const script = fs.readFileSync(bootstrap, 'utf8');
-  assert.match(script, /RELEASE_COMMIT="86c6f20d887551c77dd5ffe140da928b16370582"/);
+  assert.match(script, /RELEASE_COMMIT="d6418224eae292417a645b2a73da157d939526b9"/);
   for (const sha of [
     '88ad4b9f4db39614ccc1ba4c70b256f4a3c4d2b0',
     '2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e',
-    'e33dd200b00d3557dac3839beb5bc2537f4c1868',
+    '95b1ce6a09341840802efebb958f41441cc43560',
     '273934a33d7913c45f4b7656315aeedfd6e4e813',
   ]) assert.match(script, new RegExp(sha));
   assert.doesNotMatch(script, /install-dvizh-ai-home-v2\.sh" --promote/);
