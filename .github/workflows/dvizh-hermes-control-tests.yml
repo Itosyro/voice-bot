@@ -35,7 +35,10 @@ jobs:
           grep -q '^name: dvizh-server$' hermes-control-v1/skill/SKILL.md
           grep -q 'dvizhctl context today' hermes-control-v1/skill/SKILL.md
           grep -q 'dvizhctl propose' hermes-control-v1/skill/SKILL.md
-          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.4'
+          grep -q 'sudo -n -u dvizh /usr/local/libexec/dvizh-proposals' hermes-control-v1/dvizhctl
+          grep -q 'ALL=(dvizh) NOPASSWD: $PROPOSAL_PATH \*' install-dvizh-hermes-control.sh
+          grep -q 'install -d -o dvizh -g dvizh -m 0750 "$PROPOSAL_DIR"' install-dvizh-hermes-control.sh
+          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.5'
 
       - name: Verify locked installer payload
         shell: bash
