@@ -7,6 +7,7 @@ on:
       - 'tests/ai-home-v2/**'
       - 'install-dvizh-ai-home-v2.sh'
       - 'install-dvizh-ai-home-v2-preview-from-github.sh'
+      - 'diagnose-dvizh-ai-home-v2.sh'
       - 'hermes-control-v1/dvizh_ai_home_bridge.py'
       - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - '.github/workflows/dvizh-ai-home-v2-tests.yml'
@@ -16,6 +17,7 @@ on:
       - 'tests/ai-home-v2/**'
       - 'install-dvizh-ai-home-v2.sh'
       - 'install-dvizh-ai-home-v2-preview-from-github.sh'
+      - 'diagnose-dvizh-ai-home-v2.sh'
       - 'hermes-control-v1/dvizh_ai_home_bridge.py'
       - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - '.github/workflows/dvizh-ai-home-v2-tests.yml'
@@ -37,11 +39,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate isolated client, installer and immutable preview bootstrap
+      - name: Validate isolated client, installer, immutable preview bootstrap and read-only diagnostics
         run: |
           set -euo pipefail
           bash -n install-dvizh-ai-home-v2.sh
           bash -n install-dvizh-ai-home-v2-preview-from-github.sh
+          bash -n diagnose-dvizh-ai-home-v2.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' diagnose-dvizh-ai-home-v2.sh
+          ! grep -Eq "method=['\"]PUT['\"]|/api/state[^\n]*PUT" diagnose-dvizh-ai-home-v2.sh
           node --check ai-home-v2/ai-home-v2.js
           node --test tests/ai-home-v2/*.test.cjs
 
