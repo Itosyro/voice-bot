@@ -28,6 +28,9 @@
   let pollDeadline = 0;
   let holdStartedAt = null;
   let holdOpenedManual = false;
+  // A fresh page session starts visually empty. Open this gate only after this
+  // page has observed an active request (including one resumed after reload).
+  let responseGateOpen = false;
   const controllers = new Set();
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const rows = value => Array.isArray(value) ? value.filter(object) : [];
@@ -165,6 +168,7 @@
     composer.hidden = false;
     acknowledge(state);
     if (activeRequest(state)) {
+      responseGateOpen = true;
       showAnswer();
       if (!pollDeadline) pollDeadline = Date.now() + POLL_TIMEOUT_MS;
       if (Date.now() >= pollDeadline) {
@@ -178,6 +182,13 @@
     }
     stopPolling();
     setBusy(false);
+    // Do not resurrect a saved answer/error just because a new page session
+    // performed its initial state read. The home must enter visually empty.
+    if (!responseGateOpen) {
+      showAnswer();
+      setStatus('');
+      return;
+    }
     if (state.aiHomeStatus?.state === 'error') {
       showAnswer();
       showError('ИИ не смог ответить. Можно отправить сообщение ещё раз.');
