@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.05-hermes-control.4"
+VERSION="2026.09.05-hermes-control.5"
 
 SERVICES=(
   dvizh
@@ -199,7 +199,10 @@ proposal_helper() {
     echo 'DVIZH proposal helper is not installed.' >&2
     exit 4
   }
-  /usr/local/libexec/dvizh-proposals "$@"
+  # /var/lib/dvizh is intentionally not traversable by the interactive exedev
+  # account. Run the inert proposal spool as the dedicated dvizh service user;
+  # sudoers grants only this fixed helper, whose CLI has no apply/approve verb.
+  sudo -n -u dvizh /usr/local/libexec/dvizh-proposals "$@"
 }
 
 cmd_propose() {
