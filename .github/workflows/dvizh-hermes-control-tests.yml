@@ -31,15 +31,49 @@ jobs:
           set -Eeuo pipefail
           bash -n hermes-control-v1/dvizhctl
           bash -n install-dvizh-hermes-control.sh
+          python3 -m py_compile hermes-control-v1/dvizh_context.py
           grep -q '^name: dvizh-server$' hermes-control-v1/skill/SKILL.md
+          grep -q 'dvizhctl context today' hermes-control-v1/skill/SKILL.md
           grep -q 'read-only' hermes-control-v1/skill/SKILL.md
-          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.2'
+          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.3'
 
       - name: Verify locked installer payload
         shell: bash
         run: |
           set -Eeuo pipefail
           DVIZH_HERMES_CONTROL_PREPARE_ONLY=1 bash install-dvizh-hermes-control.sh
+
+      - name: Context helper safety and no-data smoke test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 hermes-control-v1/dvizh_context.py health > /tmp/context.json
+          python3 - <<'PY'
+          import importlib.util, json
+          from pathlib import Path
+
+          payload=json.loads(Path('/tmp/context.json').read_text())
+          assert payload['read_only'] is True
+          assert payload['view']=='health'
+          assert payload['version']=='2026.09.05-hermes-context.1'
+
+          p=Path('hermes-control-v1/dvizh_context.py')
+          spec=importlib.util.spec_from_file_location('ctx',p)
+          mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+          cleaned=mod.sanitize({
+              'api_key':'abc', 'password':'pw', 'safe':'ok',
+              'nested': {'bot_token':'123', 'value': 7},
+          })
+          assert cleaned['api_key']=='[REDACTED]'
+          assert cleaned['password']=='[REDACTED]'
+          assert cleaned['nested']['bot_token']=='[REDACTED]'
+          assert cleaned['safe']=='ok' and cleaned['nested']['value']==7
+          PY
+          if python3 hermes-control-v1/dvizh_context.py ../../etc/passwd >/tmp/out 2>/tmp/err; then
+            echo 'invalid context view unexpectedly succeeded' >&2
+            exit 1
+          fi
+          grep -q 'allowed views' /tmp/err
 
       - name: Mock read-only runtime
         shell: bash
@@ -85,6 +119,11 @@ jobs:
             exit 1
           fi
           grep -q 'Refusing unknown service' /tmp/err
+          if bash hermes-control-v1/dvizhctl context ../../etc/passwd >/tmp/out 2>/tmp/err; then
+            echo 'invalid context view unexpectedly allowed' >&2
+            exit 1
+          fi
+          grep -q 'Unknown context view' /tmp/err
 
       - name: Log secret redaction
         shell: bash
