@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.05-hermes-control.4"
-PAYLOAD_REF="8ad08d5ba1465690344fc549d0b726cf1f1e476d"
+VERSION="2026.09.05-hermes-control.5"
+PAYLOAD_REF="651e5dd89a54479547d47be9ce4c025901ef1319"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/hermes-control-v1"
 TMP_DIR="$(mktemp -d /tmp/dvizh-hermes-control.XXXXXX)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -18,12 +18,13 @@ curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
 
 bash -n "$TMP_DIR/dvizhctl"
 python3 -m py_compile "$TMP_DIR/dvizh-context" "$TMP_DIR/dvizh-proposals"
-grep -q 'VERSION="2026.09.05-hermes-control.4"' "$TMP_DIR/dvizhctl"
+grep -q 'VERSION="2026.09.05-hermes-control.5"' "$TMP_DIR/dvizhctl"
 grep -q 'VERSION = "2026.09.05-hermes-context.1"' "$TMP_DIR/dvizh-context"
 grep -q 'VERSION = "2026.09.05-hermes-proposals.1"' "$TMP_DIR/dvizh-proposals"
 grep -q '^name: dvizh-server$' "$TMP_DIR/SKILL.md"
 grep -q 'dvizhctl context today' "$TMP_DIR/SKILL.md"
 grep -q 'dvizhctl propose' "$TMP_DIR/SKILL.md"
+grep -q 'sudo -n -u dvizh /usr/local/libexec/dvizh-proposals' "$TMP_DIR/dvizhctl"
 grep -q 'Proposals must be approved inside DVIZH UI' "$TMP_DIR/dvizhctl"
 
 if [[ "${DVIZH_HERMES_CONTROL_PREPARE_ONLY:-0}" == "1" ]]; then
@@ -53,6 +54,7 @@ SUDOERS_PATH="/etc/sudoers.d/dvizh-hermes-context"
 HAD_CTL=0
 HAD_CONTEXT=0
 HAD_PROPOSAL=0
+HAD_PROPOSAL_DIR=0
 HAD_SKILL=0
 HAD_SUDOERS=0
 INSTALLED=0
@@ -91,6 +93,7 @@ rollback() {
     if [[ "$HAD_PROPOSAL" == "1" && -f "$BACKUP_DIR/dvizh-proposals" ]]; then root_run install -o root -g root -m 0755 "$BACKUP_DIR/dvizh-proposals" "$PROPOSAL_PATH" || true; else root_run rm -f "$PROPOSAL_PATH" || true; fi
     if [[ "$HAD_SUDOERS" == "1" && -f "$BACKUP_DIR/sudoers" ]]; then root_run install -o root -g root -m 0440 "$BACKUP_DIR/sudoers" "$SUDOERS_PATH" || true; else root_run rm -f "$SUDOERS_PATH" || true; fi
     if [[ "$HAD_SKILL" == "1" && -f "$BACKUP_DIR/SKILL.md" ]]; then mkdir_as_user "$SKILL_DIR" || true; copy_as_user "$BACKUP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md" || true; else remove_as_user "$SKILL_DIR" || true; fi
+    if [[ "$HAD_PROPOSAL_DIR" == "0" ]]; then root_run rm -rf "$PROPOSAL_DIR" || true; fi
   fi
   exit "$rc"
 }
@@ -102,12 +105,14 @@ mkdir_as_user "$SKILL_DIR"
 if [[ -f /usr/local/bin/dvizhctl ]]; then HAD_CTL=1; root_run cp /usr/local/bin/dvizhctl "$TMP_DIR/dvizhctl.previous"; copy_as_user "$TMP_DIR/dvizhctl.previous" "$BACKUP_DIR/dvizhctl"; fi
 if [[ -f "$CONTEXT_PATH" ]]; then HAD_CONTEXT=1; root_run cp "$CONTEXT_PATH" "$TMP_DIR/dvizh-context.previous"; copy_as_user "$TMP_DIR/dvizh-context.previous" "$BACKUP_DIR/dvizh-context"; fi
 if [[ -f "$PROPOSAL_PATH" ]]; then HAD_PROPOSAL=1; root_run cp "$PROPOSAL_PATH" "$TMP_DIR/dvizh-proposals.previous"; copy_as_user "$TMP_DIR/dvizh-proposals.previous" "$BACKUP_DIR/dvizh-proposals"; fi
+if root_run test -d "$PROPOSAL_DIR"; then HAD_PROPOSAL_DIR=1; fi
 if [[ -f "$SUDOERS_PATH" ]]; then HAD_SUDOERS=1; backup_root_file_for_user "$SUDOERS_PATH" "$BACKUP_DIR/sudoers" 0600; fi
 if [[ -f "$SKILL_DIR/SKILL.md" ]]; then HAD_SKILL=1; cp "$SKILL_DIR/SKILL.md" "$TMP_DIR/SKILL.previous.md"; copy_as_user "$TMP_DIR/SKILL.previous.md" "$BACKUP_DIR/SKILL.md"; fi
 
 cat > "$TMP_DIR/sudoers" <<EOF
-# Read-only DVIZH context exporter for Hermes. The helper accepts only fixed view names.
+# Narrow DVIZH helpers for Hermes. Context is read-only; proposals only stage inert JSON.
 $TARGET_USER ALL=(dvizh) NOPASSWD: $CONTEXT_PATH *
+$TARGET_USER ALL=(dvizh) NOPASSWD: $PROPOSAL_PATH *
 EOF
 chmod 0440 "$TMP_DIR/sudoers"
 if command -v visudo >/dev/null 2>&1; then root_run visudo -cf "$TMP_DIR/sudoers" >/dev/null; fi
@@ -118,9 +123,10 @@ root_run install -o root -g root -m 0755 "$TMP_DIR/dvizhctl" /usr/local/bin/dviz
 root_run install -o root -g root -m 0755 "$TMP_DIR/dvizh-context" "$CONTEXT_PATH"
 root_run install -o root -g root -m 0755 "$TMP_DIR/dvizh-proposals" "$PROPOSAL_PATH"
 root_run install -o root -g root -m 0440 "$TMP_DIR/sudoers" "$SUDOERS_PATH"
-# Proposal queue is deliberately separate from production DBs. Hermes can stage proposals;
-# the dvizh service account can later expose/resolve them in authenticated UI.
-root_run install -d -o "$TARGET_USER" -g dvizh -m 2770 "$PROPOSAL_DIR"
+# /var/lib/dvizh is intentionally private. The proposal helper runs as the
+# dedicated dvizh account through the narrow sudo rule above, so exedev never
+# needs direct traversal/write access to the DVIZH data directory.
+root_run install -d -o dvizh -g dvizh -m 0750 "$PROPOSAL_DIR"
 copy_as_user "$TMP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md"
 if [[ "$(id -un)" == "$TARGET_USER" ]]; then chmod 0600 "$SKILL_DIR/SKILL.md"; else sudo -n -u "$TARGET_USER" chmod 0600 "$SKILL_DIR/SKILL.md"; fi
 
