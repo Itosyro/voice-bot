@@ -1,0 +1,76 @@
+name: DVIZH Hermes control tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-hermes-control-v1-2026-09-05
+    paths:
+      - 'hermes-control-v1/**'
+      - 'install-dvizh-hermes-control.sh'
+      - '.github/workflows/dvizh-hermes-control-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n hermes-control-v1/dvizhctl
+          bash -n install-dvizh-hermes-control.sh
+          grep -q '^name: dvizh-server$' hermes-control-v1/skill/SKILL.md
+          grep -q 'read-only' hermes-control-v1/skill/SKILL.md
+          test "$(hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.1'
+
+      - name: Mock read-only runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          MOCK=/tmp/dvizh-mock-bin
+          mkdir -p "$MOCK"
+          cat > "$MOCK/systemctl" <<'SH'
+          #!/usr/bin/env bash
+          if [[ "${1:-}" == "--user" ]]; then exit 0; fi
+          if [[ "${1:-}" == "is-active" ]]; then echo active; exit 0; fi
+          exit 0
+          SH
+          cat > "$MOCK/curl" <<'SH'
+          #!/usr/bin/env bash
+          printf '200'
+          SH
+          cat > "$MOCK/journalctl" <<'SH'
+          #!/usr/bin/env bash
+          echo 'mock log line'
+          SH
+          chmod +x "$MOCK/systemctl" "$MOCK/curl" "$MOCK/journalctl"
+
+          PATH="$MOCK:$PATH" hermes-control-v1/dvizhctl status | tee /tmp/status.txt
+          grep -q 'services_non_active=0' /tmp/status.txt
+          PATH="$MOCK:$PATH" hermes-control-v1/dvizhctl doctor | tee /tmp/doctor.txt
+          grep -q 'doctor_failures=0' /tmp/doctor.txt
+          PATH="$MOCK:$PATH" hermes-control-v1/dvizhctl logs dvizh-social 20 | grep -q 'mock log line'
+
+      - name: Safety refusals
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for action in restart deploy rollback delete edit migrate install update; do
+            if hermes-control-v1/dvizhctl "$action" >/tmp/out 2>/tmp/err; then
+              echo "dangerous verb unexpectedly succeeded: $action" >&2
+              exit 1
+            fi
+            grep -q 'read-only' /tmp/err
+          done
+          if hermes-control-v1/dvizhctl logs ssh 20 >/tmp/out 2>/tmp/err; then
+            echo 'unknown service unexpectedly allowed' >&2
+            exit 1
+          fi
+          grep -q 'Refusing unknown service' /tmp/err
