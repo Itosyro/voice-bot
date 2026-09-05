@@ -22,6 +22,15 @@ jobs:
           printf '%s\n' '<script src="app.js"></script>' > "$ROOT/index.html"
           DVIZH_AI_HOME_MODE_FIX_ROOT="$ROOT" bash install-dvizh-ai-home-mode-fix.sh
           grep -q 'DVIZH_AI_HOME_MODE_STABLE_V1' "$ROOT/app.js"
-          grep -q 'DVIZH_AI_HOME_MODE_STABLE_SW_V2' "$ROOT/sw.js"
-          grep -q 'app.js?v=dvizh-ai-home-mode-stable-v2' "$ROOT/index.html"
+          grep -q 'DVIZH_AI_HOME_MODE_STABLE_SW_V3' "$ROOT/sw.js"
+          grep -q 'app.js?v=dvizh-ai-home-mode-stable-v3' "$ROOT/index.html"
+          python3 - "$ROOT/app.js" <<'PY'
+          import sys
+          text=open(sys.argv[1],encoding='utf-8').read()
+          a=text.index('function aiHomeEnsureRoot()')
+          b=text.index('function aiHomeEnsureManualBack()',a)
+          assert "classList.add('ai-home-mode')" not in text[a:b]
+          a=text.index('function aiHomeBoot()')
+          assert "classList.add('ai-home-mode')" in text[a:]
+          PY
           node --check "$ROOT/app.js"
