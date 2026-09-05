@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.05-hermes-control.2"
+VERSION="2026.09.05-hermes-control.3"
 
 SERVICES=(
   dvizh
@@ -23,11 +23,12 @@ Usage:
   dvizhctl status
   dvizhctl doctor
   dvizhctl logs <service> [lines]
+  dvizhctl context [today|week|training|jump|social|health|full]
   dvizhctl paths
   dvizhctl version
 
-This v1 is intentionally read-only. It cannot restart, deploy, delete,
-edit databases, install packages, or change configuration.
+This control layer is intentionally read-only. It cannot restart, deploy,
+delete, edit databases, install packages, or change configuration.
 EOF
 }
 
@@ -152,7 +153,7 @@ cmd_doctor() {
       failures=$((failures + 1))
     fi
   done
-  [[ "$seen" -gt 0 ]] || printf 'sqlite checks: no known database path found (non-fatal)\n'
+  [[ "$seen" -gt 0 ]] || printf 'sqlite checks: no known database path found for current user (non-fatal)\n'
 
   if systemctl --user is-active --quiet hermes-gateway.service 2>/dev/null; then
     printf '%-31s OK active\n' 'hermes-gateway.service (user)'
@@ -173,6 +174,19 @@ cmd_logs() {
   journalctl -u "$(unit_name "$raw")" -n "$lines" --no-pager --output=short-iso | redact_stream
 }
 
+cmd_context() {
+  local view="${1:-today}"
+  case "$view" in
+    today|week|training|jump|social|health|full) ;;
+    *) echo "Unknown context view: $view" >&2; exit 2 ;;
+  esac
+  if [[ ! -x /usr/local/libexec/dvizh-context ]]; then
+    echo 'DVIZH context helper is not installed.' >&2
+    exit 4
+  fi
+  sudo -n -u dvizh /usr/local/libexec/dvizh-context "$view"
+}
+
 cmd_paths() {
   cat <<'EOF'
 DVIZH non-secret paths
@@ -189,11 +203,12 @@ case "${1:-help}" in
   status) cmd_status ;;
   doctor) cmd_doctor ;;
   logs) shift; cmd_logs "$@" ;;
+  context) shift; cmd_context "$@" ;;
   paths) cmd_paths ;;
   version) printf '%s\n' "$VERSION" ;;
   help|-h|--help) usage ;;
   restart|deploy|rollback|delete|remove|edit|write|migrate|install|update)
-    echo "Refused: dvizhctl v1 is read-only. '$1' is not available." >&2
+    echo "Refused: dvizhctl is read-only. '$1' is not available." >&2
     exit 3
     ;;
   *)
