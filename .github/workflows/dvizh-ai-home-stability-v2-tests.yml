@@ -1,0 +1,48 @@
+name: DVIZH AI Home stability v2 tests
+on:
+  push:
+    branches: [codex/dvizh-ai-home-v1-2026-09-05]
+    paths: ['install-dvizh-ai-home-stability-v2.sh', '.github/workflows/dvizh-ai-home-stability-v2-tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise hard stability patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-ai-home-stability-v2.sh
+          ROOT=/tmp/dvizh-stability-v2
+          rm -rf "$ROOT" && mkdir -p "$ROOT"
+          cat > "$ROOT/index.html" <<'HTML'
+          <!doctype html><html><head><link rel="stylesheet" href="styles.css"></head><body><section id="view-home"><div id="oldHome">old</div></section><script src="app.js"></script></body></html>
+          HTML
+          cat > "$ROOT/app.js" <<'JS'
+          (()=>{
+            const DVIZH_AI_HOME_V1 = true;
+            function aiHomeData(){}
+            function x(){
+              document.documentElement.classList.remove('dvizh-ai-home-active');
+              document.getElementById('view-home')?.classList.remove('ai-home-mode');
+              document.documentElement.classList.add('dvizh-ai-home-active');
+              document.getElementById('view-home')?.classList.add('ai-home-mode');
+            }
+          })();
+          JS
+          echo 'body{background:#000}' > "$ROOT/styles.css"
+          echo "const CACHE='old-cache'; self.addEventListener('fetch',()=>{});" > "$ROOT/sw.js"
+          DVIZH_AI_HOME_STABILITY_V2_ROOT="$ROOT" bash install-dvizh-ai-home-stability-v2.sh
+          grep -q 'DVIZH_AI_HOME_EARLY_BOOT_V2' "$ROOT/index.html"
+          grep -q 'dvizh-ai-home-stability-v2-1' "$ROOT/index.html"
+          grep -q 'DVIZH_AI_HOME_STABILITY_V2' "$ROOT/app.js"
+          grep -q 'DVIZH_AI_HOME_ROOT_GUARD_V2' "$ROOT/app.js"
+          grep -q '__dvizhAiHomeSetManual(true)' "$ROOT/app.js"
+          grep -q '__dvizhAiHomeSetManual(false)' "$ROOT/app.js"
+          grep -q 'DVIZH_AI_HOME_NETWORK_ONLY_SW_V2' "$ROOT/sw.js"
+          ! grep -q 'old-cache' "$ROOT/sw.js"
+          node --check "$ROOT/app.js"
+          DVIZH_AI_HOME_STABILITY_V2_ROOT="$ROOT" bash install-dvizh-ai-home-stability-v2.sh
+          node --check "$ROOT/app.js"
