@@ -8,6 +8,11 @@ on:
       - 'hermes-control-v1/**'
       - 'install-dvizh-hermes-control.sh'
       - '.github/workflows/dvizh-hermes-control-tests.yml'
+  pull_request:
+    paths:
+      - 'hermes-control-v1/**'
+      - 'install-dvizh-hermes-control.sh'
+      - '.github/workflows/dvizh-hermes-control-tests.yml'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +21,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +33,13 @@ jobs:
           bash -n install-dvizh-hermes-control.sh
           grep -q '^name: dvizh-server$' hermes-control-v1/skill/SKILL.md
           grep -q 'read-only' hermes-control-v1/skill/SKILL.md
-          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.1'
+          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.2'
+
+      - name: Verify locked installer payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DVIZH_HERMES_CONTROL_PREPARE_ONLY=1 bash install-dvizh-hermes-control.sh
 
       - name: Mock read-only runtime
         shell: bash
@@ -74,3 +85,28 @@ jobs:
             exit 1
           fi
           grep -q 'Refusing unknown service' /tmp/err
+
+      - name: Log secret redaction
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          MOCK=/tmp/dvizh-redact-bin
+          mkdir -p "$MOCK"
+          cat > "$MOCK/journalctl" <<'SH'
+          #!/usr/bin/env bash
+          cat <<'LOGS'
+          BOT_TOKEN=123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi
+          OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456
+          Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789
+          GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456
+          ordinary log line
+          LOGS
+          SH
+          chmod +x "$MOCK/journalctl"
+          PATH="$MOCK:$PATH" bash hermes-control-v1/dvizhctl logs dvizh 5 > /tmp/redacted.out
+          grep -q 'ordinary log line' /tmp/redacted.out
+          grep -q '\[REDACTED' /tmp/redacted.out
+          ! grep -q 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi' /tmp/redacted.out
+          ! grep -q 'sk-abcdefghijklmnopqrstuvwxyz123456' /tmp/redacted.out
+          ! grep -q 'ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456' /tmp/redacted.out
+          ! grep -q 'abcdefghijklmnopqrstuvwxyz0123456789' /tmp/redacted.out
