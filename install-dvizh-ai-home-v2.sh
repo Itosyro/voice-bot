@@ -97,9 +97,16 @@ elif [[ ! -f "$MANUAL" ]]; then
   exit 1
 fi
 
-install -m 0644 -o root -g root "$TMP_DIR/index.html" "$INDEX"
-install -m 0644 -o root -g root "$TMP_DIR/ai-home-v2.js" "$AI_JS"
-install -m 0644 -o root -g root "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
+if [[ -n "$TEST_ROOT" ]]; then
+  cp "$TMP_DIR/index.html" "$INDEX"
+  cp "$TMP_DIR/ai-home-v2.js" "$AI_JS"
+  cp "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
+  chmod 0644 "$INDEX" "$AI_JS" "$AI_CSS"
+else
+  install -m 0644 -o root -g root "$TMP_DIR/index.html" "$INDEX"
+  install -m 0644 -o root -g root "$TMP_DIR/ai-home-v2.js" "$AI_JS"
+  install -m 0644 -o root -g root "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
+fi
 
 # Invariants: the old application bundle remains byte-for-byte untouched.
 cmp -s "$APP_JS" "$BACKUP_DIR/app.js" || { echo "app.js неожиданно изменился" >&2; exit 1; }
