@@ -1,6 +1,6 @@
 [Unit]
 Description=DVIZH AI Home bridge to local Hermes API
-After=network-online.target dvizh.service dvizh-auth.service hermes-gateway.service
+After=network-online.target dvizh.service dvizh-auth.service
 Wants=network-online.target
 
 [Service]
