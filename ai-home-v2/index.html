@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090a0c">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>ДВИЖ</title>
+  <link rel="stylesheet" href="/ai-home-v2.css?v=20260905-1">
+</head>
+<body>
+  <main class="ai" id="aiApp">
+    <section class="ai-core" aria-live="polite">
+      <button class="ai-orb" id="aiOrb" type="button" aria-label="Говорить с ДВИЖем">
+        <span></span><span></span><span></span>
+      </button>
+      <p class="ai-status" id="aiStatus">Скажи, что происходит.</p>
+      <div class="ai-answer" id="aiAnswer" hidden></div>
+    </section>
+
+    <form class="ai-composer" id="aiComposer" autocomplete="off">
+      <textarea id="aiInput" rows="1" maxlength="12000" placeholder="Напиши или скажи…" aria-label="Сообщение ДВИЖу"></textarea>
+      <button class="ai-send" id="aiSend" type="submit" aria-label="Отправить">↑</button>
+    </form>
+
+    <section class="ai-auth" id="aiAuth" hidden>
+      <p>Нужен вход в ДВИЖ.</p>
+      <a href="/manual.html">Войти</a>
+    </section>
+  </main>
+
+  <script src="/ai-home-v2.js?v=20260905-1" defer></script>
+</body>
+</html>
