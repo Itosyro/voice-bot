@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+VERSION="2026.09.05-hermes-control.1"
+
+SERVICES=(
+  dvizh
+  dvizh-auth
+  dvizh-telegram
+  dvizh-bridge
+  dvizh-web-week
+  dvizh-web-editor
+  dvizh-training
+  dvizh-jump
+  dvizh-social
+)
+
+usage() {
+  cat <<'EOF'
+dvizhctl — read-only DVIZH server control surface
+
+Usage:
+  dvizhctl status
+  dvizhctl doctor
+  dvizhctl logs <service> [lines]
+  dvizhctl paths
+  dvizhctl version
+
+This v1 is intentionally read-only. It cannot restart, deploy, delete,
+edit databases, install packages, or change configuration.
+EOF
+}
+
+is_allowed_service() {
+  local wanted="${1%.service}"
+  local svc
+  for svc in "${SERVICES[@]}"; do
+    [[ "$wanted" == "$svc" ]] && return 0
+  done
+  return 1
+}
+
+unit_name() {
+  printf '%s.service\n' "${1%.service}"
+}
+
+cmd_status() {
+  local svc unit state
+  printf 'DVIZH status (%s)\n' "$VERSION"
+  printf 'host=%s user=%s pwd=%s\n' "$(hostname)" "$(id -un)" "$PWD"
+  local failed=0
+  for svc in "${SERVICES[@]}"; do
+    unit="$(unit_name "$svc")"
+    state="$(systemctl is-active "$unit" 2>/dev/null || true)"
+    [[ -n "$state" ]] || state="unknown"
+    printf '%-31s %s\n' "$unit" "$state"
+    [[ "$state" == "active" ]] || failed=$((failed + 1))
+  done
+  printf 'services_total=%d services_non_active=%d\n' "${#SERVICES[@]}" "$failed"
+
+  if command -v hermes >/dev/null 2>&1; then
+    if systemctl --user is-active --quiet hermes-gateway.service 2>/dev/null; then
+      printf '%-31s active\n' 'hermes-gateway.service (user)'
+    else
+      printf '%-31s not-active-or-unknown\n' 'hermes-gateway.service (user)'
+    fi
+  fi
+}
+
+http_check() {
+  local name="$1" url="$2" code
+  if ! command -v curl >/dev/null 2>&1; then
+    printf '%-20s SKIP curl-not-found\n' "$name"
+    return 0
+  fi
+  code="$(curl -sS -o /dev/null --max-time 4 -w '%{http_code}' "$url" 2>/dev/null || true)"
+  [[ -n "$code" ]] || code="000"
+  if [[ "$code" =~ ^(2|3|4)[0-9][0-9]$ ]]; then
+    printf '%-20s OK http=%s %s\n' "$name" "$code" "$url"
+  else
+    printf '%-20s FAIL http=%s %s\n' "$name" "$code" "$url"
+    return 1
+  fi
+}
+
+sqlite_quick_check() {
+  local db="$1"
+  python3 - "$db" <<'PY'
+import sqlite3, sys
+path=sys.argv[1]
+try:
+    con=sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+    row=con.execute("PRAGMA quick_check").fetchone()
+    con.close()
+    print(row[0] if row else "no-result")
+except Exception as exc:
+    print(f"ERROR:{type(exc).__name__}:{exc}")
+    raise SystemExit(1)
+PY
+}
+
+cmd_doctor() {
+  printf 'DVIZH doctor (%s)\n' "$VERSION"
+  local failures=0 svc unit state
+  for svc in "${SERVICES[@]}"; do
+    unit="$(unit_name "$svc")"
+    state="$(systemctl is-active "$unit" 2>/dev/null || true)"
+    if [[ "$state" == "active" ]]; then
+      printf '%-31s OK active\n' "$unit"
+    else
+      printf '%-31s FAIL %s\n' "$unit" "${state:-unknown}"
+      failures=$((failures + 1))
+    fi
+  done
+
+  http_check 'web-backend' 'http://127.0.0.1:8000/' || failures=$((failures + 1))
+  http_check 'auth-gateway' 'http://127.0.0.1:8002/' || failures=$((failures + 1))
+
+  local candidates=(
+    /var/lib/dvizh/dvizh.db
+    /var/lib/dvizh/telegram.db
+    /var/lib/dvizh/auth.db
+    /opt/dvizh-telegram/telegram.db
+    /opt/dvizh-telegram/data/telegram.db
+    /opt/dvizh-auth/auth.db
+  )
+  local seen=0 db result
+  for db in "${candidates[@]}"; do
+    [[ -f "$db" ]] || continue
+    seen=$((seen + 1))
+    if result="$(sqlite_quick_check "$db" 2>/dev/null)" && [[ "$result" == "ok" ]]; then
+      printf 'sqlite %-37s OK\n' "$db"
+    else
+      printf 'sqlite %-37s CHECK=%s\n' "$db" "${result:-unreadable}"
+      failures=$((failures + 1))
+    fi
+  done
+  [[ "$seen" -gt 0 ]] || printf 'sqlite checks: no known database path found (non-fatal)\n'
+
+  if systemctl --user is-active --quiet hermes-gateway.service 2>/dev/null; then
+    printf '%-31s OK active\n' 'hermes-gateway.service (user)'
+  else
+    printf '%-31s WARN not-active-or-unknown\n' 'hermes-gateway.service (user)'
+  fi
+
+  printf 'doctor_failures=%d\n' "$failures"
+  [[ "$failures" -eq 0 ]]
+}
+
+cmd_logs() {
+  local raw="${1:-}" lines="${2:-80}"
+  [[ -n "$raw" ]] || { echo 'Usage: dvizhctl logs <service> [lines]' >&2; exit 2; }
+  is_allowed_service "$raw" || { echo "Refusing unknown service: $raw" >&2; exit 2; }
+  [[ "$lines" =~ ^[0-9]+$ ]] || { echo 'lines must be an integer' >&2; exit 2; }
+  (( lines >= 1 && lines <= 300 )) || { echo 'lines must be between 1 and 300' >&2; exit 2; }
+  journalctl -u "$(unit_name "$raw")" -n "$lines" --no-pager --output=short-iso
+}
+
+cmd_paths() {
+  cat <<'EOF'
+DVIZH non-secret paths
+backups=/var/lib/dvizh/backups
+telegram=/opt/dvizh-telegram
+hermes_home=~/.hermes
+
+Sensitive files are intentionally not enumerated. Do not inspect .env,
+auth.json, bot tokens, API keys, or raw credential stores through this tool.
+EOF
+}
+
+case "${1:-help}" in
+  status) cmd_status ;;
+  doctor) cmd_doctor ;;
+  logs) shift; cmd_logs "$@" ;;
+  paths) cmd_paths ;;
+  version) printf '%s\n' "$VERSION" ;;
+  help|-h|--help) usage ;;
+  restart|deploy|rollback|delete|remove|edit|write|migrate|install|update)
+    echo "Refused: dvizhctl v1 is read-only. '$1' is not available." >&2
+    exit 3
+    ;;
+  *)
+    echo "Unknown command: ${1:-}" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
