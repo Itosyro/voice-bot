@@ -40,6 +40,7 @@ fi
 id "$TARGET_USER" >/dev/null 2>&1 || { echo "Target user not found: $TARGET_USER" >&2; exit 1; }
 id dvizh >/dev/null 2>&1 || { echo "Required service user 'dvizh' not found" >&2; exit 1; }
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+TARGET_GROUP="$(id -gn "$TARGET_USER")"
 [[ -n "$TARGET_HOME" && -d "$TARGET_HOME" ]] || { echo "Cannot resolve home for $TARGET_USER" >&2; exit 1; }
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -74,6 +75,13 @@ remove_as_user() {
   if [[ "$(id -un)" == "$TARGET_USER" ]]; then rm -rf "$path"; else sudo -n -u "$TARGET_USER" rm -rf "$path"; fi
 }
 
+backup_root_file_for_user() {
+  local src="$1" dst="$2" mode="${3:-0600}"
+  root_run cp "$src" "$dst"
+  root_run chown "$TARGET_USER:$TARGET_GROUP" "$dst"
+  root_run chmod "$mode" "$dst"
+}
+
 rollback() {
   local rc=$?
   if [[ "$INSTALLED" == "1" ]]; then
@@ -94,7 +102,7 @@ mkdir_as_user "$SKILL_DIR"
 if [[ -f /usr/local/bin/dvizhctl ]]; then HAD_CTL=1; root_run cp /usr/local/bin/dvizhctl "$TMP_DIR/dvizhctl.previous"; copy_as_user "$TMP_DIR/dvizhctl.previous" "$BACKUP_DIR/dvizhctl"; fi
 if [[ -f "$CONTEXT_PATH" ]]; then HAD_CONTEXT=1; root_run cp "$CONTEXT_PATH" "$TMP_DIR/dvizh-context.previous"; copy_as_user "$TMP_DIR/dvizh-context.previous" "$BACKUP_DIR/dvizh-context"; fi
 if [[ -f "$PROPOSAL_PATH" ]]; then HAD_PROPOSAL=1; root_run cp "$PROPOSAL_PATH" "$TMP_DIR/dvizh-proposals.previous"; copy_as_user "$TMP_DIR/dvizh-proposals.previous" "$BACKUP_DIR/dvizh-proposals"; fi
-if [[ -f "$SUDOERS_PATH" ]]; then HAD_SUDOERS=1; root_run cp "$SUDOERS_PATH" "$TMP_DIR/sudoers.previous"; copy_as_user "$TMP_DIR/sudoers.previous" "$BACKUP_DIR/sudoers"; fi
+if [[ -f "$SUDOERS_PATH" ]]; then HAD_SUDOERS=1; backup_root_file_for_user "$SUDOERS_PATH" "$BACKUP_DIR/sudoers" 0600; fi
 if [[ -f "$SKILL_DIR/SKILL.md" ]]; then HAD_SKILL=1; cp "$SKILL_DIR/SKILL.md" "$TMP_DIR/SKILL.previous.md"; copy_as_user "$TMP_DIR/SKILL.previous.md" "$BACKUP_DIR/SKILL.md"; fi
 
 cat > "$TMP_DIR/sudoers" <<EOF
