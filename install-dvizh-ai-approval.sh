@@ -7,17 +7,6 @@ BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/her
 TMP_DIR="$(mktemp -d /tmp/dvizh-ai-approval.XXXXXX)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-  exec sudo -n bash "$0" "$@"
-fi
-
-LOCK_FILE="/run/lock/dvizh-ai-approval-install.lock"
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  echo "Другая установка AI approval уже выполняется." >&2
-  exit 1
-fi
-
 curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
   "$BASE_URL/dvizh_proposal_bridge.py" -o "$TMP_DIR/proposal_bridge.py"
 curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
@@ -33,6 +22,17 @@ grep -q '^User=dvizh$' "$TMP_DIR/dvizh-ai-approval.service"
 if [[ "${DVIZH_AI_APPROVAL_PREPARE_ONLY:-0}" == "1" ]]; then
   echo "DVIZH AI approval payload verified from $PAYLOAD_REF."
   exit 0
+fi
+
+if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+  exec sudo -n bash "$0" "$@"
+fi
+
+LOCK_FILE="/run/lock/dvizh-ai-approval-install.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "Другая установка AI approval уже выполняется." >&2
+  exit 1
 fi
 
 id dvizh >/dev/null 2>&1 || { echo "Не найден системный пользователь dvizh." >&2; exit 1; }
