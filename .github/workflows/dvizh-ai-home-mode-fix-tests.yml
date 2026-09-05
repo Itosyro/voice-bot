@@ -1,0 +1,14 @@
+name: DVIZH AI Home mode fix tests
+on:
+  push:
+    branches: [codex/dvizh-ai-home-v1-2026-09-05]
+    paths: ['install-dvizh-ai-home-mode-fix.sh', '.github/workflows/dvizh-ai-home-mode-fix-tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: bash -n install-dvizh-ai-home-mode-fix.sh
