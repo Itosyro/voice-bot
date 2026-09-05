@@ -1,22 +1,22 @@
 ---
 name: dvizh-server
-description: Safely inspect DVIZH health and read the user's current DVIZH planning/training/social context through the read-only dvizhctl interface. Use for DVIZH status, day planning context, week, readiness, training, Jump Lab, Social Hub, sync problems, logs, and server diagnostics.
-version: 1.1.0
+description: Safely inspect DVIZH health, read the user's current planning/training/social context, and create inert AI change proposals through dvizhctl. Use for DVIZH status, day planning, week, readiness, training, Jump Lab, Social Hub, sync problems, logs, and proposed task/schedule changes.
+version: 1.2.0
 author: DVIZH
 platforms: [linux]
 metadata:
   hermes:
-    tags: [dvizh, server, diagnostics, planner, telegram, context, training]
+    tags: [dvizh, server, diagnostics, planner, telegram, context, training, proposals]
     category: dvizh
 ---
 
-# DVIZH Server + Context
+# DVIZH Server + Context + Proposals
 
-Use this skill whenever the user asks about DVIZH, today's plan, the week, current tasks, readiness/training, Jump Lab, Social Hub, synchronization, or server health.
+Use this skill whenever the user asks about DVIZH, today's plan, the week, current tasks, readiness/training, Jump Lab, Social Hub, synchronization, server health, or wants to change a task/schedule.
 
 ## Source of truth
 
-The current operational interface is:
+Use:
 
 ```bash
 dvizhctl
@@ -26,176 +26,141 @@ Prefer it over ad-hoc shell/SQLite commands for DVIZH work.
 
 ## Read current user context
 
-The context commands are read-only JSON snapshots. Use the narrowest useful view:
+Use the narrowest useful view:
 
 ```bash
 dvizhctl context today
-```
-
-For today's tasks/check-in/schedule and relevant training/social/jump state.
-
-```bash
 dvizhctl context week
-```
-
-For weekly schedule/rules and related plan information.
-
-```bash
 dvizhctl context training
-```
-
-For readiness, training plan and recent training sessions.
-
-```bash
 dvizhctl context jump
-```
-
-For Jump Lab profile/program/progress data.
-
-```bash
 dvizhctl context social
-```
-
-For Social Hub profile/content pipeline data.
-
-```bash
 dvizhctl context health
 ```
 
-For current system/data health plus readiness/check-in context.
+Use `dvizhctl context full` only for genuine cross-domain analysis. The helper returns sanitized read-only data. Never bypass it by reading `/var/lib/dvizh`, SQLite databases, auth identity files, or credentials directly.
 
-Use `dvizhctl context full` only when a broad cross-domain analysis genuinely needs it. Do not pull the full snapshot for a simple question.
+## AI proposals — safe staging only
 
-The context helper internally uses the stable DVIZH identity and the production Telegram database, but outputs only sanitized read-only data. Do not bypass it by reading `/var/lib/dvizh`, SQLite, auth identity files, or credential files directly.
+When the user asks to change DVIZH, do **not** mutate the app directly. Create an inert proposal. A proposal is only a queued suggestion; it does not modify tasks, schedule, databases, services, or web state.
+
+Allowed proposal actions:
+
+- `task_create`
+- `task_complete`
+- `schedule_move`
+- `day_plan`
+
+Syntax:
+
+```bash
+dvizhctl propose <action> '<short human summary>' '<payload_json>'
+```
+
+Examples:
+
+```bash
+dvizhctl propose task_create 'Создать задачу: купить продукты' '{"title":"Купить продукты","area":"other"}'
+```
+
+```bash
+dvizhctl propose task_complete 'Отметить задачу ПДД выполненной' '{"task_id":"<actual-id-from-context>"}'
+```
+
+```bash
+dvizhctl propose schedule_move 'Перенести Зал верх на 20:00' '{"occurrence_id":"<actual-id-from-context>","start_local":"20:00"}'
+```
+
+List queued proposals:
+
+```bash
+dvizhctl proposals pending
+```
+
+Hermes may reject its own obsolete proposal:
+
+```bash
+dvizhctl proposal-reject <proposal_id>
+```
+
+### Critical approval rule
+
+**Never call `apply`, `approve`, direct SQLite writes, web-state PUTs, or any other mutation to enact a proposal.** The current Hermes layer intentionally has no apply command.
+
+The proposal must later be approved by the user **inside the authenticated DVIZH UI**. Until that UI approval exists and reports success, tell the user clearly: “Предложение создано, но ещё не применено.”
+
+Do not create a proposal when the user is only brainstorming or asking “что лучше?”. Create one only when they actually ask to change something or explicitly ask you to stage a change.
+
+Before a proposal, read the relevant context so IDs/current values are grounded in DVIZH and summarize the exact before → after change.
 
 ## Server diagnostics
 
-1. Start with:
+1. Start with `dvizhctl status`.
+2. If needed, run `dvizhctl doctor`.
+3. For one service, use `dvizhctl logs <service> 80`.
 
-   ```bash
-   dvizhctl status
-   ```
+Allowed services:
 
-2. If anything is unclear, unhealthy, or the user asks for a deeper check, run:
+- `dvizh`
+- `dvizh-auth`
+- `dvizh-telegram`
+- `dvizh-bridge`
+- `dvizh-web-week`
+- `dvizh-web-editor`
+- `dvizh-training`
+- `dvizh-jump`
+- `dvizh-social`
 
-   ```bash
-   dvizhctl doctor
-   ```
-
-3. If one service needs investigation, read only its recent logs:
-
-   ```bash
-   dvizhctl logs <service> 80
-   ```
-
-   Allowed service names are:
-
-   - `dvizh`
-   - `dvizh-auth`
-   - `dvizh-telegram`
-   - `dvizh-bridge`
-   - `dvizh-web-week`
-   - `dvizh-web-editor`
-   - `dvizh-training`
-   - `dvizh-jump`
-   - `dvizh-social`
-
-   `dvizhctl logs` automatically redacts common token/key/password patterns before output. Do not bypass this with direct `journalctl` for routine DVIZH diagnosis.
+`dvizhctl logs` redacts common token/key/password patterns. Do not bypass it with direct `journalctl` for routine DVIZH diagnosis.
 
 ## Planning behavior
 
-When the user asks questions such as:
+For questions such as “Что мне сегодня делать?”, “Какой сегодня план?”, “Стоит ли сегодня волейбол?”, “Что у меня на неделе?”, first retrieve the appropriate context view and base the answer on actual DVIZH data.
 
-- "Что мне сегодня делать?"
-- "Какой сегодня план?"
-- "Стоит ли сегодня волейбол?"
-- "Что у меня на неделе?"
-- "Как идёт прыжок/зал/соцсети?"
-
-first retrieve the appropriate context view. Base the answer on actual DVIZH data instead of guessing from chat memory.
-
-For now, context is **read-only**. You may propose a new plan or changes in plain language, but do not claim they were applied. A separate approval-controlled write layer will be added later.
+Distinguish facts from recommendations. Do not claim a proposed change was applied.
 
 ## Safety boundary — mandatory
 
-The current `dvizhctl` layer is intentionally **read-only**.
+The current layer allows read-only inspection plus **inert proposal creation only**.
 
-Do not bypass it with direct mutating shell commands. In particular, unless a future DVIZH approval tool explicitly grants the action, do **not**:
+Do not bypass it with direct mutating shell commands. Do not:
 
 - restart/stop/start/enable/disable systemd units;
-- run `sudo` for DVIZH changes except the internal `dvizhctl context` helper invoked by `dvizhctl` itself;
-- edit, move, truncate, or delete DVIZH files;
-- change SQLite rows or schema;
-- inspect or print `.env`, `auth.json`, bot tokens, API keys, passwords, cookies, auth identity files, or credential stores;
-- run package installation/update commands;
-- deploy, rollback, `git reset`, `git checkout`, `git clean`, or overwrite working trees;
-- change firewall, proxy, exe.dev, auth, or system configuration.
+- run `sudo` for DVIZH changes except the internal read-only `dvizhctl context` helper;
+- edit/move/truncate/delete DVIZH files;
+- change SQLite rows/schema;
+- PUT/POST directly to DVIZH mutation APIs;
+- inspect/print `.env`, `auth.json`, tokens, API keys, passwords, cookies, auth identity, credential stores;
+- install/update packages;
+- deploy/rollback/git reset/checkout/clean;
+- change firewall/proxy/exe.dev/auth/system configuration.
 
-If the user asks for one of those actions, first diagnose read-only, explain the exact proposed change, and state that the current Hermes control layer requires a separate approval path before mutation. Do not silently work around that boundary.
+If a requested action cannot be represented by the allowed proposal types, explain it and do not improvise a mutating workaround.
 
 ## Secrets
 
-Never include secrets in chat output. If any output still appears token-like, redact it before replying.
-
-Do not inspect `~/.hermes/.env`, `~/.hermes/auth.json`, `~/.codex/auth.json`, DVIZH `.env` files, or `/var/lib/dvizh/auth-identity.json` directly.
-
-## Service map
-
-The production stack currently consists of:
-
-- `dvizh.service` — main web/backend
-- `dvizh-auth.service` — login/password gateway
-- `dvizh-telegram.service` — DVIZH Telegram bot
-- `dvizh-bridge.service` — core Telegram/web synchronization
-- `dvizh-web-week.service` — weekly schedule projection
-- `dvizh-web-editor.service` — web schedule editor bridge
-- `dvizh-training.service` — readiness/training system
-- `dvizh-jump.service` — Jump Lab
-- `dvizh-social.service` — Social Hub
-- user `hermes-gateway.service` — Hermes messaging/cron gateway
-
-The public DVIZH endpoint is protected by the DVIZH auth gateway. Internal backend ports are not a reason to expose new public ports.
+Never include secrets in chat output. Do not inspect `~/.hermes/.env`, `~/.hermes/auth.json`, `~/.codex/auth.json`, DVIZH `.env` files, or `/var/lib/dvizh/auth-identity.json` directly.
 
 ## Useful workflows
 
-User: "Проверь ДВИЖ"
+User: “Что у меня сегодня?” → `dvizhctl context today`, compact summary.
 
-Procedure: `dvizhctl status`; if any non-active service appears, `dvizhctl doctor`; inspect only the failing service logs.
+User: “Перенеси зал на 20:00” → read `context today/week`, identify actual occurrence, create `schedule_move` proposal, report proposal ID and that it is not applied yet.
 
-User: "Что у меня сегодня?"
+User: “Добавь купить молоко” → read `context today` if timing matters, create `task_create` proposal, report proposal ID and pending state.
 
-Procedure: `dvizhctl context today`, then summarize the actual schedule/tasks/readiness. Keep the answer compact and action-oriented.
+User: “Отметь ПДД выполненной” → read `context today`, identify exact task ID, create `task_complete` proposal, no direct completion.
 
-User: "Можно сегодня волейбол?"
+User: “Составь мне план и примени” → build recommendation from context, create `day_plan` proposal. Do not apply until future DVIZH UI approval.
 
-Procedure: `dvizhctl context training`; use the latest readiness, recent sessions/load, and today's schedule. Do not invent medical clearance.
-
-User: "Что с целью прыжка?"
-
-Procedure: `dvizhctl context jump`; summarize latest measurements/program/progress and any review/safety state.
-
-User: "Что делать с соцсетями сегодня?"
-
-Procedure: `dvizhctl context social` plus `dvizhctl context today` if scheduling matters.
-
-User: "Почему не синхронизируется Telegram и сайт?"
-
-Procedure: status → doctor → recent logs for `dvizh-bridge`, `dvizh-web-week`, and/or `dvizh-web-editor` as indicated by evidence.
-
-User: "Перезапусти social"
-
-Procedure: inspect status/logs first, explain the likely fix, then state that restart is intentionally not available in the current read-only control layer and requires explicit mutation approval support.
+User: “Почему не синхронизируется Telegram и сайт?” → status → doctor → relevant redacted logs.
 
 ## Verification
 
-After any diagnostic workflow, report:
+After diagnostics report health/evidence and whether anything changed.
+After context work separate facts from inference.
+After proposal creation report:
 
-- which services are healthy/unhealthy;
-- what evidence supports the conclusion;
-- whether any change was made (normally: **no changes made**).
-
-After a context workflow, distinguish:
-
-- facts retrieved from DVIZH;
-- your recommendation/inference;
-- proposed changes that have **not** yet been applied.
+- proposal ID;
+- exact intended change;
+- status `pending`;
+- explicit statement that **nothing has been applied yet**.
