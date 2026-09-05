@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.05-ai-home-v2.1"
-PAYLOAD_REF="39ac7fc2299d7725d64986412e8d0c6c3d91ae17"
+VERSION="2026.09.05-ai-home-v2.2"
+MODE="${DVIZH_AI_HOME_V2_MODE:-preview}"
+PAYLOAD_REF="1bba0cf27c76caaa2c725bc29df3873359844e60"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/ai-home-v2"
 TEST_ROOT="${DVIZH_AI_HOME_V2_ROOT:-}"
 SOURCE_DIR="${DVIZH_AI_HOME_V2_SOURCE_DIR:-}"
 
+case "$MODE" in
+  preview|promote) ;;
+  *)
+    echo "DVIZH_AI_HOME_V2_MODE должен быть preview или promote." >&2
+    exit 1
+    ;;
+esac
+
 if [[ -z "$TEST_ROOT" && ${EUID:-$(id -u)} -ne 0 ]]; then
-  echo "Запусти через: curl ... | sudo bash" >&2
+  echo "Запусти через sudo. По умолчанию установится только preview, без замены главной." >&2
   exit 1
 fi
 
@@ -25,6 +34,7 @@ fi
 
 INDEX="$APP_ROOT/index.html"
 MANUAL="$APP_ROOT/manual.html"
+PREVIEW="$APP_ROOT/ai-home-v2-preview.html"
 APP_JS="$APP_ROOT/app.js"
 APP_CSS="$APP_ROOT/styles.css"
 SW="$APP_ROOT/sw.js"
@@ -48,16 +58,27 @@ get_payload() {
   fi
 }
 
+put_file() {
+  local source="$1"
+  local target="$2"
+  if [[ -n "$TEST_ROOT" ]]; then
+    cp "$source" "$target"
+    chmod 0644 "$target"
+  else
+    install -m 0644 -o root -g root "$source" "$target"
+  fi
+}
+
 get_payload index.html
 get_payload ai-home-v2.js
 get_payload ai-home-v2.css
 
-grep -q 'ai-home-v2.js?v=20260905-1' "$TMP_DIR/index.html"
-grep -q 'ai-home-v2.css?v=20260905-1' "$TMP_DIR/index.html"
+grep -q 'ai-home-v2.js?v=20260905-2' "$TMP_DIR/index.html"
+grep -q 'ai-home-v2.css?v=20260905-2' "$TMP_DIR/index.html"
 grep -q "const API = '/api/state';" "$TMP_DIR/ai-home-v2.js"
-grep -q "location.assign('/manual.html')" "$TMP_DIR/ai-home-v2.js"
-if grep -qE 'MutationObserver|setInterval\(' "$TMP_DIR/ai-home-v2.js"; then
-  echo "AI Home v2 содержит запрещённый постоянный DOM-цикл." >&2
+grep -q "return promoted ? '/manual.html' : '/';" "$TMP_DIR/ai-home-v2.js"
+if grep -qE 'MutationObserver|setInterval\(|serviceWorker|caches\.' "$TMP_DIR/ai-home-v2.js"; then
+  echo "AI Home v2 содержит запрещённое вмешательство в основной frontend/runtime." >&2
   exit 1
 fi
 if command -v node >/dev/null 2>&1; then
@@ -73,10 +94,11 @@ fi
 
 if [[ -z "$TEST_ROOT" ]]; then
   STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-  BACKUP_DIR="/var/lib/dvizh/backups/ai-home-v2-$STAMP"
+  BACKUP_DIR="/var/lib/dvizh/backups/ai-home-v2-${MODE}-$STAMP"
   install -d -o root -g root -m 0700 "$BACKUP_DIR"
 else
-  BACKUP_DIR="$APP_ROOT/.ai-home-v2-backup"
+  BACKUP_DIR="$APP_ROOT/.ai-home-v2-${MODE}-backup"
+  rm -rf "$BACKUP_DIR"
   mkdir -p "$BACKUP_DIR"
 fi
 
@@ -85,36 +107,46 @@ cp -a "$APP_JS" "$BACKUP_DIR/app.js"
 cp -a "$APP_CSS" "$BACKUP_DIR/styles.css"
 cp -a "$SW" "$BACKUP_DIR/sw.js"
 [[ -f "$MANUAL" ]] && cp -a "$MANUAL" "$BACKUP_DIR/manual.html"
+[[ -f "$PREVIEW" ]] && cp -a "$PREVIEW" "$BACKUP_DIR/ai-home-v2-preview.html"
 [[ -f "$AI_JS" ]] && cp -a "$AI_JS" "$BACKUP_DIR/ai-home-v2.js"
 [[ -f "$AI_CSS" ]] && cp -a "$AI_CSS" "$BACKUP_DIR/ai-home-v2.css"
 
-# First install: the currently stable root becomes the full manual interface.
-# Re-running v2 never overwrites manual.html with the AI-only root.
-if ! grep -q 'ai-home-v2.js?v=20260905-1' "$INDEX"; then
-  cp -a "$INDEX" "$MANUAL"
-elif [[ ! -f "$MANUAL" ]]; then
-  echo "AI Home v2 уже стоит, но manual.html отсутствует. Останавливаюсь безопасно." >&2
-  exit 1
-fi
+if [[ "$MODE" == "preview" ]]; then
+  put_file "$TMP_DIR/index.html" "$PREVIEW"
+  put_file "$TMP_DIR/ai-home-v2.js" "$AI_JS"
+  put_file "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
 
-if [[ -n "$TEST_ROOT" ]]; then
-  cp "$TMP_DIR/index.html" "$INDEX"
-  cp "$TMP_DIR/ai-home-v2.js" "$AI_JS"
-  cp "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
-  chmod 0644 "$INDEX" "$AI_JS" "$AI_CSS"
+  cmp -s "$INDEX" "$BACKUP_DIR/index.html" || { echo "Preview неожиданно изменил index.html" >&2; exit 1; }
+  cmp -s "$APP_JS" "$BACKUP_DIR/app.js" || { echo "Preview неожиданно изменил app.js" >&2; exit 1; }
+  cmp -s "$APP_CSS" "$BACKUP_DIR/styles.css" || { echo "Preview неожиданно изменил styles.css" >&2; exit 1; }
+  cmp -s "$SW" "$BACKUP_DIR/sw.js" || { echo "Preview неожиданно изменил sw.js" >&2; exit 1; }
+  if [[ -f "$BACKUP_DIR/manual.html" ]]; then
+    cmp -s "$MANUAL" "$BACKUP_DIR/manual.html" || { echo "Preview неожиданно изменил manual.html" >&2; exit 1; }
+  else
+    [[ ! -e "$MANUAL" ]] || { echo "Preview неожиданно создал manual.html" >&2; exit 1; }
+  fi
+  grep -q 'ai-home-v2.js?v=20260905-2' "$PREVIEW"
+  grep -q 'Напиши или скажи' "$PREVIEW"
 else
-  install -m 0644 -o root -g root "$TMP_DIR/index.html" "$INDEX"
-  install -m 0644 -o root -g root "$TMP_DIR/ai-home-v2.js" "$AI_JS"
-  install -m 0644 -o root -g root "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
-fi
+  # Promotion is explicit. Until this mode is requested, the stable root stays untouched.
+  if ! grep -q 'ai-home-v2.js?v=20260905-2' "$INDEX"; then
+    cp -a "$INDEX" "$MANUAL"
+  elif [[ ! -f "$MANUAL" ]]; then
+    echo "AI Home v2 уже стоит, но manual.html отсутствует. Останавливаюсь безопасно." >&2
+    exit 1
+  fi
 
-# Invariants: the old application bundle remains byte-for-byte untouched.
-cmp -s "$APP_JS" "$BACKUP_DIR/app.js" || { echo "app.js неожиданно изменился" >&2; exit 1; }
-cmp -s "$APP_CSS" "$BACKUP_DIR/styles.css" || { echo "styles.css неожиданно изменился" >&2; exit 1; }
-cmp -s "$SW" "$BACKUP_DIR/sw.js" || { echo "sw.js неожиданно изменился" >&2; exit 1; }
-grep -q 'ai-home-v2.js?v=20260905-1' "$INDEX"
-grep -q 'Напиши или скажи' "$INDEX"
-[[ -s "$MANUAL" ]]
+  put_file "$TMP_DIR/index.html" "$INDEX"
+  put_file "$TMP_DIR/ai-home-v2.js" "$AI_JS"
+  put_file "$TMP_DIR/ai-home-v2.css" "$AI_CSS"
+
+  cmp -s "$APP_JS" "$BACKUP_DIR/app.js" || { echo "app.js неожиданно изменился" >&2; exit 1; }
+  cmp -s "$APP_CSS" "$BACKUP_DIR/styles.css" || { echo "styles.css неожиданно изменился" >&2; exit 1; }
+  cmp -s "$SW" "$BACKUP_DIR/sw.js" || { echo "sw.js неожиданно изменился" >&2; exit 1; }
+  grep -q 'ai-home-v2.js?v=20260905-2' "$INDEX"
+  grep -q 'Напиши или скажи' "$INDEX"
+  [[ -s "$MANUAL" ]]
+fi
 
 if [[ -z "$TEST_ROOT" ]]; then
   systemctl is-active --quiet dvizh.service
@@ -122,9 +154,15 @@ if [[ -z "$TEST_ROOT" ]]; then
 fi
 
 echo
-echo "DVIZH AI Home v2 installed: $VERSION"
+if [[ "$MODE" == "preview" ]]; then
+  echo "DVIZH AI Home v2 preview installed: $VERSION"
+  echo "Preview: /ai-home-v2-preview.html"
+  echo "Главная /, app.js, styles.css, sw.js и manual.html не изменены."
+  echo "Hermes bridge не перезапускался и базы не изменялись."
+else
+  echo "DVIZH AI Home v2 promoted: $VERSION"
+  echo "Главная / теперь полностью изолирована от старого app.js."
+  echo "Полный старый интерфейс сохранён: /manual.html"
+  echo "Hermes bridge не перезапускался и базы не изменялись."
+fi
 echo "Backup: $BACKUP_DIR"
-echo "Главная / теперь полностью изолирована от старого app.js."
-echo "Полный старый интерфейс сохранён: /manual.html"
-echo "Hermes bridge не перезапускался и базы не изменялись."
-echo "Скрытый выход в ручной режим: удерживай AI-орб ~1 секунду или введи /manual."
