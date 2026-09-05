@@ -1,0 +1,102 @@
+name: DVIZH AI Home tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-ai-home-v1-2026-09-05
+    paths:
+      - 'hermes-control-v1/dvizh_ai_home_bridge.py'
+      - 'hermes-control-v1/patch_ai_home_ui.py'
+      - 'hermes-control-v1/systemd/dvizh-ai-home.service'
+      - 'install-dvizh-ai-home.sh'
+      - '.github/workflows/dvizh-ai-home-tests.yml'
+  pull_request:
+    paths:
+      - 'hermes-control-v1/dvizh_ai_home_bridge.py'
+      - 'hermes-control-v1/patch_ai_home_ui.py'
+      - 'hermes-control-v1/systemd/dvizh-ai-home.service'
+      - 'install-dvizh-ai-home.sh'
+      - '.github/workflows/dvizh-ai-home-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile hermes-control-v1/dvizh_ai_home_bridge.py hermes-control-v1/patch_ai_home_ui.py
+          bash -n install-dvizh-ai-home.sh
+          grep -q '^User=dvizh$' hermes-control-v1/systemd/dvizh-ai-home.service
+          grep -q 'NoNewPrivileges=true' hermes-control-v1/systemd/dvizh-ai-home.service
+          grep -q 'ProtectSystem=strict' hermes-control-v1/systemd/dvizh-ai-home.service
+          grep -q 'DVIZH_AI_HOME_V1' hermes-control-v1/patch_ai_home_ui.py
+          grep -q "API_SERVER_HOST':'127.0.0.1'" install-dvizh-ai-home.sh
+
+      - name: Verify immutable payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DVIZH_AI_HOME_PREPARE_ONLY=1 bash install-dvizh-ai-home.sh
+
+      - name: Patch web fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ROOT=/tmp/dvizh-ai-home-web
+          rm -rf "$ROOT" && mkdir -p "$ROOT"
+          cat > "$ROOT/app.js" <<'JS'
+          (() => {
+            let state = {};
+            function saveState() {}
+            function nowIso() { return new Date().toISOString(); }
+            function renderSettings() {}
+          })();
+          JS
+          echo 'body { background: #000; }' > "$ROOT/styles.css"
+          echo "const CACHE = 'old';" > "$ROOT/sw.js"
+          python3 hermes-control-v1/patch_ai_home_ui.py --root "$ROOT" --check
+          python3 hermes-control-v1/patch_ai_home_ui.py --root "$ROOT"
+          python3 hermes-control-v1/patch_ai_home_ui.py --root "$ROOT" --check
+          grep -q 'DVIZH_AI_HOME_V1' "$ROOT/app.js"
+          grep -q 'DVIZH_AI_HOME_V1' "$ROOT/styles.css"
+          grep -q 'dvizh-ai-home-v1' "$ROOT/sw.js"
+          if command -v node >/dev/null; then node --check "$ROOT/app.js"; fi
+
+      - name: Unit test request and conversation logic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          p=Path('hermes-control-v1/dvizh_ai_home_bridge.py')
+          spec=importlib.util.spec_from_file_location('home',p)
+          mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+
+          state={'aiHomeMessages':[{'role':'user','content':'старое'},{'role':'assistant','content':'ответ'}],
+                 'aiHomeRequests':[{'id':'r1','text':'Что сегодня делать?','status':'pending'}]}
+          req=mod.next_request(state)
+          assert req and req['id']=='r1'
+          msgs=mod.hermes_messages(state,req)
+          assert msgs[0]['role']=='system'
+          assert msgs[-1]=={'role':'user','content':'Что сегодня делать?'}
+          assert 'dvizh-server' in msgs[0]['content']
+          assert 'proposal' in msgs[0]['content']
+
+          state2={'aiHomeMessages':[{'role':'user','content':'То же'}],
+                  'aiHomeRequests':[{'id':'r2','text':'То же','status':'pending'}]}
+          msgs2=mod.hermes_messages(state2,state2['aiHomeRequests'][0])
+          assert [m['content'] for m in msgs2].count('То же')==1
+
+          cleaned=mod.normalize_messages([{'role':'system','content':'bad'},{'role':'user','content':'ok'},None])
+          assert cleaned==[{'role':'user','content':'ok'}]
+          PY
