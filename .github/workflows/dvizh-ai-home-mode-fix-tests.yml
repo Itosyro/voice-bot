@@ -10,5 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Syntax check
-        run: bash -n install-dvizh-ai-home-mode-fix.sh
+      - name: Test cache-agnostic patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-ai-home-mode-fix.sh
+          ROOT=/tmp/dvizh-mode-fix
+          mkdir -p "$ROOT"
+          printf '%s\n' "const DVIZH_AI_HOME_V1 = true;" "function aiHomeEnsureRoot() {" "  const home = document.getElementById('view-home');" "  if (!home) return null;" "  home.classList.add('ai-home-mode');" "  let root = document.getElementById('aiHomeShell');" "}" "function aiHomeEnsureManualBack() {}" "function aiHomeRender() {}" "function aiHomeBoot() {" "  aiHomeEnsureRoot();" "  aiHomeEnsureManualBack();" "  aiHomeRender();" "}" > "$ROOT/app.js"
+          printf '%s\n' "self.addEventListener('fetch', () => {});" > "$ROOT/sw.js"
+          printf '%s\n' '<script src="app.js"></script>' > "$ROOT/index.html"
+          DVIZH_AI_HOME_MODE_FIX_ROOT="$ROOT" bash install-dvizh-ai-home-mode-fix.sh
+          grep -q 'DVIZH_AI_HOME_MODE_STABLE_V1' "$ROOT/app.js"
+          grep -q 'DVIZH_AI_HOME_MODE_STABLE_SW_V2' "$ROOT/sw.js"
+          grep -q 'app.js?v=dvizh-ai-home-mode-stable-v2' "$ROOT/index.html"
+          node --check "$ROOT/app.js"
