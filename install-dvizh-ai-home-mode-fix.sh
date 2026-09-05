@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.05-ai-home-mode-fix.2"
+VERSION="2026.09.05-ai-home-mode-fix.3"
 TEST_ROOT="${DVIZH_AI_HOME_MODE_FIX_ROOT:-}"
 
 if [[ -z "$TEST_ROOT" && ${EUID:-$(id -u)} -ne 0 ]]; then
@@ -24,22 +24,19 @@ APP="$APP_ROOT/app.js"
 SW="$APP_ROOT/sw.js"
 INDEX="$APP_ROOT/index.html"
 [[ -f "$APP" && -f "$SW" ]] || { echo "Не найдены app.js/sw.js" >&2; exit 1; }
-grep -q 'const DVIZH_AI_HOME_V1 = true;' "$APP" || { echo "AI Home v1 не найден." >&2; exit 1; }
+grep -q 'DVIZH_AI_HOME_V1' "$APP" || { echo "AI Home v1 не найден." >&2; exit 1; }
 
 if [[ -z "$TEST_ROOT" ]]; then
   STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
   BACKUP_DIR="/var/lib/dvizh/backups/ai-home-mode-fix-$STAMP"
   install -d -o root -g root -m 0700 "$BACKUP_DIR"
-  cp -a "$APP" "$BACKUP_DIR/app.js"
-  cp -a "$SW" "$BACKUP_DIR/sw.js"
-  [[ -f "$INDEX" ]] && cp -a "$INDEX" "$BACKUP_DIR/index.html"
 else
   BACKUP_DIR="$APP_ROOT/.mode-fix-backup"
   mkdir -p "$BACKUP_DIR"
-  cp -a "$APP" "$BACKUP_DIR/app.js"
-  cp -a "$SW" "$BACKUP_DIR/sw.js"
-  [[ -f "$INDEX" ]] && cp -a "$INDEX" "$BACKUP_DIR/index.html"
 fi
+cp -a "$APP" "$BACKUP_DIR/app.js"
+cp -a "$SW" "$BACKUP_DIR/sw.js"
+[[ -f "$INDEX" ]] && cp -a "$INDEX" "$BACKUP_DIR/index.html"
 
 python3 - "$APP" "$SW" "$INDEX" <<'PY'
 from pathlib import Path
@@ -47,61 +44,77 @@ import re,sys
 
 app=Path(sys.argv[1]); sw=Path(sys.argv[2]); index=Path(sys.argv[3])
 text=app.read_text(encoding='utf-8')
+marker='DVIZH_AI_HOME_MODE_STABLE_V1'
 
-# The bug: aiHomeRender() calls aiHomeEnsureRoot() on a timer, and
-# aiHomeEnsureRoot() used to force ai-home-mode every time. Remove that side
-# effect. Mode changes must happen only on boot or explicit user actions.
-old="""  function aiHomeEnsureRoot() {\n    const home = document.getElementById('view-home');\n    if (!home) return null;\n    home.classList.add('ai-home-mode');\n    let root = document.getElementById('aiHomeShell');\n"""
-new="""  function aiHomeEnsureRoot() {\n    const home = document.getElementById('view-home');\n    if (!home) return null;\n    let root = document.getElementById('aiHomeShell');\n"""
-if old in text:
-    text=text.replace(old,new,1)
-else:
-    loose="home.classList.add('ai-home-mode');\n    let root = document.getElementById('aiHomeShell');"
-    if loose in text:
-        text=text.replace(loose,"let root = document.getElementById('aiHomeShell');",1)
-    elif 'DVIZH_AI_HOME_MODE_STABLE_V1' not in text:
-        raise SystemExit('Не найден ожидаемый aiHomeEnsureRoot anchor')
+if marker not in text:
+    # Remove the forced mode switch specifically from aiHomeEnsureRoot().
+    start=text.find('function aiHomeEnsureRoot()')
+    if start < 0:
+        raise SystemExit('Не найден aiHomeEnsureRoot')
+    root_anchor="let root = document.getElementById('aiHomeShell');"
+    root_pos=text.find(root_anchor,start)
+    if root_pos < 0:
+        raise SystemExit('Не найден aiHomeShell anchor')
+    mode="home.classList.add('ai-home-mode');"
+    mode_pos=text.find(mode,start,root_pos)
+    if mode_pos < 0:
+        raise SystemExit('Не найден принудительный ai-home-mode в aiHomeEnsureRoot')
+    line_start=text.rfind('\n',start,mode_pos)+1
+    line_end=text.find('\n',mode_pos)
+    if line_end < 0:
+        line_end=mode_pos+len(mode)
+    else:
+        line_end+=1
+    text=text[:line_start]+text[line_end:]
 
-boot_old="""  function aiHomeBoot() {\n    aiHomeEnsureRoot();\n    aiHomeEnsureManualBack();\n"""
-boot_new="""  function aiHomeBoot() {\n    const home = document.getElementById('view-home');\n    if (home) home.classList.add('ai-home-mode');\n    aiHomeEnsureRoot();\n    aiHomeEnsureManualBack();\n"""
-if boot_old in text:
-    text=text.replace(boot_old,boot_new,1)
-elif "function aiHomeBoot()" in text and "DVIZH_AI_HOME_MODE_STABLE_V1" not in text:
-    raise SystemExit('Не найден ожидаемый aiHomeBoot anchor')
+    # Enable AI Home once on boot instead of on every periodic render.
+    boot=text.find('function aiHomeBoot()')
+    if boot < 0:
+        raise SystemExit('Не найден aiHomeBoot')
+    next_func=text.find('\n  function ',boot+1)
+    boot_end=next_func if next_func >= 0 else min(len(text),boot+1200)
+    boot_block=text[boot:boot_end]
+    if mode not in boot_block:
+        brace=text.find('{',boot)
+        if brace < 0 or brace >= boot_end:
+            raise SystemExit('Не найдено тело aiHomeBoot')
+        line_start=text.rfind('\n',0,boot)+1
+        indent=text[line_start:boot]
+        body_indent=indent+'  '
+        injection=("\n"+body_indent+"const home = document.getElementById('view-home');"
+                   "\n"+body_indent+"if (home) home.classList.add('ai-home-mode');")
+        text=text[:brace+1]+injection+text[brace+1:]
 
-if 'DVIZH_AI_HOME_MODE_STABLE_V1' not in text:
-    text=text.replace(
-        '  const DVIZH_AI_HOME_V1 = true;',
-        '  const DVIZH_AI_HOME_V1 = true;\n  const DVIZH_AI_HOME_MODE_STABLE_V1 = true;',
-        1,
-    )
+    # Add a stable marker next to the AI Home feature marker regardless of indentation.
+    m=re.search(r'(?m)^(\s*)const\s+DVIZH_AI_HOME_V1\s*=\s*true;\s*$',text)
+    if not m:
+        raise SystemExit('Не найден DVIZH_AI_HOME_V1 marker')
+    indent=m.group(1)
+    text=text[:m.end()]+f"\n{indent}const {marker} = true;"+text[m.end():]
+
 app.write_text(text,encoding='utf-8')
 
-# Do not depend on the service worker's cache-variable name. Previous modules
-# may have already rewritten it. A byte-level SW change is enough to trigger
-# an update check, and the versioned app.js URL below avoids the old cached JS.
+# Cache-agnostic refresh: do not parse/rewrite CACHE/CACHE_NAME because earlier
+# DVIZH modules may have changed that declaration. Changing SW bytes triggers
+# an update check; the versioned app.js URL prevents reuse of the old bundle.
 s=sw.read_text(encoding='utf-8')
-marker='// DVIZH_AI_HOME_MODE_STABLE_SW_V2'
-if marker not in s:
-    sw.write_text(s.rstrip()+"\n"+marker+"\n",encoding='utf-8')
+sw_marker='// DVIZH_AI_HOME_MODE_STABLE_SW_V3'
+if sw_marker not in s:
+    sw.write_text(s.rstrip()+"\n"+sw_marker+"\n",encoding='utf-8')
 
-# Cache-bust app.js if the static HTML has a direct app.js script reference.
-# This is deliberately optional: some deployed variants inject the bundle in
-# another way, while the SW byte change above remains safe for all variants.
 if index.is_file():
     html=index.read_text(encoding='utf-8')
     pattern=r"(src=[\"'](?:\./|/)?app\.js)(?:\?[^\"']*)?([\"'])"
-    html2,n=re.subn(pattern, r"\1?v=dvizh-ai-home-mode-stable-v2\2", html, count=1)
+    html2,n=re.subn(pattern,r"\1?v=dvizh-ai-home-mode-stable-v3\2",html,count=1)
     if n:
         index.write_text(html2,encoding='utf-8')
 PY
 
 if command -v node >/dev/null 2>&1; then node --check "$APP" >/dev/null; fi
 grep -q 'DVIZH_AI_HOME_MODE_STABLE_V1' "$APP"
-grep -q 'DVIZH_AI_HOME_MODE_STABLE_SW_V2' "$SW"
+grep -q 'DVIZH_AI_HOME_MODE_STABLE_SW_V3' "$SW"
 
 if [[ -z "$TEST_ROOT" ]]; then
-  # Backend services are intentionally untouched; verify only that they remain healthy.
   systemctl is-active --quiet dvizh.service
   systemctl is-active --quiet dvizh-ai-home.service
   systemctl is-active --quiet dvizh-ai-approval.service
