@@ -104,8 +104,8 @@ class BrowserSmoke(unittest.TestCase):
             # Rendering-only fallback when the host browser prohibits navigation.
             # No network policy is changed; all fixtures stay in memory.
             html = (ROOT / 'ai-home-v2/index.html').read_text()
-            html = html.replace('<link rel="stylesheet" href="/ai-home-v2.css?v=20260905-3">', '')
-            html = html.replace('<script src="/ai-home-v2.js?v=20260905-3" defer></script>', '')
+            html = html.replace('<link rel="stylesheet" href="/ai-home-v2.css?v=20260905-3.1">', '')
+            html = html.replace('<script src="/ai-home-v2.js?v=20260905-3.1" defer></script>', '')
             self.page.set_content(html)
             self.page.add_style_tag(path=str(ROOT / 'ai-home-v2/ai-home-v2.css'))
             self.page.evaluate("""() => { window.fetch = async (_url, options = {}) => {
@@ -171,9 +171,21 @@ class BrowserSmoke(unittest.TestCase):
                 self.assertLessEqual(box['x'] + box['width'], width + 1)
         self.page.screenshot(path=str(RESULTS / 'preview-idle-desktop.png'))
 
-    def test_04_long_literal_answer_scrolls_inside_its_area(self):
-        self.state['aiHomeMessages'] = [{'role': 'assistant', 'content': '<b>Это текст, не HTML</b>\n' + '\n'.join(f'Строка {i}: продолжение ответа.' for i in range(80))}]
+    def test_04_stale_saved_answer_is_hidden_until_this_page_observes_a_request(self):
+        old = '<b>Это старый текст, не HTML</b>\n' + '\n'.join(f'Старая строка {i}.' for i in range(20))
+        self.state['aiHomeRequests'] = [{'id': 'old', 'text': 'Вчера', 'status': 'done'}]
+        self.state['aiHomeMessages'] = [{'role': 'assistant', 'content': old}]
+        self.state['aiHomeStatus'] = {'state': 'ready', 'requestId': 'old', 'updatedAt': '2026-09-05T13:46:13Z'}
         self.open()
+        expect(self.page.locator('#aiAnswer')).to_be_hidden()
+        expect(self.page.locator('#aiStatus')).to_have_text('')
+
+        content = '<b>Это новый текст, не HTML</b>\n' + '\n'.join(f'Строка {i}: продолжение ответа.' for i in range(80))
+        self.page.locator('#aiInput').fill('Новый запрос')
+        self.page.locator('#aiInput').press('Enter')
+        expect(self.page.locator('#aiStatus')).to_have_text('Думаю…')
+        self.finish(content)
+
         self.page.set_viewport_size({'width': 390, 'height': 380})
         expect(self.page.locator('#aiAnswer')).to_be_visible()
         self.assertEqual(self.page.locator('#aiAnswer b').count(), 0)
