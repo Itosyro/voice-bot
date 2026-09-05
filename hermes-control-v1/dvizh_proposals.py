@@ -11,11 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "2026.09.05-hermes-proposals.1"
+VERSION = "2026.09.05-hermes-proposals.2"
 STORE_DIR = Path(os.environ.get("DVIZH_PROPOSAL_DIR", "/var/lib/dvizh/hermes-proposals"))
 STORE = STORE_DIR / "proposals.json"
 LOCK = STORE_DIR / ".lock"
 ALLOWED_ACTIONS = {"task_create", "task_complete", "schedule_move", "day_plan"}
+VISIBLE_STATUSES = {"pending", "rejected", "superseded", "applied", "failed"}
 
 
 def now_iso() -> str:
@@ -131,6 +132,8 @@ def create(action: str, summary: str, payload: dict[str, Any]) -> dict[str, Any]
 
 
 def resolve(proposal_id: str, resolution: str) -> dict[str, Any]:
+    # Hermes may only withdraw/reject its own pending suggestion. It cannot
+    # mark anything applied; authenticated DVIZH approval service owns that.
     if resolution not in {"rejected", "superseded"}:
         raise SystemExit("only rejected/superseded can be resolved by Hermes control")
     def mut(rows):
@@ -162,7 +165,7 @@ def main() -> int:
     p_create.add_argument("summary")
     p_create.add_argument("payload_json")
     p_list = sub.add_parser("list")
-    p_list.add_argument("--status", choices=["pending", "rejected", "superseded"])
+    p_list.add_argument("--status", choices=sorted(VISIBLE_STATUSES))
     p_reject = sub.add_parser("reject")
     p_reject.add_argument("proposal_id")
     sub.add_parser("version")
