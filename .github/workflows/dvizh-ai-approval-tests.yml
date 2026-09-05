@@ -1,0 +1,124 @@
+name: DVIZH AI approval tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-hermes-control-v1-2026-09-05
+    paths:
+      - 'hermes-control-v1/dvizh_proposal_bridge.py'
+      - 'hermes-control-v1/patch_ai_approval_ui.py'
+      - 'hermes-control-v1/systemd/dvizh-ai-approval.service'
+      - 'install-dvizh-ai-approval.sh'
+      - '.github/workflows/dvizh-ai-approval-tests.yml'
+  pull_request:
+    paths:
+      - 'hermes-control-v1/dvizh_proposal_bridge.py'
+      - 'hermes-control-v1/patch_ai_approval_ui.py'
+      - 'hermes-control-v1/systemd/dvizh-ai-approval.service'
+      - 'install-dvizh-ai-approval.sh'
+      - '.github/workflows/dvizh-ai-approval-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile hermes-control-v1/dvizh_proposal_bridge.py hermes-control-v1/patch_ai_approval_ui.py
+          bash -n install-dvizh-ai-approval.sh
+          grep -q '^User=dvizh$' hermes-control-v1/systemd/dvizh-ai-approval.service
+          grep -q 'NoNewPrivileges=true' hermes-control-v1/systemd/dvizh-ai-approval.service
+          grep -q 'DVIZH_AI_APPROVAL_UI_V1' hermes-control-v1/patch_ai_approval_ui.py
+
+      - name: Verify immutable installer payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DVIZH_AI_APPROVAL_PREPARE_ONLY=1 bash install-dvizh-ai-approval.sh
+
+      - name: Patch minimal web fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ROOT=/tmp/ai-approval-web
+          rm -rf "$ROOT" && mkdir -p "$ROOT"
+          cat > "$ROOT/app.js" <<'JS'
+          (() => {
+            let state = {tasks:[]};
+            function saveState() {}
+            function nowIso() { return new Date().toISOString(); }
+            function renderSettings() {}
+          })();
+          JS
+          echo 'body { color: white; }' > "$ROOT/styles.css"
+          echo "const CACHE = 'old-cache';" > "$ROOT/sw.js"
+          python3 hermes-control-v1/patch_ai_approval_ui.py --root "$ROOT" --check
+          python3 hermes-control-v1/patch_ai_approval_ui.py --root "$ROOT"
+          python3 hermes-control-v1/patch_ai_approval_ui.py --root "$ROOT" --check
+          grep -q 'DVIZH_AI_APPROVAL_UI_V1' "$ROOT/app.js"
+          grep -q 'DVIZH_AI_APPROVAL_UI_V1' "$ROOT/styles.css"
+          grep -q 'dvizh-ai-approval-v1' "$ROOT/sw.js"
+          if command -v node >/dev/null; then node --check "$ROOT/app.js"; fi
+
+      - name: Unit test approved action semantics
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import importlib.util, json, sqlite3, tempfile
+          from pathlib import Path
+
+          path=Path('hermes-control-v1/dvizh_proposal_bridge.py')
+          spec=importlib.util.spec_from_file_location('approval', path)
+          mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+
+          cleaned=mod.sanitize({'aiProposalUiToken':'secret','safe':'ok'})
+          assert cleaned['aiProposalUiToken']=='[REDACTED]'
+          assert cleaned['safe']=='ok'
+
+          state={'tasks':[]}
+          p={'id':'abc123','action':'task_create','payload':{'title':'Проверка AI','area':'other'}}
+          out=mod.state_task_create(state,p)
+          assert out=='created:ai-task-abc123'
+          assert state['tasks'][0]['title']=='Проверка AI' and state['tasks'][0]['done'] is False
+          p2={'id':'def456','action':'task_complete','payload':{'task_id':'ai-task-abc123'}}
+          mod.state_task_complete(state,p2)
+          assert state['tasks'][0]['done'] is True
+          p3={'id':'plan1','action':'day_plan','payload':{'blocks':[{'title':'ПДД'}]}}
+          mod.state_day_plan(state,p3)
+          assert state['aiDayPlan']['proposalId']=='plan1'
+
+          td=Path(tempfile.mkdtemp())
+          dbp=td/'telegram.db'
+          db=sqlite3.connect(dbp)
+          db.executescript('''
+          CREATE TABLE users(chat_id INTEGER PRIMARY KEY, timezone TEXT, authorized INTEGER);
+          CREATE TABLE schedule_occurrences(
+            id INTEGER PRIMARY KEY, schedule_item_id INTEGER, chat_id INTEGER,
+            due_date_local TEXT, title TEXT, kind TEXT, start_at_utc TEXT,
+            end_at_utc TEXT, reminder_minutes INTEGER, status TEXT,
+            reminder_sent_at_utc TEXT, snoozed_until_utc TEXT, completed_at_utc TEXT, created_at_utc TEXT
+          );
+          INSERT INTO users VALUES(1,'Europe/Moscow',1);
+          INSERT INTO schedule_occurrences VALUES(7,3,1,'2026-09-05','Зал','gym','2026-09-05T19:21:00+00:00','2026-09-05T19:51:00+00:00',30,'pending','x','x',NULL,'x');
+          ''')
+          db.commit(); db.close()
+          mod.TELEGRAM_DB=dbp
+          detail=mod.apply_schedule_move({'payload':{'occurrence_id':'7','start_local':'20:00'}})
+          assert detail=='moved:7:20:00'
+          db=sqlite3.connect(dbp)
+          start,end,rem,snooze=db.execute('SELECT start_at_utc,end_at_utc,reminder_sent_at_utc,snoozed_until_utc FROM schedule_occurrences WHERE id=7').fetchone()
+          db.close()
+          assert start.startswith('2026-09-05T17:00:00')
+          assert end.startswith('2026-09-05T17:30:00')
+          assert rem is None and snooze is None
+          PY
