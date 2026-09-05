@@ -98,7 +98,7 @@ jobs:
       - name: Refuse a bootstrap that could promote or float to another payload
         run: |
           set -euo pipefail
-          grep -q '^RELEASE_COMMIT="aac4a406ff5c30e7daf206bec65df93d2279ac8d"$' install-dvizh-ai-home-v2-preview-from-github.sh
+          grep -q '^RELEASE_COMMIT="86c6f20d887551c77dd5ffe140da928b16370582"$' install-dvizh-ai-home-v2-preview-from-github.sh
           ! grep -q 'install-dvizh-ai-home-v2.sh" --promote' install-dvizh-ai-home-v2-preview-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' install-dvizh-ai-home-v2-preview-from-github.sh
           grep -Fq 'ai-home-v2-preview.html' install-dvizh-ai-home-v2-preview-from-github.sh
