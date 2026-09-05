@@ -1,0 +1,49 @@
+name: DVIZH pre-AI Home frontend recovery tests
+
+on:
+  push:
+    branches:
+      - codex/dvizh-ai-home-v1-2026-09-05
+    paths:
+      - recover-dvizh-frontend-pre-ai-home.sh
+      - .github/workflows/dvizh-pre-ai-home-recovery-tests.yml
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise recovery
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT="$RUNNER_TEMP/web"
+          BAK="$RUNNER_TEMP/backups"
+          mkdir -p "$ROOT" "$BAK/ai-home-20260905T130913Z/static" "$BAK/ai-home-stability-20260905T140000Z/static"
+          cat > "$ROOT/index.html" <<'EOF'
+          <html><head>
+          <!-- DVIZH_AI_HOME_EARLY_BOOT_V2 -->
+          <script>(function(){document.documentElement.classList.add('dvizh-ai-home-active');})();</script>
+          <style>html.dvizh-ai-home-active #view-home{display:block}</style>
+          <link rel="stylesheet" href="styles.css?v=old">
+          </head><body><script src="app.js?v=old"></script></body></html>
+          EOF
+          printf '%s\n' 'const DVIZH_AI_HOME_V1 = true;' 'console.log("broken ai home");' > "$ROOT/app.js"
+          printf '%s\n' '/* DVIZH_AI_HOME_V1 */' > "$ROOT/styles.css"
+          printf '%s\n' '// old worker' > "$ROOT/sw.js"
+
+          printf '%s\n' 'console.log("stable manual ui");' > "$BAK/ai-home-20260905T130913Z/static/app.js"
+          printf '%s\n' '/* stable manual css */' > "$BAK/ai-home-20260905T130913Z/static/styles.css"
+          printf '%s\n' '// stable worker' > "$BAK/ai-home-20260905T130913Z/static/sw.js"
+          printf '%s\n' 'const DVIZH_AI_HOME_V1 = true;' > "$BAK/ai-home-stability-20260905T140000Z/static/app.js"
+          printf '%s\n' '/* ai css */' > "$BAK/ai-home-stability-20260905T140000Z/static/styles.css"
+
+          DVIZH_PRE_AI_RECOVERY_ROOT="$ROOT" DVIZH_PRE_AI_BACKUPS_ROOT="$BAK" bash recover-dvizh-frontend-pre-ai-home.sh
+
+          grep -q 'stable manual ui' "$ROOT/app.js"
+          grep -q 'stable manual css' "$ROOT/styles.css"
+          ! grep -q 'DVIZH_AI_HOME_V1' "$ROOT/app.js"
+          ! grep -q 'DVIZH_AI_HOME_EARLY_BOOT_V2' "$ROOT/index.html"
+          grep -q 'dvizh-pre-ai-recovery-v1' "$ROOT/index.html"
+          grep -q 'DVIZH_PRE_AI_RECOVERY_NETWORK_ONLY_SW_V1' "$ROOT/sw.js"
+          test -f "$ROOT/.pre-ai-recovery-current/app.js"
