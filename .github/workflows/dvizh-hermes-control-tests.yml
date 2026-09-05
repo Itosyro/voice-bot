@@ -31,11 +31,11 @@ jobs:
           set -Eeuo pipefail
           bash -n hermes-control-v1/dvizhctl
           bash -n install-dvizh-hermes-control.sh
-          python3 -m py_compile hermes-control-v1/dvizh_context.py
+          python3 -m py_compile hermes-control-v1/dvizh_context.py hermes-control-v1/dvizh_proposals.py
           grep -q '^name: dvizh-server$' hermes-control-v1/skill/SKILL.md
           grep -q 'dvizhctl context today' hermes-control-v1/skill/SKILL.md
-          grep -q 'read-only' hermes-control-v1/skill/SKILL.md
-          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.3'
+          grep -q 'dvizhctl propose' hermes-control-v1/skill/SKILL.md
+          test "$(bash hermes-control-v1/dvizhctl version)" = '2026.09.05-hermes-control.4'
 
       - name: Verify locked installer payload
         shell: bash
@@ -51,29 +51,45 @@ jobs:
           python3 - <<'PY'
           import importlib.util, json
           from pathlib import Path
-
           payload=json.loads(Path('/tmp/context.json').read_text())
           assert payload['read_only'] is True
           assert payload['view']=='health'
           assert payload['version']=='2026.09.05-hermes-context.1'
-
           p=Path('hermes-control-v1/dvizh_context.py')
           spec=importlib.util.spec_from_file_location('ctx',p)
           mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-          cleaned=mod.sanitize({
-              'api_key':'abc', 'password':'pw', 'safe':'ok',
-              'nested': {'bot_token':'123', 'value': 7},
-          })
+          cleaned=mod.sanitize({'api_key':'abc','password':'pw','safe':'ok','nested':{'bot_token':'123','value':7}})
           assert cleaned['api_key']=='[REDACTED]'
           assert cleaned['password']=='[REDACTED]'
           assert cleaned['nested']['bot_token']=='[REDACTED]'
           assert cleaned['safe']=='ok' and cleaned['nested']['value']==7
           PY
-          if python3 hermes-control-v1/dvizh_context.py ../../etc/passwd >/tmp/out 2>/tmp/err; then
-            echo 'invalid context view unexpectedly succeeded' >&2
-            exit 1
-          fi
+          if python3 hermes-control-v1/dvizh_context.py ../../etc/passwd >/tmp/out 2>/tmp/err; then exit 1; fi
           grep -q 'allowed views' /tmp/err
+
+      - name: Proposal queue is inert and validated
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export DVIZH_PROPOSAL_DIR=/tmp/dvizh-proposals-test
+          rm -rf "$DVIZH_PROPOSAL_DIR"
+          python3 hermes-control-v1/dvizh_proposals.py create task_create 'Test task' '{"title":"Test","area":"other"}' > /tmp/p.json
+          python3 hermes-control-v1/dvizh_proposals.py list --status pending > /tmp/plist.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/p.json'))
+          rows=json.load(open('/tmp/plist.json'))
+          assert p['status']=='pending' and p['action']=='task_create'
+          assert len(rows)==1 and rows[0]['id']==p['id']
+          assert rows[0]['payload']['title']=='Test'
+          PY
+          if python3 hermes-control-v1/dvizh_proposals.py create shell 'bad' '{"cmd":"rm -rf /"}' >/tmp/out 2>/tmp/err; then
+            echo 'unsupported proposal action unexpectedly accepted' >&2; exit 1
+          fi
+          if python3 hermes-control-v1/dvizh_proposals.py create schedule_move 'bad' '{"occurrence_id":"1","start_local":"99:99"}' >/tmp/out 2>/tmp/err; then
+            echo 'invalid time unexpectedly accepted' >&2; exit 1
+          fi
+          test ! -e /var/lib/dvizh/telegram.db
 
       - name: Mock read-only runtime
         shell: bash
@@ -96,7 +112,6 @@ jobs:
           echo 'mock log line'
           SH
           chmod +x "$MOCK/systemctl" "$MOCK/curl" "$MOCK/journalctl"
-
           PATH="$MOCK:$PATH" bash hermes-control-v1/dvizhctl status | tee /tmp/status.txt
           grep -q 'services_non_active=0' /tmp/status.txt
           PATH="$MOCK:$PATH" bash hermes-control-v1/dvizhctl doctor | tee /tmp/doctor.txt
@@ -107,22 +122,15 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          for action in restart deploy rollback delete edit migrate install update; do
+          for action in apply approve restart deploy rollback delete edit migrate install update; do
             if bash hermes-control-v1/dvizhctl "$action" >/tmp/out 2>/tmp/err; then
-              echo "dangerous verb unexpectedly succeeded: $action" >&2
-              exit 1
+              echo "dangerous verb unexpectedly succeeded: $action" >&2; exit 1
             fi
-            grep -q 'read-only' /tmp/err
+            grep -q 'not available' /tmp/err
           done
-          if bash hermes-control-v1/dvizhctl logs ssh 20 >/tmp/out 2>/tmp/err; then
-            echo 'unknown service unexpectedly allowed' >&2
-            exit 1
-          fi
+          if bash hermes-control-v1/dvizhctl logs ssh 20 >/tmp/out 2>/tmp/err; then exit 1; fi
           grep -q 'Refusing unknown service' /tmp/err
-          if bash hermes-control-v1/dvizhctl context ../../etc/passwd >/tmp/out 2>/tmp/err; then
-            echo 'invalid context view unexpectedly allowed' >&2
-            exit 1
-          fi
+          if bash hermes-control-v1/dvizhctl context ../../etc/passwd >/tmp/out 2>/tmp/err; then exit 1; fi
           grep -q 'Unknown context view' /tmp/err
 
       - name: Log secret redaction
