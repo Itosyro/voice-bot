@@ -6,6 +6,7 @@
   const MAX_MESSAGES = 24;
   const POLL_MS = 900;
   const POLL_TIMEOUT_MS = 190000;
+  const MANUAL_HOLD_MS = 1100;
 
   const app = document.getElementById('aiApp');
   const orb = document.getElementById('aiOrb');
@@ -15,6 +16,7 @@
   const input = document.getElementById('aiInput');
   const send = document.getElementById('aiSend');
   const auth = document.getElementById('aiAuth');
+  const authLink = document.getElementById('aiAuthLink');
 
   let recognition = null;
   let listening = false;
@@ -22,8 +24,8 @@
   let pollTimer = null;
   let pollStartedAt = 0;
   let pageAlive = true;
-  let holdTimer = null;
-  let holdOpenedManual = false;
+  let holdStartedAt = 0;
+  let suppressOrbClick = false;
 
   function nowIso() {
     return new Date().toISOString();
@@ -62,8 +64,8 @@
   function activeRequest(state) {
     const list = rows(state.aiHomeRequests);
     for (let i = list.length - 1; i >= 0; i -= 1) {
-      const s = String(list[i].status || 'pending');
-      if (s === 'pending' || s === 'processing') return list[i];
+      const requestStatus = String(list[i].status || 'pending');
+      if (requestStatus === 'pending' || requestStatus === 'processing') return list[i];
     }
     return null;
   }
@@ -80,6 +82,17 @@
       : '';
   }
 
+  function manualTarget() {
+    const rawPath = String(location.pathname || '/');
+    const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath;
+    const promoted = path === '/' || path === '/index.html';
+    return promoted ? '/manual.html' : '/';
+  }
+
+  function openManual() {
+    location.assign(manualTarget());
+  }
+
   function setMode(mode) {
     app.classList.toggle('is-listening', mode === 'listening');
     app.classList.toggle('is-thinking', mode === 'thinking');
@@ -92,8 +105,8 @@
     send.disabled = busy;
   }
 
-  function setStatus(text, mode = 'idle') {
-    status.textContent = text;
+  function setStatus(text = '', mode = 'idle') {
+    status.textContent = String(text || '');
     setMode(mode);
   }
 
@@ -105,32 +118,18 @@
   }
 
   function showAuth() {
+    authLink.href = manualTarget();
     auth.hidden = false;
     composer.hidden = true;
     setBusy(true);
     showAnswer('');
-    setStatus('Нужен вход.', 'idle');
+    setStatus('Нужен вход.');
   }
 
   function showError(text = 'Не получилось. Попробуй ещё раз.') {
     setBusy(false);
     showAnswer('');
     setStatus(text, 'error');
-  }
-
-  async function clearLegacyCaches() {
-    try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map(key => caches.delete(key)));
-      }
-    } catch (_) {}
-    try {
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(reg => reg.unregister().catch(() => false)));
-      }
-    } catch (_) {}
   }
 
   async function readState() {
@@ -188,8 +187,8 @@
     if (active) {
       setBusy(true);
       showAnswer('');
-      setStatus(String(active.status || '') === 'processing' ? 'Думаю…' : 'Собираю контекст…', 'thinking');
-      return { active: true, requestId: String(active.id || '') };
+      setStatus('Думаю…', 'thinking');
+      return { active: true };
     }
 
     const error = latestError(state);
@@ -198,10 +197,9 @@
       return { active: false, error: true };
     }
 
-    const text = latestAssistant(state);
     setBusy(false);
-    showAnswer(text);
-    setStatus(text ? 'Что дальше?' : 'Скажи, что происходит.', 'idle');
+    showAnswer(latestAssistant(state));
+    setStatus('');
     return { active: false };
   }
 
@@ -241,6 +239,7 @@
   }
 
   function startPolling() {
+    stopPolling();
     pollStartedAt = Date.now();
     schedulePoll(450);
   }
@@ -251,14 +250,14 @@
 
     const lowered = clean.toLocaleLowerCase('ru-RU');
     if (lowered === '/manual' || lowered === 'ручной режим' || lowered === 'открой ручной режим') {
-      location.assign('/manual.html');
+      openManual();
       return;
     }
 
     const id = requestId();
     setBusy(true);
     showAnswer('');
-    setStatus('Собираю контекст…', 'thinking');
+    setStatus('Думаю…', 'thinking');
 
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
@@ -314,9 +313,12 @@
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
   }
 
-  function stopVoice() {
+  function stopVoice(abort = false) {
     if (!recognition) return;
-    try { recognition.stop(); } catch (_) {}
+    try {
+      if (abort && typeof recognition.abort === 'function') recognition.abort();
+      else recognition.stop();
+    } catch (_) {}
   }
 
   function startVoice() {
@@ -324,7 +326,7 @@
     const Ctor = speechCtor();
     if (!Ctor) {
       input.focus();
-      setStatus('Голосовой ввод здесь недоступен. Напиши.', 'idle');
+      setStatus('Голосовой ввод здесь недоступен. Напиши.');
       return;
     }
     if (listening && recognition) {
@@ -337,59 +339,56 @@
     instance.lang = 'ru-RU';
     instance.continuous = false;
     instance.interimResults = true;
+
+    const seed = input.value.trim();
     let finalText = '';
+    let heardSpeech = false;
+    let speechFailed = false;
 
     instance.onstart = () => {
       listening = true;
       setStatus('Слушаю…', 'listening');
     };
+
     instance.onresult = event => {
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const part = String(event.results[i][0]?.transcript || '');
+        if (part.trim()) heardSpeech = true;
         if (event.results[i].isFinal) finalText += part;
         else interim += part;
       }
-      input.value = (finalText || interim).trim();
+      const spoken = (finalText || interim).trim();
+      input.value = [seed, spoken].filter(Boolean).join(seed && spoken ? ' ' : '');
       resizeInput();
     };
+
     instance.onerror = () => {
+      speechFailed = true;
       listening = false;
       recognition = null;
-      setStatus('Не расслышал. Можно сказать ещё раз.', 'idle');
+      setStatus('Не расслышал. Можно сказать ещё раз.');
     };
+
     instance.onend = () => {
       listening = false;
       recognition = null;
-      const text = (finalText || input.value || '').trim();
-      if (text) enqueue(text);
-      else setStatus('Скажи, что происходит.', 'idle');
+      if (!pageAlive || speechFailed) return;
+      if (heardSpeech) enqueue(input.value);
+      else setStatus('');
     };
 
-    try { instance.start(); }
-    catch (_) {
+    try {
+      instance.start();
+    } catch (_) {
       listening = false;
       recognition = null;
       input.focus();
+      setStatus('');
     }
   }
 
-  function beginManualHold() {
-    holdOpenedManual = false;
-    if (holdTimer) clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => {
-      holdOpenedManual = true;
-      location.assign('/manual.html');
-    }, 1100);
-  }
-
-  function cancelManualHold() {
-    if (holdTimer) clearTimeout(holdTimer);
-    holdTimer = null;
-  }
-
-  async function boot() {
-    await clearLegacyCaches();
+  async function syncFromState() {
     try {
       const { state } = await readState();
       const result = renderState(state);
@@ -398,6 +397,10 @@
       if (error && error.code === 'auth') showAuth();
       else showError('Не удалось связаться с ДВИЖем.');
     }
+  }
+
+  async function boot() {
+    await syncFromState();
   }
 
   composer.addEventListener('submit', event => {
@@ -413,33 +416,48 @@
     }
   });
 
-  orb.addEventListener('pointerdown', beginManualHold);
-  orb.addEventListener('pointerup', cancelManualHold);
-  orb.addEventListener('pointercancel', cancelManualHold);
-  orb.addEventListener('pointerleave', cancelManualHold);
+  orb.addEventListener('pointerdown', () => {
+    holdStartedAt = performance.now();
+    suppressOrbClick = false;
+  });
+
+  orb.addEventListener('pointerup', () => {
+    if (!holdStartedAt) return;
+    const heldFor = performance.now() - holdStartedAt;
+    holdStartedAt = 0;
+    if (heldFor >= MANUAL_HOLD_MS) {
+      suppressOrbClick = true;
+      openManual();
+    }
+  });
+
+  orb.addEventListener('pointercancel', () => {
+    holdStartedAt = 0;
+  });
+
+  orb.addEventListener('pointerleave', () => {
+    holdStartedAt = 0;
+  });
+
   orb.addEventListener('click', event => {
     event.preventDefault();
-    if (holdOpenedManual) {
-      holdOpenedManual = false;
+    if (suppressOrbClick) {
+      suppressOrbClick = false;
       return;
     }
     startVoice();
   });
 
-  window.addEventListener('pageshow', () => {
-    if (!pollTimer && !busy) {
-      readState().then(({ state }) => {
-        const result = renderState(state);
-        if (result.active) startPolling();
-      }).catch(() => {});
-    }
+  window.addEventListener('pageshow', event => {
+    pageAlive = true;
+    if (event.persisted) syncFromState();
   });
 
   window.addEventListener('pagehide', () => {
     pageAlive = false;
     stopPolling();
-    stopVoice();
-  }, { once: true });
+    stopVoice(true);
+  });
 
   boot();
 })();
