@@ -69,6 +69,14 @@
     answer.hidden = !clean;
   }
 
+  function hideSavedAnswer(text = '') {
+    const clean = String(text).trim();
+    // Keep literal text stable for safe DOM semantics, but never expose a
+    // persisted answer visually or to accessibility on a fresh page session.
+    if (answer.textContent !== clean) answer.textContent = clean;
+    answer.hidden = true;
+  }
+
   function resizeInput() {
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
@@ -185,7 +193,8 @@
     // Do not resurrect a saved answer/error just because a new page session
     // performed its initial state read. The home must enter visually empty.
     if (!responseGateOpen) {
-      showAnswer();
+      const saved = rows(state.aiHomeMessages).filter(row => row.role === 'assistant').at(-1);
+      hideSavedAnswer(saved?.content || '');
       setStatus('');
       return;
     }
