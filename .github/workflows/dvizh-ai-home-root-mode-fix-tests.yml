@@ -1,0 +1,48 @@
+name: DVIZH AI Home root-mode fix tests
+on:
+  push:
+    branches: [codex/dvizh-ai-home-v1-2026-09-05]
+    paths: ['install-dvizh-ai-home-root-mode-fix.sh', '.github/workflows/dvizh-ai-home-root-mode-fix-tests.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise root-mode patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-ai-home-root-mode-fix.sh
+          ROOT=/tmp/dvizh-ai-home-root-fix
+          rm -rf "$ROOT" && mkdir -p "$ROOT"
+          cat > "$ROOT/app.js" <<'JS'
+          (() => {
+            const DVIZH_AI_HOME_V1 = true;
+            function test(event) {
+              const manual = event.target.closest('[data-ai-home-manual]');
+              if (manual) {
+                document.getElementById('view-home')?.classList.remove('ai-home-mode');
+                return;
+              }
+              const back = event.target.closest('[data-ai-home-back]');
+              if (back) {
+                document.getElementById('view-home')?.classList.add('ai-home-mode');
+              }
+            }
+          })();
+          JS
+          echo '#view-home.ai-home-mode > .old { display:none; }' > "$ROOT/styles.css"
+          echo "self.addEventListener('fetch',()=>{});" > "$ROOT/sw.js"
+          cat > "$ROOT/index.html" <<'HTML'
+          <link rel="stylesheet" href="styles.css"><script src="app.js"></script>
+          HTML
+          DVIZH_AI_HOME_ROOT_FIX_ROOT="$ROOT" bash install-dvizh-ai-home-root-mode-fix.sh
+          grep -q 'DVIZH_AI_HOME_ROOT_STABLE_V1' "$ROOT/app.js"
+          grep -q "document.documentElement.classList.add('dvizh-ai-home-active')" "$ROOT/app.js"
+          grep -q "document.documentElement.classList.remove('dvizh-ai-home-active')" "$ROOT/app.js"
+          grep -q 'html.dvizh-ai-home-active #view-home' "$ROOT/styles.css"
+          grep -q 'app.js?v=dvizh-ai-home-root-stable-v1' "$ROOT/index.html"
+          grep -q 'styles.css?v=dvizh-ai-home-root-stable-v1' "$ROOT/index.html"
+          node --check "$ROOT/app.js"
