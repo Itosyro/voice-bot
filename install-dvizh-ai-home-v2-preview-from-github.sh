@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-ai-home-v2-preview-bootstrap.2"
-RELEASE_COMMIT="86c6f20d887551c77dd5ffe140da928b16370582"
+VERSION="2026.09.06-ai-home-v2-preview-bootstrap.3"
+RELEASE_COMMIT="d6418224eae292417a645b2a73da157d939526b9"
 DEFAULT_BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${RELEASE_COMMIT}"
 BASE_URL="${DVIZH_AI_HOME_V2_BOOTSTRAP_BASE_URL:-$DEFAULT_BASE_URL}"
 TEST_ROOT="${DVIZH_AI_HOME_V2_ROOT:-}"
@@ -58,7 +58,7 @@ PY
 
 verify_git_blob "$TMP_DIR/install-dvizh-ai-home-v2.sh" "88ad4b9f4db39614ccc1ba4c70b256f4a3c4d2b0"
 verify_git_blob "$TMP_DIR/ai-home-v2/index.html" "2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e"
-verify_git_blob "$TMP_DIR/ai-home-v2/ai-home-v2.js" "e33dd200b00d3557dac3839beb5bc2537f4c1868"
+verify_git_blob "$TMP_DIR/ai-home-v2/ai-home-v2.js" "95b1ce6a09341840802efebb958f41441cc43560"
 verify_git_blob "$TMP_DIR/ai-home-v2/ai-home-v2.css" "273934a33d7913c45f4b7656315aeedfd6e4e813"
 
 if [[ -n "$TEST_ROOT" ]]; then
