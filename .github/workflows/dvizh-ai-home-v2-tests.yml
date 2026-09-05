@@ -1,0 +1,77 @@
+name: DVIZH AI Home v2 isolation tests
+
+on:
+  push:
+    paths:
+      - 'ai-home-v2/**'
+      - 'install-dvizh-ai-home-v2.sh'
+      - '.github/workflows/dvizh-ai-home-v2-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate standalone client
+        run: |
+          set -euo pipefail
+          node --check ai-home-v2/ai-home-v2.js
+          ! grep -q 'MutationObserver' ai-home-v2/ai-home-v2.js
+          ! grep -q 'setInterval(' ai-home-v2/ai-home-v2.js
+          grep -q "const API = '/api/state';" ai-home-v2/ai-home-v2.js
+          grep -q "location.assign('/manual.html')" ai-home-v2/ai-home-v2.js
+          grep -q '/ai-home-v2.js?v=20260905-1' ai-home-v2/index.html
+          grep -q '/ai-home-v2.css?v=20260905-1' ai-home-v2/index.html
+          ! grep -qE 'src=["'"'](?:\./|/)?app\.js' ai-home-v2/index.html
+
+      - name: Exercise isolated installer
+        run: |
+          set -euo pipefail
+          ROOT="$(mktemp -d)"
+          cat > "$ROOT/index.html" <<'EOF'
+          <!doctype html><html><head><link rel="stylesheet" href="styles.css"></head><body><main id="stable-manual">STABLE MANUAL</main><script src="app.js"></script></body></html>
+          EOF
+          printf '%s\n' "console.log('stable app');" > "$ROOT/app.js"
+          printf '%s\n' "body{background:#000}" > "$ROOT/styles.css"
+          printf '%s\n' "// stable network worker" > "$ROOT/sw.js"
+
+          APP_BEFORE="$(sha256sum "$ROOT/app.js" | awk '{print $1}')"
+          CSS_BEFORE="$(sha256sum "$ROOT/styles.css" | awk '{print $1}')"
+          SW_BEFORE="$(sha256sum "$ROOT/sw.js" | awk '{print $1}')"
+
+          DVIZH_AI_HOME_V2_ROOT="$ROOT" \
+          DVIZH_AI_HOME_V2_SOURCE_DIR="$GITHUB_WORKSPACE/ai-home-v2" \
+            bash install-dvizh-ai-home-v2.sh
+
+          grep -q 'STABLE MANUAL' "$ROOT/manual.html"
+          grep -q 'ai-home-v2.js?v=20260905-1' "$ROOT/index.html"
+          grep -q 'Напиши или скажи' "$ROOT/index.html"
+          test "$(sha256sum "$ROOT/app.js" | awk '{print $1}')" = "$APP_BEFORE"
+          test "$(sha256sum "$ROOT/styles.css" | awk '{print $1}')" = "$CSS_BEFORE"
+          test "$(sha256sum "$ROOT/sw.js" | awk '{print $1}')" = "$SW_BEFORE"
+          node --check "$ROOT/ai-home-v2.js"
+
+          MANUAL_BEFORE="$(sha256sum "$ROOT/manual.html" | awk '{print $1}')"
+          DVIZH_AI_HOME_V2_ROOT="$ROOT" \
+          DVIZH_AI_HOME_V2_SOURCE_DIR="$GITHUB_WORKSPACE/ai-home-v2" \
+            bash install-dvizh-ai-home-v2.sh
+          test "$(sha256sum "$ROOT/manual.html" | awk '{print $1}')" = "$MANUAL_BEFORE"
+          test "$(sha256sum "$ROOT/app.js" | awk '{print $1}')" = "$APP_BEFORE"
+
+      - name: Serve both roots independently
+        run: |
+          set -euo pipefail
+          ROOT="$(mktemp -d)"
+          cp ai-home-v2/index.html "$ROOT/index.html"
+          cp ai-home-v2/ai-home-v2.js "$ROOT/ai-home-v2.js"
+          cp ai-home-v2/ai-home-v2.css "$ROOT/ai-home-v2.css"
+          printf '%s\n' '<!doctype html><title>manual</title>MANUAL_OK' > "$ROOT/manual.html"
+          python3 -m http.server 8765 --directory "$ROOT" >/tmp/dvizh-ai-v2-http.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          sleep 1
+          curl -fsS http://127.0.0.1:8765/ | grep -q 'Напиши или скажи'
+          curl -fsS http://127.0.0.1:8765/manual.html | grep -q 'MANUAL_OK'
+          curl -fsS http://127.0.0.1:8765/ai-home-v2.js | grep -q "const API = '/api/state';"
