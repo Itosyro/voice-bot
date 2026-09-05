@@ -9,6 +9,7 @@ on:
       - 'hermes-control-v1/patch_ai_home_ui.py'
       - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - 'install-dvizh-ai-home.sh'
+      - 'install-dvizh-ai-home-release.sh'
       - '.github/workflows/dvizh-ai-home-tests.yml'
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'hermes-control-v1/patch_ai_home_ui.py'
       - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - 'install-dvizh-ai-home.sh'
+      - 'install-dvizh-ai-home-release.sh'
       - '.github/workflows/dvizh-ai-home-tests.yml'
   workflow_dispatch:
 
@@ -35,11 +37,13 @@ jobs:
           set -Eeuo pipefail
           python3 -m py_compile hermes-control-v1/dvizh_ai_home_bridge.py hermes-control-v1/patch_ai_home_ui.py
           bash -n install-dvizh-ai-home.sh
+          bash -n install-dvizh-ai-home-release.sh
           grep -q '^User=dvizh$' hermes-control-v1/systemd/dvizh-ai-home.service
           grep -q 'NoNewPrivileges=true' hermes-control-v1/systemd/dvizh-ai-home.service
           grep -q 'ProtectSystem=strict' hermes-control-v1/systemd/dvizh-ai-home.service
           grep -q 'DVIZH_AI_HOME_V1' hermes-control-v1/patch_ai_home_ui.py
           grep -q "API_SERVER_HOST':'127.0.0.1'" install-dvizh-ai-home.sh
+          grep -q 'DVIZH_AI_HOME_HIDDEN_PROPOSAL_FIX' install-dvizh-ai-home-release.sh
 
       - name: Verify immutable payload
         shell: bash
