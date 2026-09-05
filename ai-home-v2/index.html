@@ -2,35 +2,30 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="theme-color" content="#000000">
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <title>ДВИЖ</title>
-  <link rel="stylesheet" href="/ai-home-v2.css?v=20260905-2">
+  <link rel="stylesheet" href="/ai-home-v2.css?v=20260905-3">
 </head>
 <body>
   <main class="ai" id="aiApp">
-    <section class="ai-core" aria-live="polite">
-      <button class="ai-orb" id="aiOrb" type="button" aria-label="Говорить с ДВИЖем">
+    <section class="ai-core">
+      <button class="ai-orb" id="aiOrb" type="button" aria-label="Говорить с ДВИЖем" aria-pressed="false" aria-describedby="aiHelp">
         <span></span><span></span><span></span>
       </button>
-      <p class="ai-status" id="aiStatus"></p>
-      <div class="ai-answer" id="aiAnswer" hidden></div>
+      <p class="ai-help" id="aiHelp">Нажми для голосового ввода. Удерживай для ручного режима. С клавиатуры: Alt+M или команда /manual. Escape отменяет запись.</p>
+      <p class="ai-status" id="aiStatus" role="status" aria-atomic="true"></p>
+      <div class="ai-answer" id="aiAnswer" aria-live="polite" aria-atomic="true" tabindex="0" aria-label="Ответ ДВИЖа" hidden></div>
     </section>
-
     <form class="ai-composer" id="aiComposer" autocomplete="off">
       <textarea id="aiInput" rows="1" maxlength="12000" placeholder="Напиши или скажи…" aria-label="Сообщение ДВИЖу"></textarea>
       <button class="ai-send" id="aiSend" type="submit" aria-label="Отправить">↑</button>
     </form>
-
     <section class="ai-auth" id="aiAuth" hidden>
       <p>Нужен вход в ДВИЖ.</p>
       <a id="aiAuthLink" href="/">Войти</a>
     </section>
   </main>
-
-  <script src="/ai-home-v2.js?v=20260905-2" defer></script>
+  <script src="/ai-home-v2.js?v=20260905-3" defer></script>
 </body>
 </html>

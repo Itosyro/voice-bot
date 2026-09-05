@@ -2,12 +2,10 @@
   'use strict';
 
   const API = '/api/state';
-  const MAX_REQUESTS = 24;
-  const MAX_MESSAGES = 24;
+  const HTTP_TIMEOUT_MS = 15000;
   const POLL_MS = 900;
   const POLL_TIMEOUT_MS = 190000;
-  const MANUAL_HOLD_MS = 1100;
-
+  const MAX_ROWS = 24;
   const app = document.getElementById('aiApp');
   const orb = document.getElementById('aiOrb');
   const status = document.getElementById('aiStatus');
@@ -17,291 +15,55 @@
   const send = document.getElementById('aiSend');
   const auth = document.getElementById('aiAuth');
   const authLink = document.getElementById('aiAuthLink');
+  if (![app, orb, status, answer, composer, input, send, auth, authLink].every(Boolean)) return;
 
-  let recognition = null;
-  let listening = false;
-  let busy = false;
-  let pollTimer = null;
-  let pollStartedAt = 0;
+  // One operation per visible page. The epoch invalidates every late callback.
+  let epoch = 0;
   let pageAlive = true;
-  let holdStartedAt = 0;
-  let suppressOrbClick = false;
+  let operation = null;
+  let busy = false;
+  let voice = null;
+  let submission = null;
+  let pollTimer = null;
+  let pollDeadline = 0;
+  let holdStartedAt = null;
+  let holdOpenedManual = false;
+  const controllers = new Set();
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const rows = value => Array.isArray(value) ? value.filter(object) : [];
+  const activeRequest = state => rows(state.aiHomeRequests)
+    .find(row => ['pending', 'processing'].includes(String(row.status || 'pending')));
+  const alive = token => token === epoch && pageAlive && !document.hidden;
+  const fault = code => Object.assign(new Error(code), { code });
+  const assertAlive = token => { if (!alive(token)) throw fault('cancelled'); };
+  const requestId = () => `ai2-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 
-  function nowIso() {
-    return new Date().toISOString();
-  }
-
-  function requestId() {
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-      return `ai2-${crypto.randomUUID()}`;
-    }
-    return `ai2-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  }
-
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value || {}));
-  }
-
-  function rows(value) {
-    return Array.isArray(value) ? value.filter(item => item && typeof item === 'object') : [];
-  }
-
-  function messages(value) {
-    return rows(value).filter(item => {
-      const role = String(item.role || '');
-      return (role === 'user' || role === 'assistant') && String(item.content || '').trim();
-    });
-  }
-
-  function latestAssistant(state) {
-    const list = messages(state.aiHomeMessages);
-    for (let i = list.length - 1; i >= 0; i -= 1) {
-      if (list[i].role === 'assistant') return String(list[i].content || '').trim();
-    }
-    return '';
-  }
-
-  function activeRequest(state) {
-    const list = rows(state.aiHomeRequests);
-    for (let i = list.length - 1; i >= 0; i -= 1) {
-      const requestStatus = String(list[i].status || 'pending');
-      if (requestStatus === 'pending' || requestStatus === 'processing') return list[i];
-    }
-    return null;
-  }
-
-  function latestError(state) {
-    const list = rows(state.aiHomeRequests);
-    for (let i = list.length - 1; i >= 0; i -= 1) {
-      if (String(list[i].status || '') === 'error') {
-        return String(list[i].error || state.aiHomeStatus?.message || '').trim();
-      }
-    }
-    return String(state.aiHomeStatus?.state || '') === 'error'
-      ? String(state.aiHomeStatus?.message || '').trim()
-      : '';
-  }
-
-  function manualTarget() {
-    const rawPath = String(location.pathname || '/');
-    const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, '') : rawPath;
-    const promoted = path === '/' || path === '/index.html';
-    return promoted ? '/manual.html' : '/';
-  }
-
-  function openManual() {
-    location.assign(manualTarget());
-  }
-
-  function setMode(mode) {
-    app.classList.toggle('is-listening', mode === 'listening');
-    app.classList.toggle('is-thinking', mode === 'thinking');
-    app.classList.toggle('is-error', mode === 'error');
+  function controls() {
+    input.disabled = busy || Boolean(voice);
+    send.disabled = busy || Boolean(voice);
+    orb.setAttribute('aria-pressed', String(Boolean(voice)));
   }
 
   function setBusy(value) {
-    busy = Boolean(value);
-    input.disabled = busy;
-    send.disabled = busy;
+    busy = value;
+    controls();
   }
 
-  function setStatus(text = '', mode = 'idle') {
-    status.textContent = String(text || '');
-    setMode(mode);
+  function setStatus(text, mode = 'idle') {
+    if (status.textContent !== text) status.textContent = text;
+    for (const name of ['listening', 'thinking', 'error']) {
+      app.classList.toggle(`is-${name}`, mode === name);
+    }
   }
 
-  function showAnswer(text) {
-    const clean = String(text || '').trim();
-    answer.textContent = clean;
+  function showAnswer(text = '') {
+    const clean = String(text).trim();
+    // Do not reset the user's scroll or live region on an unchanged answer.
+    if (answer.textContent !== clean) {
+      answer.textContent = clean;
+      answer.scrollTop = 0;
+    }
     answer.hidden = !clean;
-    if (clean) answer.scrollTop = 0;
-  }
-
-  function showAuth() {
-    authLink.href = manualTarget();
-    auth.hidden = false;
-    composer.hidden = true;
-    setBusy(true);
-    showAnswer('');
-    setStatus('Нужен вход.');
-  }
-
-  function showError(text = 'Не получилось. Попробуй ещё раз.') {
-    setBusy(false);
-    showAnswer('');
-    setStatus(text, 'error');
-  }
-
-  async function readState() {
-    const response = await fetch(API, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { 'Accept': 'application/json' }
-    });
-    if (response.status === 401 || response.status === 403) {
-      const error = new Error('auth');
-      error.code = 'auth';
-      throw error;
-    }
-    if (!response.ok) throw new Error(`state GET ${response.status}`);
-    const payload = await response.json();
-    if (!payload || typeof payload !== 'object' || !payload.state || typeof payload.state !== 'object') {
-      throw new Error('invalid state payload');
-    }
-    return {
-      revision: Number(payload.revision || 0),
-      state: payload.state
-    };
-  }
-
-  async function writeState(revision, state) {
-    const response = await fetch(API, {
-      method: 'PUT',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ baseRevision: Number(revision || 0), state })
-    });
-    if (response.status === 401 || response.status === 403) {
-      const error = new Error('auth');
-      error.code = 'auth';
-      throw error;
-    }
-    if (response.status === 409) {
-      const error = new Error('conflict');
-      error.code = 'conflict';
-      throw error;
-    }
-    if (!response.ok) throw new Error(`state PUT ${response.status}`);
-    const payload = await response.json();
-    if (!payload || payload.ok !== true) throw new Error('state update refused');
-    return payload;
-  }
-
-  function renderState(state) {
-    const active = activeRequest(state);
-    if (active) {
-      setBusy(true);
-      showAnswer('');
-      setStatus('Думаю…', 'thinking');
-      return { active: true };
-    }
-
-    const error = latestError(state);
-    if (error && String(state.aiHomeStatus?.state || '') === 'error') {
-      showError('Не получилось. Можно отправить ещё раз.');
-      return { active: false, error: true };
-    }
-
-    setBusy(false);
-    showAnswer(latestAssistant(state));
-    setStatus('');
-    return { active: false };
-  }
-
-  function stopPolling() {
-    if (pollTimer) clearTimeout(pollTimer);
-    pollTimer = null;
-    pollStartedAt = 0;
-  }
-
-  function schedulePoll(delay = POLL_MS) {
-    if (!pageAlive) return;
-    if (pollTimer) clearTimeout(pollTimer);
-    pollTimer = setTimeout(pollOnce, delay);
-  }
-
-  async function pollOnce() {
-    pollTimer = null;
-    if (!pageAlive) return;
-    if (pollStartedAt && Date.now() - pollStartedAt > POLL_TIMEOUT_MS) {
-      stopPolling();
-      showError('Ответ занимает слишком долго. Попробуй ещё раз.');
-      return;
-    }
-    try {
-      const { state } = await readState();
-      const result = renderState(state);
-      if (result.active) schedulePoll();
-      else stopPolling();
-    } catch (error) {
-      if (error && error.code === 'auth') {
-        stopPolling();
-        showAuth();
-        return;
-      }
-      schedulePoll(1600);
-    }
-  }
-
-  function startPolling() {
-    stopPolling();
-    pollStartedAt = Date.now();
-    schedulePoll(450);
-  }
-
-  async function enqueue(text) {
-    const clean = String(text || '').trim();
-    if (!clean || busy) return;
-
-    const lowered = clean.toLocaleLowerCase('ru-RU');
-    if (lowered === '/manual' || lowered === 'ручной режим' || lowered === 'открой ручной режим') {
-      openManual();
-      return;
-    }
-
-    const id = requestId();
-    setBusy(true);
-    showAnswer('');
-    setStatus('Думаю…', 'thinking');
-
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      try {
-        const { revision, state: current } = await readState();
-        const state = clone(current);
-        const requests = rows(state.aiHomeRequests);
-        if (!requests.some(item => String(item.id || '') === id)) {
-          requests.push({
-            id,
-            text: clean.slice(0, 12000),
-            status: 'pending',
-            createdAt: nowIso()
-          });
-        }
-        state.aiHomeRequests = requests.slice(-MAX_REQUESTS);
-
-        const history = messages(state.aiHomeMessages);
-        const last = history[history.length - 1];
-        if (!last || last.role !== 'user' || String(last.content || '').trim() !== clean) {
-          history.push({ role: 'user', content: clean.slice(0, 12000) });
-        }
-        state.aiHomeMessages = history.slice(-MAX_MESSAGES);
-        state.aiHomeStatus = { state: 'queued', requestId: id, updatedAt: nowIso() };
-
-        await writeState(revision, state);
-        input.value = '';
-        resizeInput();
-        startPolling();
-        return;
-      } catch (error) {
-        if (error && error.code === 'conflict') {
-          await new Promise(resolve => setTimeout(resolve, 80 + attempt * 70));
-          continue;
-        }
-        if (error && error.code === 'auth') {
-          showAuth();
-          return;
-        }
-        console.error(error);
-        showError();
-        return;
-      }
-    }
-    showError('ДВИЖ сейчас занят синхронизацией. Попробуй ещё раз.');
   }
 
   function resizeInput() {
@@ -309,155 +71,322 @@
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
   }
 
-  function speechCtor() {
-    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  function viewport() {
+    if (!alive(epoch)) return;
+    const view = window.visualViewport;
+    if (view && view.scale !== 1) return;
+    app.style.setProperty('--ai-height', `${Math.round(view?.height || window.innerHeight)}px`);
   }
 
-  function stopVoice(abort = false) {
-    if (!recognition) return;
+  function clearPoll() {
+    if (pollTimer !== null) clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+
+  function stopPolling() {
+    clearPoll();
+    pollDeadline = 0;
+  }
+
+  function showError(text = 'Не удалось подтвердить отправку. Текст сохранён; повторная попытка сначала проверит запрос.') {
+    stopPolling();
+    setBusy(false);
+    setStatus(text, 'error');
+  }
+
+  function showAuth() {
+    stopPolling();
+    cancelVoice();
+    authLink.href = manualTarget();
+    auth.hidden = false;
+    composer.hidden = true;
+    setBusy(true);
+    showAnswer();
+    setStatus('Нужен вход.');
+  }
+
+  async function request(token, method = 'GET', revision, state) {
+    assertAlive(token);
+    const controller = new AbortController();
+    controllers.add(controller);
+    let timedOut = false;
+    // Only a network deadline: never an animation or DOM repair loop.
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, HTTP_TIMEOUT_MS);
     try {
-      if (abort && typeof recognition.abort === 'function') recognition.abort();
-      else recognition.stop();
-    } catch (_) {}
+      const options = {
+        method, credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+        headers: { Accept: 'application/json' }
+      };
+      if (method === 'PUT') {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify({ baseRevision: revision, state });
+      }
+      const response = await fetch(API, options);
+      assertAlive(token);
+      if ([401, 403].includes(response.status)) throw fault('auth');
+      if (response.status === 409) throw fault('conflict');
+      if (!response.ok) throw fault('network');
+      const payload = await response.json();
+      assertAlive(token);
+      if (!object(payload)) throw fault('payload');
+      if (method === 'PUT') {
+        if (payload.ok !== true) throw fault('payload');
+      } else if (!object(payload.state) || !Number.isSafeInteger(payload.revision) || payload.revision < 0) {
+        throw fault('payload');
+      }
+      return payload;
+    } catch (error) {
+      if (!alive(token)) throw fault('cancelled');
+      if (timedOut) throw fault('timeout');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      controllers.delete(controller);
+    }
+  }
+
+  function schedulePoll(delay = POLL_MS) {
+    clearPoll();
+    if (!alive(epoch)) return;
+    pollTimer = setTimeout(() => { pollTimer = null; sync(); }, delay);
+  }
+
+  function acknowledge(state) {
+    if (!submission || !rows(state.aiHomeRequests).some(row => row.id === submission.id)) return;
+    if (input.value.trim() === submission.text) {
+      input.value = '';
+      resizeInput();
+    }
+    submission = null;
+  }
+
+  function render(state) {
+    auth.hidden = true;
+    composer.hidden = false;
+    acknowledge(state);
+    if (activeRequest(state)) {
+      showAnswer();
+      if (!pollDeadline) pollDeadline = Date.now() + POLL_TIMEOUT_MS;
+      if (Date.now() >= pollDeadline) {
+        showError('Ответ ещё не пришёл. Запрос не отправлен повторно. Вернись на экран, чтобы проверить ответ.');
+        return;
+      }
+      setBusy(true);
+      setStatus('Думаю…', 'thinking');
+      schedulePoll();
+      return;
+    }
+    stopPolling();
+    setBusy(false);
+    if (state.aiHomeStatus?.state === 'error') {
+      showAnswer();
+      showError('ИИ не смог ответить. Можно отправить сообщение ещё раз.');
+      return;
+    }
+    const last = rows(state.aiHomeMessages).filter(row => row.role === 'assistant').at(-1);
+    showAnswer(last?.content || '');
+    setStatus('');
+  }
+
+  async function run(task) {
+    if (operation || !alive(epoch)) return;
+    const job = { token: epoch };
+    operation = job;
+    try {
+      await task(job.token);
+    } catch (error) {
+      if (!alive(job.token)) return;
+      if (error.code === 'auth') showAuth();
+      else if (pollDeadline && Date.now() < pollDeadline) {
+        setStatus('Связь прервалась. Проверяю ответ…', 'thinking');
+        schedulePoll(1600);
+      } else showError();
+    } finally {
+      if (operation === job) operation = null;
+    }
+  }
+
+  function sync() {
+    if (voice) return;
+    return run(async token => {
+      setBusy(true);
+      const { state } = await request(token);
+      render(state);
+    });
+  }
+
+  function enqueue(text) {
+    const clean = String(text || '').trim().slice(0, 12000);
+    if (['/manual', 'ручной режим', 'открой ручной режим'].includes(clean.toLocaleLowerCase('ru-RU'))) {
+      openManual();
+      return;
+    }
+    if (!clean || busy || voice || operation || !alive(epoch)) return;
+    clearPoll();
+    return run(async token => {
+      setBusy(true);
+      showAnswer();
+      setStatus('Думаю…', 'thinking');
+      // Retain the id after an ambiguous PUT failure. Never blindly replay a write.
+      if (!submission || submission.text !== clean) submission = { id: requestId(), text: clean };
+      const pending = submission;
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const { revision, state: current } = await request(token);
+        if (rows(current.aiHomeRequests).some(row => row.id === pending.id) || activeRequest(current)) {
+          render(current);
+          return;
+        }
+        const state = JSON.parse(JSON.stringify(current));
+        state.aiHomeRequests = [...rows(state.aiHomeRequests), {
+          id: pending.id, text: pending.text, status: 'pending', createdAt: new Date().toISOString()
+        }].slice(-MAX_ROWS);
+        state.aiHomeMessages = [...rows(state.aiHomeMessages), { role: 'user', content: pending.text }].slice(-MAX_ROWS);
+        state.aiHomeStatus = { state: 'queued', requestId: pending.id, updatedAt: new Date().toISOString() };
+        try {
+          await request(token, 'PUT', revision, state);
+          acknowledge(state);
+          pollDeadline = Date.now() + POLL_TIMEOUT_MS;
+          render(state);
+          return;
+        } catch (error) {
+          if (error.code !== 'conflict') throw error;
+        }
+      }
+      showError('ДВИЖ занят синхронизацией. Текст сохранён, попробуй ещё раз.');
+    });
+  }
+
+  function cancelVoice(restore = true) {
+    const session = voice;
+    if (!session) return;
+    voice = null;
+    const instance = session.instance;
+    instance.onstart = instance.onresult = instance.onerror = instance.onend = null;
+    try { instance.abort(); } catch (_) {}
+    if (restore) { input.value = session.draft; resizeInput(); }
+    controls();
   }
 
   function startVoice() {
-    if (busy) return;
-    const Ctor = speechCtor();
+    if (voice) {
+      try { voice.instance.stop(); } catch (_) { cancelVoice(); setStatus(''); }
+      return;
+    }
+    if (busy || operation || !alive(epoch)) return;
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Ctor) {
       input.focus();
       setStatus('Голосовой ввод здесь недоступен. Напиши.');
       return;
     }
-    if (listening && recognition) {
-      stopVoice();
-      return;
-    }
-
-    const instance = new Ctor();
-    recognition = instance;
+    let instance;
+    try { instance = new Ctor(); }
+    catch (_) { setStatus('Не удалось включить микрофон. Напиши.'); return; }
+    const session = { instance, token: epoch, draft: input.value, finalText: '' };
+    voice = session; // Reserve before onstart: rapid taps cannot start two microphones.
+    controls();
     instance.lang = 'ru-RU';
     instance.continuous = false;
     instance.interimResults = true;
-
-    const seed = input.value.trim();
-    let finalText = '';
-    let heardSpeech = false;
-    let speechFailed = false;
-
-    instance.onstart = () => {
-      listening = true;
-      setStatus('Слушаю…', 'listening');
-    };
-
+    const current = () => voice === session && alive(session.token);
+    const combined = text => [session.draft.trim(), text.trim()].filter(Boolean).join(' ').slice(0, 12000);
+    instance.onstart = () => { if (current()) setStatus('Слушаю…', 'listening'); };
     instance.onresult = event => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const part = String(event.results[i][0]?.transcript || '');
-        if (part.trim()) heardSpeech = true;
-        if (event.results[i].isFinal) finalText += part;
-        else interim += part;
+      if (!current()) return;
+      const final = [], interim = [];
+      for (const result of Array.from(event.results)) {
+        (result.isFinal ? final : interim).push(String(result[0]?.transcript || ''));
       }
-      const spoken = (finalText || interim).trim();
-      input.value = [seed, spoken].filter(Boolean).join(seed && spoken ? ' ' : '');
+      session.finalText = final.join(' ').trim();
+      input.value = combined([...final, ...interim].join(' '));
       resizeInput();
     };
-
-    instance.onerror = () => {
-      speechFailed = true;
-      listening = false;
-      recognition = null;
-      setStatus('Не расслышал. Можно сказать ещё раз.');
+    instance.onerror = event => {
+      if (!current()) return;
+      cancelVoice();
+      setStatus(['not-allowed', 'service-not-allowed'].includes(event.error)
+        ? 'Нет доступа к микрофону. Можно написать.' : 'Не расслышал. Можно сказать ещё раз.');
     };
-
     instance.onend = () => {
-      listening = false;
-      recognition = null;
-      if (!pageAlive || speechFailed) return;
-      if (heardSpeech) enqueue(input.value);
-      else setStatus('');
+      if (!current()) return;
+      const text = session.finalText;
+      cancelVoice(!text);
+      if (text) { input.value = combined(text); resizeInput(); enqueue(input.value); }
+      else setStatus('Не расслышал. Можно сказать ещё раз.');
     };
-
-    try {
-      instance.start();
-    } catch (_) {
-      listening = false;
-      recognition = null;
-      input.focus();
-      setStatus('');
-    }
+    try { instance.start(); }
+    catch (_) { cancelVoice(); input.focus(); setStatus('Не удалось включить микрофон. Напиши.'); }
   }
 
-  async function syncFromState() {
-    try {
-      const { state } = await readState();
-      const result = renderState(state);
-      if (result.active) startPolling();
-    } catch (error) {
-      if (error && error.code === 'auth') showAuth();
-      else showError('Не удалось связаться с ДВИЖем.');
-    }
+  function cancelManualHold() {
+    holdStartedAt = null;
   }
 
-  async function boot() {
-    await syncFromState();
+  function suspend() {
+    pageAlive = false;
+    epoch += 1;
+    clearPoll();
+    cancelManualHold();
+    cancelVoice();
+    for (const controller of controllers) controller.abort();
+    controllers.clear();
+    operation = null;
   }
 
-  composer.addEventListener('submit', event => {
-    event.preventDefault();
-    enqueue(input.value);
-  });
+  function resume() {
+    pageAlive = true;
+    viewport();
+    sync();
+  }
 
+  function manualTarget() {
+    const raw = String(location.pathname || '/');
+    const path = raw.length > 1 ? raw.replace(/\/+$/, '') : raw;
+    return path === '/' || path === '/index.html' ? '/manual.html' : '/';
+  }
+
+  function openManual() {
+    suspend();
+    location.assign(manualTarget());
+  }
+
+  composer.addEventListener('submit', event => { event.preventDefault(); enqueue(input.value); });
   input.addEventListener('input', resizeInput);
   input.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
       event.preventDefault();
       composer.requestSubmit();
     }
   });
-
-  orb.addEventListener('pointerdown', () => {
+  orb.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    cancelManualHold();
+    holdOpenedManual = false;
     holdStartedAt = performance.now();
-    suppressOrbClick = false;
   });
-
   orb.addEventListener('pointerup', () => {
-    if (!holdStartedAt) return;
+    if (holdStartedAt === null) return;
     const heldFor = performance.now() - holdStartedAt;
-    holdStartedAt = 0;
-    if (heldFor >= MANUAL_HOLD_MS) {
-      suppressOrbClick = true;
-      openManual();
-    }
+    cancelManualHold();
+    if (heldFor >= 1100) { holdOpenedManual = true; openManual(); }
   });
-
-  orb.addEventListener('pointercancel', () => {
-    holdStartedAt = 0;
-  });
-
-  orb.addEventListener('pointerleave', () => {
-    holdStartedAt = 0;
-  });
-
+  for (const type of ['pointercancel', 'pointerleave']) orb.addEventListener(type, cancelManualHold);
+  orb.addEventListener('contextmenu', event => event.preventDefault());
   orb.addEventListener('click', event => {
     event.preventDefault();
-    if (suppressOrbClick) {
-      suppressOrbClick = false;
-      return;
-    }
+    if (holdOpenedManual) { holdOpenedManual = false; return; }
     startVoice();
   });
-
-  window.addEventListener('pageshow', event => {
-    pageAlive = true;
-    if (event.persisted) syncFromState();
+  window.addEventListener('keydown', event => {
+    if (event.altKey && event.code === 'KeyM') { event.preventDefault(); openManual(); }
+    if (event.key === 'Escape' && voice) { cancelVoice(); setStatus(''); }
   });
-
-  window.addEventListener('pagehide', () => {
-    pageAlive = false;
-    stopPolling();
-    stopVoice(true);
-  });
-
-  boot();
+  window.addEventListener('pagehide', suspend);
+  window.addEventListener('pageshow', event => { if (event.persisted || !pageAlive) resume(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); else resume(); });
+  window.addEventListener('online', () => { if (alive(epoch)) sync(); });
+  window.addEventListener('resize', viewport);
+  window.visualViewport?.addEventListener('resize', viewport);
+  viewport();
+  sync();
 })();
