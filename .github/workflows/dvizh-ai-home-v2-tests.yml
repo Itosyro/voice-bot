@@ -19,25 +19,35 @@ jobs:
           set -euo pipefail
           node --check ai-home-v2/ai-home-v2.js
           ! grep -q 'MutationObserver' ai-home-v2/ai-home-v2.js
-          ! grep -q 'setInterval(' ai-home-v2/ai-home-v2.js
+          ! grep -Fq 'setInterval(' ai-home-v2/ai-home-v2.js
+          ! grep -qE 'serviceWorker|caches\.' ai-home-v2/ai-home-v2.js
           grep -q "const API = '/api/state';" ai-home-v2/ai-home-v2.js
-          grep -q "location.assign('/manual.html')" ai-home-v2/ai-home-v2.js
-          grep -q '/ai-home-v2.js?v=20260905-1' ai-home-v2/index.html
-          grep -q '/ai-home-v2.css?v=20260905-1' ai-home-v2/index.html
-          ! grep -q 'src="/app.js' ai-home-v2/index.html
-          ! grep -q 'src="app.js' ai-home-v2/index.html
+          grep -Fq "return promoted ? '/manual.html' : '/';" ai-home-v2/ai-home-v2.js
+          grep -q '/ai-home-v2.js?v=20260905-2' ai-home-v2/index.html
+          grep -q '/ai-home-v2.css?v=20260905-2' ai-home-v2/index.html
+          grep -q '<p class="ai-status" id="aiStatus"></p>' ai-home-v2/index.html
+          ! grep -Fq 'app.js' ai-home-v2/index.html
 
-      - name: Exercise isolated installer
+      - name: Validate installer defaults
+        run: |
+          set -euo pipefail
+          bash -n install-dvizh-ai-home-v2.sh
+          grep -Fq 'MODE="${DVIZH_AI_HOME_V2_MODE:-preview}"' install-dvizh-ai-home-v2.sh
+          grep -q 'PREVIEW="$APP_ROOT/ai-home-v2-preview.html"' install-dvizh-ai-home-v2.sh
+          grep -qE '^PAYLOAD_REF="[0-9a-f]{40}"$' install-dvizh-ai-home-v2.sh
+
+      - name: Exercise preview first and explicit promotion
         run: |
           set -euo pipefail
           ROOT="$(mktemp -d)"
-          cat > "$ROOT/index.html" <<'EOF'
-          <!doctype html><html><head><link rel="stylesheet" href="styles.css"></head><body><main id="stable-manual">STABLE MANUAL</main><script src="app.js"></script></body></html>
-          EOF
+          cat > "$ROOT/index.html" <<'HTML'
+          <!doctype html><html><head><link rel="stylesheet" href="styles.css"></head><body><main id="stable-root">STABLE ROOT</main><script src="app.js"></script></body></html>
+          HTML
           printf '%s\n' "console.log('stable app');" > "$ROOT/app.js"
           printf '%s\n' "body{background:#000}" > "$ROOT/styles.css"
           printf '%s\n' "// stable network worker" > "$ROOT/sw.js"
 
+          INDEX_BEFORE="$(sha256sum "$ROOT/index.html" | awk '{print $1}')"
           APP_BEFORE="$(sha256sum "$ROOT/app.js" | awk '{print $1}')"
           CSS_BEFORE="$(sha256sum "$ROOT/styles.css" | awk '{print $1}')"
           SW_BEFORE="$(sha256sum "$ROOT/sw.js" | awk '{print $1}')"
@@ -46,33 +56,44 @@ jobs:
           DVIZH_AI_HOME_V2_SOURCE_DIR="$GITHUB_WORKSPACE/ai-home-v2" \
             bash install-dvizh-ai-home-v2.sh
 
-          grep -q 'STABLE MANUAL' "$ROOT/manual.html"
-          grep -q 'ai-home-v2.js?v=20260905-1' "$ROOT/index.html"
-          grep -q 'Напиши или скажи' "$ROOT/index.html"
+          test "$(sha256sum "$ROOT/index.html" | awk '{print $1}')" = "$INDEX_BEFORE"
           test "$(sha256sum "$ROOT/app.js" | awk '{print $1}')" = "$APP_BEFORE"
           test "$(sha256sum "$ROOT/styles.css" | awk '{print $1}')" = "$CSS_BEFORE"
           test "$(sha256sum "$ROOT/sw.js" | awk '{print $1}')" = "$SW_BEFORE"
+          test ! -e "$ROOT/manual.html"
+          grep -q 'ai-home-v2.js?v=20260905-2' "$ROOT/ai-home-v2-preview.html"
           node --check "$ROOT/ai-home-v2.js"
+
+          DVIZH_AI_HOME_V2_ROOT="$ROOT" \
+          DVIZH_AI_HOME_V2_SOURCE_DIR="$GITHUB_WORKSPACE/ai-home-v2" \
+          DVIZH_AI_HOME_V2_MODE=promote \
+            bash install-dvizh-ai-home-v2.sh
+
+          grep -q 'STABLE ROOT' "$ROOT/manual.html"
+          grep -q 'ai-home-v2.js?v=20260905-2' "$ROOT/index.html"
+          test "$(sha256sum "$ROOT/app.js" | awk '{print $1}')" = "$APP_BEFORE"
+          test "$(sha256sum "$ROOT/styles.css" | awk '{print $1}')" = "$CSS_BEFORE"
+          test "$(sha256sum "$ROOT/sw.js" | awk '{print $1}')" = "$SW_BEFORE"
 
           MANUAL_BEFORE="$(sha256sum "$ROOT/manual.html" | awk '{print $1}')"
           DVIZH_AI_HOME_V2_ROOT="$ROOT" \
           DVIZH_AI_HOME_V2_SOURCE_DIR="$GITHUB_WORKSPACE/ai-home-v2" \
+          DVIZH_AI_HOME_V2_MODE=promote \
             bash install-dvizh-ai-home-v2.sh
           test "$(sha256sum "$ROOT/manual.html" | awk '{print $1}')" = "$MANUAL_BEFORE"
-          test "$(sha256sum "$ROOT/app.js" | awk '{print $1}')" = "$APP_BEFORE"
 
-      - name: Serve both roots independently
+      - name: Serve stable root and preview independently
         run: |
           set -euo pipefail
           ROOT="$(mktemp -d)"
-          cp ai-home-v2/index.html "$ROOT/index.html"
+          printf '%s\n' '<!doctype html><title>stable</title>STABLE_ROOT_OK' > "$ROOT/index.html"
+          cp ai-home-v2/index.html "$ROOT/ai-home-v2-preview.html"
           cp ai-home-v2/ai-home-v2.js "$ROOT/ai-home-v2.js"
           cp ai-home-v2/ai-home-v2.css "$ROOT/ai-home-v2.css"
-          printf '%s\n' '<!doctype html><title>manual</title>MANUAL_OK' > "$ROOT/manual.html"
           python3 -m http.server 8765 --directory "$ROOT" >/tmp/dvizh-ai-v2-http.log 2>&1 &
           PID=$!
           trap 'kill $PID || true' EXIT
           sleep 1
-          curl -fsS http://127.0.0.1:8765/ | grep -q 'Напиши или скажи'
-          curl -fsS http://127.0.0.1:8765/manual.html | grep -q 'MANUAL_OK'
+          curl -fsS http://127.0.0.1:8765/ | grep -q 'STABLE_ROOT_OK'
+          curl -fsS http://127.0.0.1:8765/ai-home-v2-preview.html | grep -q 'Напиши или скажи'
           curl -fsS http://127.0.0.1:8765/ai-home-v2.js | grep -q "const API = '/api/state';"
