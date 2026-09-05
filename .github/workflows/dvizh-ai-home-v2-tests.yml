@@ -1,4 +1,4 @@
-name: DVIZH AI Home v2 isolation tests
+name: DVIZH AI Home v2 full CI
 
 on:
   push:
@@ -6,12 +6,18 @@ on:
       - 'ai-home-v2/**'
       - 'tests/ai-home-v2/**'
       - 'install-dvizh-ai-home-v2.sh'
+      - 'install-dvizh-ai-home-v2-preview-from-github.sh'
+      - 'hermes-control-v1/dvizh_ai_home_bridge.py'
+      - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - '.github/workflows/dvizh-ai-home-v2-tests.yml'
   pull_request:
     paths:
       - 'ai-home-v2/**'
       - 'tests/ai-home-v2/**'
       - 'install-dvizh-ai-home-v2.sh'
+      - 'install-dvizh-ai-home-v2-preview-from-github.sh'
+      - 'hermes-control-v1/dvizh_ai_home_bridge.py'
+      - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - '.github/workflows/dvizh-ai-home-v2-tests.yml'
   workflow_dispatch:
 
@@ -19,24 +25,43 @@ permissions:
   contents: read
 
 concurrency:
-  group: ai-home-v2-tests-${{ github.ref }}
+  group: ai-home-v2-full-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate and exercise isolated client and preview installer
+      - name: Validate isolated client, installer and immutable preview bootstrap
         run: |
           set -euo pipefail
           bash -n install-dvizh-ai-home-v2.sh
+          bash -n install-dvizh-ai-home-v2-preview-from-github.sh
           node --check ai-home-v2/ai-home-v2.js
           node --test tests/ai-home-v2/*.test.cjs
+
+  hermes-bridge-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Exercise the actual AI Home bridge contract against local Web API and Hermes fixtures
+        run: |
+          set -euo pipefail
+          python -m py_compile hermes-control-v1/dvizh_ai_home_bridge.py
+          python tests/ai-home-v2/bridge_contract_test.py
+          grep -q '^User=dvizh$' hermes-control-v1/systemd/dvizh-ai-home.service
+          grep -q '^NoNewPrivileges=true$' hermes-control-v1/systemd/dvizh-ai-home.service
+          grep -q '^ProtectSystem=strict$' hermes-control-v1/systemd/dvizh-ai-home.service
+          grep -q '^ReadWritePaths=/var/lib/dvizh$' hermes-control-v1/systemd/dvizh-ai-home.service
 
   browser:
     runs-on: ubuntu-latest
@@ -58,3 +83,18 @@ jobs:
           name: ai-home-v2-browser
           path: test-results/
           if-no-files-found: warn
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [contracts, hermes-bridge-contract, browser]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refuse a bootstrap that could promote or float to another payload
+        run: |
+          set -euo pipefail
+          grep -q '^RELEASE_COMMIT="aac4a406ff5c30e7daf206bec65df93d2279ac8d"$' install-dvizh-ai-home-v2-preview-from-github.sh
+          ! grep -q 'install-dvizh-ai-home-v2.sh" --promote' install-dvizh-ai-home-v2-preview-from-github.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' install-dvizh-ai-home-v2-preview-from-github.sh
+          grep -Fq 'ai-home-v2-preview.html' install-dvizh-ai-home-v2-preview-from-github.sh
+          grep -Fq "const API = '/api/state';" ai-home-v2/ai-home-v2.js
