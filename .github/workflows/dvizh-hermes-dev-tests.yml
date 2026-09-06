@@ -64,7 +64,7 @@ jobs:
                   raise SystemExit(f'missing skill safety marker: {marker}')
 
           required_installer = (
-              'VERSION="2026.09.06-hermes-dev-installer.2"',
+              'VERSION="2026.09.06-hermes-dev-installer.3"',
               'PAYLOAD_REF="eb9457c759e2396eab13ccf14a55e7c39b79cd5f"',
               'CTL_BLOB="41a879b744be907cb379685038df1f5ee55e7b11"',
               'SKILL_BLOB="f6f62faa99b15069921971bfebb91b69e29e86a2"',
@@ -91,6 +91,8 @@ jobs:
           test -f "$HOME/.hermes/skills/dvizh/dvizh-dev/SKILL.md"
           grep -q '^name: dvizh-dev$' "$HOME/.hermes/skills/dvizh/dvizh-dev/SKILL.md"
           test -d "$HOME/.hermes/dev/dvizh/repo/.git"
+          test "$(stat -c '%U' "$HOME/.hermes")" = "$target_user"
+          test "$(stat -c '%U' "$HOME/.hermes/dev")" = "$target_user"
           test ! -e /etc/sudoers.d/dvizh-hermes-dev
           if command -v systemctl >/dev/null 2>&1; then
             ! systemctl list-unit-files --no-legend 2>/dev/null | grep -q 'dvizh-hermes-dev'
