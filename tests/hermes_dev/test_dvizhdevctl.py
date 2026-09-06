@@ -72,11 +72,15 @@ class HermesDevCtlTests(unittest.TestCase):
         diff = self.json_ctl("diff", job["id"])
         self.assertIn("README.md", diff["stat"])
 
-        (wt / ".env").write_text("SHOULD_NOT_BE_COMMITTED=1\n", encoding="utf-8")
+        secret_dir = wt / "fixture"
+        secret_dir.mkdir()
+        secret_file = secret_dir / "auth.json"
+        secret_file.write_text('{"token":"SHOULD_NOT_BE_COMMITTED"}\n', encoding="utf-8")
         denied = self.run_ctl("commit", job["id"], "Should refuse secret", check=False)
         self.assertNotEqual(denied.returncode, 0)
         self.assertIn("forbidden", denied.stderr.lower())
-        (wt / ".env").unlink()
+        secret_file.unlink()
+        secret_dir.rmdir()
 
         committed = self.json_ctl("commit", job["id"], "Test safe Hermes dev commit")
         self.assertEqual(committed["branch"], job["branch"])
