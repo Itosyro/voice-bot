@@ -60,6 +60,8 @@ jobs:
           grep -Fq 'TARGET="/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py"' install-dvizh-jump-sync-stability-release.sh
           grep -Fq 'systemctl restart "$SERVICE"' install-dvizh-jump-sync-stability-release.sh
           grep -Fq 'cp -a -- "$BACKUP_DIR/jump_web_bridge.py" "$TARGET"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'systemctl is-active --quiet "$unit"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'PATCHED=1' install-dvizh-jump-sync-stability-release.sh
 
       - name: Static mutation boundary
         run: |
@@ -98,7 +100,7 @@ jobs:
       - name: Confirm root-cause release
         run: |
           set -euo pipefail
-          grep -Fq 'VERSION="2026.09.06-jump-sync-stability-release.1"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'VERSION="2026.09.06-jump-sync-stability-release.2"' install-dvizh-jump-sync-stability-release.sh
           grep -Fq 'packet.pop("exportedAt", None)' install-dvizh-jump-sync-stability-fix.sh
           grep -Fq "changed: false" tests/jump-sync-stability.test.cjs
           grep -Fq 'Изменён только jump_web_bridge.py; state, БД, AI Home и manual frontend не изменялись.' install-dvizh-jump-sync-stability-release.sh
