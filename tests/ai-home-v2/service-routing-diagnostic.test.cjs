@@ -10,7 +10,7 @@ const source = fs.readFileSync(probe, 'utf8');
 
 test('live dvizh service routing probe is read-only and does not inspect process environment', () => {
   assert.match(source, /systemctl show dvizh\.service/);
-  assert.match(source, /\/proc\/\$PID\/cmdline/);
+  assert.match(source, /\/proc\/\{pid\}\/cmdline/);
   assert.doesNotMatch(source, /\/proc\/[^\n]*\/environ/);
   assert.doesNotMatch(source, /\bprintenv\b/);
   assert.doesNotMatch(source, /systemctl\s+(?:restart|start|stop|enable|disable|daemon-reload)/);
