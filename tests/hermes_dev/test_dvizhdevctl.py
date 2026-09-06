@@ -76,9 +76,20 @@ class HermesDevCtlTests(unittest.TestCase):
         secret_dir.mkdir()
         secret_file = secret_dir / "auth.json"
         secret_file.write_text('{"token":"SHOULD_NOT_BE_COMMITTED"}\n', encoding="utf-8")
+        staged = subprocess.run(
+            ["git", "add", "-f", "--", "fixture/auth.json"],
+            cwd=str(wt),
+            env=self.env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertEqual(staged.returncode, 0, staged.stderr)
         denied = self.run_ctl("commit", job["id"], "Should refuse secret", check=False)
         self.assertNotEqual(denied.returncode, 0)
         self.assertIn("forbidden", denied.stderr.lower())
+        subprocess.run(["git", "reset", "--", "fixture/auth.json"], cwd=str(wt), env=self.env, check=True)
         secret_file.unlink()
         secret_dir.rmdir()
 
