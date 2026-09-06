@@ -1,0 +1,104 @@
+name: DVIZH Jump Sync Stability CI
+
+on:
+  push:
+    paths:
+      - 'install-dvizh-jump-sync-stability-fix.sh'
+      - 'install-dvizh-jump-sync-stability-release.sh'
+      - 'tests/jump-sync-stability.test.cjs'
+      - '.github/workflows/dvizh-jump-sync-stability-tests.yml'
+  pull_request:
+    paths:
+      - 'install-dvizh-jump-sync-stability-fix.sh'
+      - 'install-dvizh-jump-sync-stability-release.sh'
+      - 'tests/jump-sync-stability.test.cjs'
+      - '.github/workflows/dvizh-jump-sync-stability-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dvizh-jump-sync-stability-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify exact Hermes handoff
+        run: |
+          set -euo pipefail
+          test "$(git hash-object install-dvizh-jump-sync-stability-fix.sh)" = 'c86a6b531681b59018ab53b4536d12794e00fef5'
+          test "$(git hash-object tests/jump-sync-stability.test.cjs)" = '67aa6c0d3de2069b9a10196c0368354f4c0b557a'
+          actual="$(git diff --binary --full-index ba8214911f5942fdbf36269e1e992eb7607b40f8 a8b2d72ff8d21de1626cebcc5a57b7ced7b0753d -- . | sha256sum | awk '{print $1}')"
+          test "$actual" = 'd4f58878206aab95d3396dea925024186f9e236aadafb57865815f690519f54b'
+
+      - name: Regression test
+        run: |
+          set -euo pipefail
+          bash -n install-dvizh-jump-sync-stability-fix.sh
+          node --test tests/jump-sync-stability.test.cjs
+
+      - name: Release wrapper syntax and immutable payload
+        run: |
+          set -euo pipefail
+          bash -n install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'PAYLOAD_REF="a8b2d72ff8d21de1626cebcc5a57b7ced7b0753d"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'PAYLOAD_BLOB="c86a6b531681b59018ab53b4536d12794e00fef5"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'TARGET="/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'systemctl restart "$SERVICE"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'cp -a -- "$BACKUP_DIR/jump_web_bridge.py" "$TARGET"' install-dvizh-jump-sync-stability-release.sh
+
+      - name: Static mutation boundary
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path('install-dvizh-jump-sync-stability-release.sh').read_text(encoding='utf-8')
+          required = [
+              '/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py',
+              '/var/lib/dvizh/backups',
+              'dvizh-jump.service',
+              'python3 -m py_compile "$TARGET"',
+              'systemctl is-active --quiet "$SERVICE"',
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit(f'missing release safety marker: {marker}')
+          forbidden = [
+              r'/opt/dvizh/static', r'/opt/dvizh/server\.py', r'/opt/dvizh-ai-home',
+              r'/etc/dvizh', r'\bsqlite3\b', r'\bpsql\b', r'\bmysql\b',
+              r'systemctl\s+(stop|disable|enable|daemon-reload)',
+              r'\brm\s+-rf\s+/(?!tmp/)',
+          ]
+          for pattern in forbidden:
+              if re.search(pattern, text):
+                  raise SystemExit(f'forbidden mutation surface: {pattern}')
+          PY
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm root-cause release
+        run: |
+          set -euo pipefail
+          grep -Fq 'VERSION="2026.09.06-jump-sync-stability-release.1"' install-dvizh-jump-sync-stability-release.sh
+          grep -Fq 'packet.pop("exportedAt", None)' install-dvizh-jump-sync-stability-fix.sh
+          grep -Fq "changed: false" tests/jump-sync-stability.test.cjs
+          grep -Fq 'Изменён только jump_web_bridge.py; state, БД, AI Home и manual frontend не изменялись.' install-dvizh-jump-sync-stability-release.sh
