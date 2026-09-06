@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct public auth release and inspect reset contract
+      - name: Reconstruct public auth release and inspect response headers
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -26,8 +26,8 @@ jobs:
           rm -rf /tmp/auth-release
           mkdir -p /tmp/auth-release
           tar -xzf /tmp/auth.tar.gz -C /tmp/auth-release
-          echo '=== FILES ==='
-          find /tmp/auth-release -maxdepth 4 -type f -printf '%p\n' | sort
-          echo '=== AUTH TERMS ==='
-          grep -RInE -C 3 'password|username|setup|reset|scrypt|session|sqlite|database|change' /tmp/auth-release/dvizh-auth-build \
-            --exclude='*.css' --exclude='*.html' --exclude='*.svg' || true
+          SRC=/tmp/auth-release/dvizh-auth-build/auth_gateway.py
+          echo '=== SECURITY HEADER MATCHES ==='
+          grep -nEi -C 4 'permissions-policy|feature-policy|content-security-policy|cross-origin|x-frame-options|referrer-policy|send_header|security' "$SRC" || true
+          echo '=== RESPONSE HELPERS ==='
+          sed -n '620,675p' "$SRC"
