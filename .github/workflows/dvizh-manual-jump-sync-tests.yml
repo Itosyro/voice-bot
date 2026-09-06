@@ -34,11 +34,69 @@ jobs:
           set -euo pipefail
           bash -n install-dvizh-manual-jump-fix.sh
           node --test tests/manual-jump-sync.test.cjs
-      - name: Verify exact Hermes handoff payload
+      - name: Verify Hermes semantic fix is preserved
         run: |
           set -euo pipefail
-          test "$(git hash-object install-dvizh-manual-jump-fix.sh)" = '7b6c3dc897d839e9f0096d841e9fdaadeaa6cbe4'
           test "$(git hash-object tests/manual-jump-sync.test.cjs)" = '472351240d11d43824305b6a8e1e8623980ca55e'
+          grep -Fq 'delete packet.exportedAt' install-dvizh-manual-jump-fix.sh
+          grep -Fq 'appLoaded && manualJumpChanged' install-dvizh-manual-jump-fix.sh
+      - name: Prove installer works when node is absent from PATH
+        run: |
+          set -euo pipefail
+          fixture="$(mktemp -d)"
+          cat > "$fixture/sync.js" <<'JS'
+          (() => {
+            function clone(value) { return JSON.parse(JSON.stringify(value)); }
+            function normalizeState(value) { return value; }
+            function safeParse(value) { return value; }
+            const nativeGet = { call() { return {}; } };
+            const nativeSet = { call() {} };
+            const localStorage = {};
+            const STATE_KEY = 'x';
+            let queued = false, appLoaded = true, ready = true, inFlight = false;
+            const document = { visibilityState: 'visible' };
+            const meta = { revision: 0 };
+            const window = { setTimeout() {} };
+            const location = { reload() {} };
+            function mergeStates(a,b) { return b; }
+            function requestState() { return Promise.resolve({state:{},revision:1}); }
+            function setStatus() {}
+            function isoNow() { return ''; }
+            function persistMeta() {}
+            function queuePush() {}
+            let reloadAfterSync = false;
+            async function pullLatest({ manual = false } = {}) {
+              if (!ready || inFlight || document.visibilityState === 'hidden') return;
+              if (manual) setStatus('syncing', 'Проверяю сервер…');
+              try {
+                const remote = await requestState();
+                if (!remote.state) return;
+                const remoteRevision = Number(remote.revision) || 0;
+                if (remoteRevision <= meta.revision) return;
+                const local = normalizeState(safeParse(nativeGet.call(localStorage, STATE_KEY)));
+                const merged = queued ? mergeStates(local, remote.state) : normalizeState(remote.state);
+                nativeSet.call(localStorage, STATE_KEY, JSON.stringify(merged));
+                meta.revision = remoteRevision;
+                meta.lastSyncedAt = remote.updatedAt || isoNow();
+                persistMeta();
+                if (queued) {
+                  queuePush();
+                  reloadAfterSync = appLoaded;
+                } else if (appLoaded) {
+                  window.setTimeout(() => location.reload(), 120);
+                }
+              } catch (error) {}
+            }
+          })();
+          JS
+          mkdir "$fixture/bin"
+          for cmd in bash python3 dirname mktemp rm cp mv; do
+            path="$(command -v "$cmd")"
+            ln -s "$path" "$fixture/bin/$cmd"
+          done
+          PATH="$fixture/bin" DVIZH_MANUAL_JUMP_ROOT="$fixture" bash install-dvizh-manual-jump-fix.sh
+          grep -Fq 'appLoaded && manualJumpChanged' "$fixture/sync.js"
+          ! PATH="$fixture/bin" command -v node >/dev/null 2>&1
       - name: Static deployment boundary
         run: |
           set -euo pipefail
@@ -75,7 +133,7 @@ jobs:
       - name: Confirm narrow one-file production patch
         run: |
           set -euo pipefail
-          grep -Fq 'VERSION="2026.09.06-manual-jump-sync.1"' install-dvizh-manual-jump-fix.sh
+          grep -Fq 'VERSION="2026.09.06-manual-jump-sync.2"' install-dvizh-manual-jump-fix.sh
           grep -Fq 'Сервисы не перезапускались; app.js, manual.html, БД и настройки не изменены.' install-dvizh-manual-jump-fix.sh
           grep -Fq 'timestampOnly' tests/manual-jump-sync.test.cjs
           grep -Fq 'changedPlan' tests/manual-jump-sync.test.cjs
