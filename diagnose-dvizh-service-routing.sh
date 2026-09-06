@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-dvizh-service-routing-diagnostic.1"
+VERSION="2026.09.06-dvizh-service-routing-diagnostic.2"
 
 for tool in systemctl readlink find grep sha256sum python3; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $tool" >&2; exit 1; }
@@ -29,14 +29,14 @@ echo "=== DVIZH service routing diagnostic ==="
 echo "version=$VERSION"
 echo "app_root=${APP_ROOT:-unknown}"
 echo
-echo "--- dvizh.service metadata (read only) ---"
+echo "--- dvizh.service metadata (read only; ExecStart intentionally omitted) ---"
 systemctl show dvizh.service --no-pager \
-  -p ActiveState -p SubState -p MainPID -p FragmentPath -p WorkingDirectory -p ExecStart
+  -p ActiveState -p SubState -p MainPID -p FragmentPath -p WorkingDirectory
 
 PID="$(systemctl show dvizh.service -p MainPID --value)"
 if [[ "$PID" =~ ^[0-9]+$ && "$PID" -gt 0 && -d "/proc/$PID" ]]; then
   echo
-  echo "--- running process (no environment) ---"
+  echo "--- running process (environment not read; argv secrets redacted) ---"
   printf 'pid=%s\n' "$PID"
   printf 'exe=%s\n' "$(readlink -f "/proc/$PID/exe" 2>/dev/null || true)"
   printf 'cwd=%s\n' "$(readlink -f "/proc/$PID/cwd" 2>/dev/null || true)"
@@ -50,7 +50,7 @@ except OSError as exc:
     print('argv=<unreadable: %s>' % exc.__class__.__name__)
     raise SystemExit(0)
 parts = [p.decode('utf-8', 'replace') for p in parts if p]
-secret_flag = re.compile(r'(?i)(token|secret|password|passwd|api[-_]?key|authorization|cookie)')
+secret_flag = re.compile(r'(?i)(token|secret|password|passwd|api[-_]?key|authorization|cookie|credential)')
 out=[]
 redact_next=False
 for part in parts:
@@ -82,7 +82,7 @@ if [[ ${#ROOTS[@]} -eq 0 ]]; then
 else
   python3 - "${ROOTS[@]}" <<'PY'
 from pathlib import Path
-import os, re, sys
+import os, sys
 roots=[]
 seen=set()
 for raw in sys.argv[1:]:
@@ -113,7 +113,7 @@ for p in sorted(set(files)):
 PY
 
   echo
-  echo "--- routing-related source lines (secrets redacted) ---"
+  echo "--- routing-related source lines (secret-shaped values redacted) ---"
   python3 - "${ROOTS[@]}" <<'PY'
 from pathlib import Path
 import os, re, sys
@@ -127,7 +127,7 @@ for raw in sys.argv[1:]:
 skip_parts={'static','node_modules','.git','venv','.venv','__pycache__','backups','backup'}
 exts={'.py','.js','.mjs','.cjs','.ts'}
 route = re.compile(r'(?i)(manual\.html|index\.html|ai-home-v2-preview|StaticFiles|FileResponse|send_file|serveFile|/api/health|@\w+\.(?:get|route)|\bapp\.(?:get|use)\s*\(|\brouter\.(?:get|use)\s*\(|BaseHTTPRequestHandler|SimpleHTTPRequestHandler|path\s*==|pathname|static)')
-secret = re.compile(r'(?i)((?:token|secret|password|passwd|api[-_]?key|authorization|cookie)\s*[:=]\s*)([^,;\s]+|["\'][^"\']*["\'])')
+secret = re.compile(r'(?i)((?:token|secret|password|passwd|api[-_]?key|authorization|cookie|credential)\s*[:=]\s*)([^,;\s]+|["\'][^"\']*["\'])')
 count=0
 for root in roots:
     for base, dirs, names in os.walk(root):
