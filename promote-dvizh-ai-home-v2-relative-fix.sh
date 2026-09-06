@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-ai-home-v2-promote-relative-fix.1"
+VERSION="2026.09.06-ai-home-v2-promote-relative-fix.2"
 BASE_PROMOTE_COMMIT="575e174e9b2c1ad06c35fa2c428314f9ffaa2fa6"
 BASE_PROMOTE_BLOB="81d8cbdaa351991f9e8bf0bd26ccac93b4a098d1"
 DEFAULT_SOURCE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${BASE_PROMOTE_COMMIT}/promote-dvizh-ai-home-v2-from-github.sh"
@@ -46,7 +46,10 @@ needle = "/?app\\\\.js"
 count = text.count(needle)
 if count != 4:
     raise SystemExit(f"Ожидалось 4 проверки app.js старого promote, найдено {count}")
-text = text.replace(needle, r"(\\./|/)?app\\.js")
+replacement = r"(\\./|/)?app\\.js"
+text = text.replace(needle, replacement)
+if text.count(replacement) != 4:
+    raise SystemExit("Compatibility-fix не заменил ровно четыре проверки app.js")
 old_version = 'VERSION="2026.09.06-ai-home-v2-promote-bootstrap.1"'
 if text.count(old_version) != 1:
     raise SystemExit("Не найден ожидаемый VERSION исходного promote")
@@ -55,10 +58,12 @@ out.write_text(text, encoding="utf-8")
 PY
 
 bash -n "$PATCHED_SCRIPT"
-grep -Fq '(\./|/)?app\.js' "$PATCHED_SCRIPT"
-grep -Fq 'автоматически возвращаю предыдущую главную' "$PATCHED_SCRIPT"
-grep -Fq 'http://127.0.0.1:8000/manual.html' "$PATCHED_SCRIPT"
-! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' "$PATCHED_SCRIPT"
+grep -Fq 'автоматически возвращаю предыдущую главную' "$PATCHED_SCRIPT" || { echo "В patched promote потерян rollback marker." >&2; exit 1; }
+grep -Fq 'http://127.0.0.1:8000/manual.html' "$PATCHED_SCRIPT" || { echo "В patched promote потерян HTTP manual smoke." >&2; exit 1; }
+if grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' "$PATCHED_SCRIPT"; then
+  echo "Patched promote неожиданно меняет сервисы." >&2
+  exit 1
+fi
 
 chmod 0755 "$PATCHED_SCRIPT"
 echo "Применён compatibility-fix: старый ручной интерфейс может использовать ./app.js?v=..."
