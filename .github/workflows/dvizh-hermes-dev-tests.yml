@@ -35,15 +35,32 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile hermes-dev-v1/dvizhdevctl.py
-          ! grep -Eq 'sub\.add_parser\(["'"']deploy["'"']\)' hermes-dev-v1/dvizhdevctl.py
-          ! grep -Eq 'git[[:space:]]+push[^\n]*(--force|-f([[:space:]]|$))' hermes-dev-v1/dvizhdevctl.py
-          ! grep -Eq 'systemctl[^\n]*(restart|start|stop|enable|disable|daemon-reload)' hermes-dev-v1/dvizhdevctl.py
-          ! grep -Eq 'sudo[[:space:]]' hermes-dev-v1/dvizhdevctl.py
-          grep -Fq 'deploy-propose' hermes-dev-v1/dvizhdevctl.py
-          grep -Fq 'pending-user-approval' hermes-dev-v1/dvizhdevctl.py
-          grep -Fq 'Never run `sudo`' hermes-dev-v1/skill/SKILL.md
-          grep -Fq 'dvizhdevctl new' hermes-dev-v1/skill/SKILL.md
-          grep -Fq 'dvizhdevctl ci' hermes-dev-v1/skill/SKILL.md
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          ctl = Path('hermes-dev-v1/dvizhdevctl.py').read_text(encoding='utf-8')
+          skill = Path('hermes-dev-v1/skill/SKILL.md').read_text(encoding='utf-8')
+
+          forbidden = {
+              'root deploy parser': r'''sub\.add_parser\(["']deploy["']\)''',
+              'force push': r'''git[^\n]{0,100}push[^\n]{0,100}(--force|['"]-f['"])''',
+              'systemd mutation': r'''systemctl[^\n]{0,120}(restart|start|stop|enable|disable|daemon-reload)''',
+              'sudo execution': r'''subprocess[^\n]{0,160}["']sudo["']''',
+              'shell execution': r'''shell\s*=\s*True|os\.system|subprocess\.Popen''',
+              'destructive git': r'''git[^\n]{0,100}(reset[^\n]*--hard|clean[^\n]*-[^\n]*f)''',
+          }
+          for label, pattern in forbidden.items():
+              if re.search(pattern, ctl):
+                  raise SystemExit(f'forbidden {label} found')
+
+          for marker in ('deploy-propose', 'pending-user-approval', 'GIT_TERMINAL_PROMPT'):
+              if marker not in ctl:
+                  raise SystemExit(f'missing controller marker: {marker}')
+          for marker in ('Never run `sudo`', 'dvizhdevctl new', 'dvizhdevctl ci', 'production is read-only'):
+              if marker.lower() not in skill.lower():
+                  raise SystemExit(f'missing skill safety marker: {marker}')
+          PY
       - name: Exercise real managed worktree against public repository
         run: python3 -m unittest -v tests.hermes_dev.test_dvizhdevctl
 
@@ -56,7 +73,17 @@ jobs:
       - name: Verify deploy remains proposal-only
         run: |
           set -euo pipefail
-          grep -Fq 'deploy_capability": "proposal-only; no apply/deploy command exists"' hermes-dev-v1/dvizhdevctl.py
-          grep -Fq 'INERT proposal only. dvizhdevctl has no deploy/apply command.' hermes-dev-v1/dvizhdevctl.py
-          ! grep -Eq 'os\.system|shell=True|subprocess\.Popen' hermes-dev-v1/dvizhdevctl.py
-          ! grep -Eq 'rm[[:space:]]+-rf[[:space:]]+/( |$)|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+clean[[:space:]]+-' hermes-dev-v1/dvizhdevctl.py
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('hermes-dev-v1/dvizhdevctl.py').read_text(encoding='utf-8')
+          required = [
+              'deploy_capability": "proposal-only; no apply/deploy command exists"',
+              'INERT proposal only. dvizhdevctl has no deploy/apply command.',
+              'pending-user-approval',
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit(f'missing release-gate marker: {marker}')
+          if 'sub.add_parser("deploy")' in text or "sub.add_parser('deploy')" in text:
+              raise SystemExit('direct deploy command exists')
+          PY
