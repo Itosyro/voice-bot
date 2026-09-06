@@ -75,6 +75,8 @@ jobs:
               'PAYLOAD_BLOB="cbc2dcfee9f24b2635ce10808250292b22a23db7"',
               'TARGET="/opt/dvizh/server.py"',
               'SERVICE="dvizh.service"',
+              'READY_ATTEMPTS=30',
+              'wait_for_policy',
               'systemctl restart "$SERVICE"',
               'microphone=(self)',
               'cp -a -- "$BACKUP_DIR/server.py" "$TARGET"',
@@ -93,7 +95,7 @@ jobs:
                   raise SystemExit(f'forbidden mutation surface: {pattern}')
           PY
 
-      - name: Exercise release wrapper on disposable production-shaped fixture
+      - name: Exercise release wrapper with delayed service readiness
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
@@ -122,6 +124,14 @@ jobs:
             esac
           done
           if [[ "\$probe" == 1 ]]; then
+            counter='$tmp/probe-count'
+            n=0
+            [[ -f "\$counter" ]] && n="\$(cat "\$counter")"
+            n=\$((n + 1))
+            printf '%s\n' "\$n" > "\$counter"
+            if (( n <= 3 )); then
+              exit 7
+            fi
             printf '%s\r\n' 'HTTP/1.1 200 OK' 'Permissions-Policy: camera=(), microphone=(self), geolocation=(), payment=()' ''
             exit 0
           fi
@@ -134,7 +144,11 @@ jobs:
               def headers(self):
                   self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
           PY
+          started="$(date +%s)"
           sudo env PATH="$tmp/bin:$PATH" bash install-dvizh-microphone-permissions-policy-release.sh
+          elapsed=$(( $(date +%s) - started ))
+          test "$elapsed" -ge 3
+          test "$(cat "$tmp/probe-count")" -ge 4
           grep -Fq 'microphone=(self)' /opt/dvizh/server.py
           ! grep -Fq 'microphone=()' /opt/dvizh/server.py
 
@@ -147,6 +161,7 @@ jobs:
       - name: Confirm narrow root-cause release
         run: |
           set -euo pipefail
-          grep -Fq 'VERSION="2026.09.06-microphone-permissions-policy-release.1"' install-dvizh-microphone-permissions-policy-release.sh
+          grep -Fq 'VERSION="2026.09.06-microphone-permissions-policy-release.2"' install-dvizh-microphone-permissions-policy-release.sh
+          grep -Fq 'READY_ATTEMPTS=30' install-dvizh-microphone-permissions-policy-release.sh
           grep -Fq 'camera=(), microphone=(self), geolocation=(), payment=()' install-dvizh-microphone-permissions-policy-fix.sh
           grep -Fq 'Изменён только $TARGET; app.js, manual.html, sync.js, sw.js, БД и state не изменялись.' install-dvizh-microphone-permissions-policy-release.sh
