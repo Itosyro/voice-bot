@@ -10,6 +10,7 @@ on:
       - 'promote-dvizh-ai-home-v2-from-github.sh'
       - 'promote-dvizh-ai-home-v2-relative-fix.sh'
       - 'diagnose-dvizh-ai-home-v2.sh'
+      - 'diagnose-dvizh-ai-home-v2-routing.sh'
       - 'hermes-control-v1/dvizh_ai_home_bridge.py'
       - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - '.github/workflows/dvizh-ai-home-v2-tests.yml'
@@ -22,6 +23,7 @@ on:
       - 'promote-dvizh-ai-home-v2-from-github.sh'
       - 'promote-dvizh-ai-home-v2-relative-fix.sh'
       - 'diagnose-dvizh-ai-home-v2.sh'
+      - 'diagnose-dvizh-ai-home-v2-routing.sh'
       - 'hermes-control-v1/dvizh_ai_home_bridge.py'
       - 'hermes-control-v1/systemd/dvizh-ai-home.service'
       - '.github/workflows/dvizh-ai-home-v2-tests.yml'
@@ -51,10 +53,13 @@ jobs:
           bash -n promote-dvizh-ai-home-v2-from-github.sh
           bash -n promote-dvizh-ai-home-v2-relative-fix.sh
           bash -n diagnose-dvizh-ai-home-v2.sh
+          bash -n diagnose-dvizh-ai-home-v2-routing.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' diagnose-dvizh-ai-home-v2.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' diagnose-dvizh-ai-home-v2-routing.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-relative-fix.sh
           ! grep -Eq "method=['\"]PUT['\"]|/api/state[^\n]*PUT" diagnose-dvizh-ai-home-v2.sh
+          ! grep -Eq 'curl[^\n]*(--request|-X)[[:space:]]*(PUT|POST|PATCH|DELETE)' diagnose-dvizh-ai-home-v2-routing.sh
           node --check ai-home-v2/ai-home-v2.js
           node --test tests/ai-home-v2/*.test.cjs
 
@@ -119,6 +124,9 @@ jobs:
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' install-dvizh-ai-home-v2-preview-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-relative-fix.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' diagnose-dvizh-ai-home-v2-routing.sh
           ! grep -Eq 'serviceWorker|caches[[:space:]]*\.' promote-dvizh-ai-home-v2-relative-fix.sh
+          grep -Fq 'snapshot_known' diagnose-dvizh-ai-home-v2-routing.sh
+          grep -Fq 'RESULT: read-only probe complete; site files unchanged.' diagnose-dvizh-ai-home-v2-routing.sh
           grep -Fq 'ai-home-v2-preview.html' install-dvizh-ai-home-v2-preview-from-github.sh
           grep -Fq "const API = '/api/state';" ai-home-v2/ai-home-v2.js
