@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-manual-jump-sync.1"
+VERSION="2026.09.06-manual-jump-sync.2"
 TEST_ROOT="${DVIZH_MANUAL_JUMP_ROOT:-}"
 if [[ -n "$TEST_ROOT" ]]; then
   APP_ROOT="$TEST_ROOT"
@@ -14,6 +14,7 @@ fi
 APP_ROOT="$(cd -- "$APP_ROOT" && pwd -P)"
 SYNC="$APP_ROOT/sync.js"
 [[ -f "$SYNC" && ! -L "$SYNC" ]] || { echo "Небезопасный sync.js." >&2; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "Не найден python3; sync.js не изменён." >&2; exit 1; }
 if [[ -z "$TEST_ROOT" && ${EUID:-$(id -u)} -ne 0 ]]; then
   echo "Для установки нужен root." >&2
   exit 1
@@ -63,9 +64,20 @@ elif needle in source and reload in source:
     source = source.replace(reload, reload_replacement, 1)
 else:
     raise SystemExit('Ожидаемый pullLatest-контракт не найден; sync.js не изменён.')
+
+# Runtime-free structural verification: the installer must produce exactly one
+# helper, one semantic comparison and one guarded reload. CI performs the JS
+# parser check with Node; production does not need Node installed.
+checks = {
+    'helper': source.count('function manualJumpRenderState(state)') == 1,
+    'comparison': source.count('const manualJumpChanged = JSON.stringify(manualJumpRenderState(local)) !== JSON.stringify(manualJumpRenderState(merged));') == 1,
+    'guarded reload': source.count('} else if (appLoaded && manualJumpChanged) {') == 1,
+}
+failed = [name for name, ok in checks.items() if not ok]
+if failed:
+    raise SystemExit('Проверка сформированного sync.js не пройдена: ' + ', '.join(failed))
 path.write_text(source, encoding='utf-8')
 PY
-node --check "$TMP_DIR/sync.js"
 if [[ -n "$TEST_ROOT" ]]; then
   mv -f -- "$TMP_DIR/sync.js" "$SYNC"
   echo "Fixture patched: $VERSION"
