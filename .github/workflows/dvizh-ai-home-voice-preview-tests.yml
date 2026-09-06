@@ -1,0 +1,105 @@
+name: DVIZH AI Home Voice Preview CI
+
+on:
+  push:
+    paths:
+      - 'ai-home-v2-voice-v1/**'
+      - 'tests/ai-home-v2/voice-permission.test.cjs'
+      - 'install-dvizh-ai-home-voice-preview.sh'
+      - '.github/workflows/dvizh-ai-home-voice-preview-tests.yml'
+  pull_request:
+    paths:
+      - 'ai-home-v2-voice-v1/**'
+      - 'tests/ai-home-v2/voice-permission.test.cjs'
+      - 'install-dvizh-ai-home-voice-preview.sh'
+      - '.github/workflows/dvizh-ai-home-voice-preview-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dvizh-ai-home-voice-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  safety-and-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Keep stable AI Home v2 immutable
+        run: |
+          set -euo pipefail
+          test "$(git hash-object ai-home-v2/ai-home-v2.js)" = '95b1ce6a09341840802efebb958f41441cc43560'
+          test "$(git hash-object ai-home-v2/index.html)" = '2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e'
+
+      - name: Voice permission regression tests
+        run: |
+          set -euo pipefail
+          node --check ai-home-v2-voice-v1/ai-home-v2.js
+          node --test tests/ai-home-v2/voice-permission.test.cjs
+          node --test tests/ai-home-v2/client.test.cjs
+
+      - name: Installer syntax and immutable pins
+        run: |
+          set -euo pipefail
+          bash -n install-dvizh-ai-home-voice-preview.sh
+          grep -Fq 'PAYLOAD_REF="03ff9a86dc20aac4f13bd47f073ed3d987714f0d"' install-dvizh-ai-home-voice-preview.sh
+          grep -Fq 'JS_BLOB="64e2698d90968cc0c8d86ae81207f97976710db2"' install-dvizh-ai-home-voice-preview.sh
+          grep -Fq 'HTML_BLOB="05e4bef31c39ac4f917062e97609ada3c5513fa4"' install-dvizh-ai-home-voice-preview.sh
+          ! grep -Eq 'systemctl|service[[:space:]]+(restart|start|stop)|/etc/dvizh|sqlite3|psql|mysql' install-dvizh-ai-home-voice-preview.sh
+
+      - name: Exercise isolated preview install twice
+        run: |
+          set -euo pipefail
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+          for file in index.html manual.html app.js styles.css sw.js sync.js ai-home-v2.js ai-home-v2.css; do
+            printf 'protected:%s\n' "$file" > "$root/$file"
+          done
+          before="$(for file in index.html manual.html app.js styles.css sw.js sync.js ai-home-v2.js ai-home-v2.css; do sha256sum "$root/$file"; done)"
+          DVIZH_AI_HOME_VOICE_ROOT="$root" bash install-dvizh-ai-home-voice-preview.sh
+          test "$(git hash-object "$root/ai-home-v2-voice-preview.html")" = '05e4bef31c39ac4f917062e97609ada3c5513fa4'
+          test "$(git hash-object "$root/ai-home-v2-voice.js")" = '64e2698d90968cc0c8d86ae81207f97976710db2'
+          after="$(for file in index.html manual.html app.js styles.css sw.js sync.js ai-home-v2.js ai-home-v2.css; do sha256sum "$root/$file"; done)"
+          test "$before" = "$after"
+          DVIZH_AI_HOME_VOICE_ROOT="$root" bash install-dvizh-ai-home-voice-preview.sh
+          after2="$(for file in index.html manual.html app.js styles.css sw.js sync.js ai-home-v2.js ai-home-v2.css; do sha256sum "$root/$file"; done)"
+          test "$before" = "$after2"
+
+      - name: Refuse symlink preview destination
+        run: |
+          set -euo pipefail
+          root="$(mktemp -d)"
+          outside="$(mktemp)"
+          trap 'rm -rf "$root" "$outside"' EXIT
+          ln -s "$outside" "$root/ai-home-v2-voice.js"
+          if DVIZH_AI_HOME_VOICE_ROOT="$root" bash install-dvizh-ai-home-voice-preview.sh; then
+            echo 'symlink destination unexpectedly accepted' >&2
+            exit 1
+          fi
+          test ! -s "$outside"
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [safety-and-integration]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm preview-only boundary
+        run: |
+          set -euo pipefail
+          grep -Fq 'Voice preview установлен' install-dvizh-ai-home-voice-preview.sh
+          grep -Fq 'Production root/manual/app/sync/AI Home assets НЕ изменены.' install-dvizh-ai-home-voice-preview.sh
+          grep -Fq '/ai-home-v2-voice.js?v=20260906-1' ai-home-v2-voice-v1/index.html
+          grep -Fq 'getUserMedia({ audio: true })' ai-home-v2-voice-v1/ai-home-v2.js
+          grep -Fq 'Микрофон запрещён для этого сайта.' ai-home-v2-voice-v1/ai-home-v2.js
+          test "$(git hash-object ai-home-v2/ai-home-v2.js)" = '95b1ce6a09341840802efebb958f41441cc43560'
