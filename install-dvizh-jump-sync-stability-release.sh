@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-jump-sync-stability-release.1"
+VERSION="2026.09.06-jump-sync-stability-release.2"
 PAYLOAD_REF="a8b2d72ff8d21de1626cebcc5a57b7ced7b0753d"
 PAYLOAD_BLOB="c86a6b531681b59018ab53b4536d12794e00fef5"
 PAYLOAD_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/install-dvizh-jump-sync-stability-fix.sh"
@@ -10,7 +10,7 @@ BACKUP_ROOT="/var/lib/dvizh/backups"
 
 [[ $# -eq 0 ]] || { echo "Этот установщик не принимает аргументы." >&2; exit 1; }
 [[ ${EUID:-$(id -u)} -eq 0 ]] || { echo "Для установки нужен root." >&2; exit 1; }
-for tool in curl python3 systemctl mktemp cp mv install grep awk; do
+for tool in bash curl python3 systemctl mktemp cp mv install grep awk chmod chown rm; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $tool" >&2; exit 1; }
 done
 [[ -f "$TARGET" && ! -L "$TARGET" ]] || { echo "Небезопасный или отсутствующий $TARGET" >&2; exit 1; }
@@ -19,26 +19,27 @@ find_jump_service() {
   local unit text
   local -a matches=()
   for unit in dvizh-jump.service dvizh-jump-web.service dvizh-jump-bridge.service; do
-    if systemctl cat "$unit" >/dev/null 2>&1; then
+    if systemctl is-active --quiet "$unit" 2>/dev/null; then
       printf '%s\n' "$unit"
       return 0
     fi
   done
   while read -r unit _; do
     [[ "$unit" == dvizh-*.service ]] || continue
+    systemctl is-active --quiet "$unit" 2>/dev/null || continue
     text="$(systemctl cat "$unit" 2>/dev/null || true)"
     if grep -Eq '/opt/dvizh-jump|jump_web_bridge|dvizh_jump' <<<"$text"; then
       matches+=("$unit")
     fi
-  done < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null || true)
+  done < <(systemctl list-units --type=service --state=running --no-legend 2>/dev/null || true)
   if [[ ${#matches[@]} -eq 1 ]]; then
     printf '%s\n' "${matches[0]}"
     return 0
   fi
   if [[ ${#matches[@]} -eq 0 ]]; then
-    echo "Не найден systemd-сервис Jump Lab; ничего не изменено." >&2
+    echo "Не найден активный systemd-сервис Jump Lab; ничего не изменено." >&2
   else
-    echo "Найдено несколько возможных Jump Lab сервисов: ${matches[*]}; ничего не изменено." >&2
+    echo "Найдено несколько активных Jump Lab сервисов: ${matches[*]}; ничего не изменено." >&2
   fi
   return 1
 }
@@ -78,8 +79,9 @@ BACKUP_DIR="$(mktemp -d "$BACKUP_ROOT/jump-sync-stability.XXXXXX")"
 chmod 0700 "$BACKUP_DIR"
 cp -a -- "$TARGET" "$BACKUP_DIR/jump_web_bridge.py"
 
-bash "$TMP_DIR/payload.sh"
+# From this point any failure must restore the exact pre-install file.
 PATCHED=1
+bash "$TMP_DIR/payload.sh"
 chown --reference="$BACKUP_DIR/jump_web_bridge.py" "$TARGET"
 chmod --reference="$BACKUP_DIR/jump_web_bridge.py" "$TARGET"
 python3 -m py_compile "$TARGET"
