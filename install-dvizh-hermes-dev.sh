@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-hermes-dev-installer.1"
+VERSION="2026.09.06-hermes-dev-installer.2"
 PAYLOAD_REF="eb9457c759e2396eab13ccf14a55e7c39b79cd5f"
 CTL_BLOB="41a879b744be907cb379685038df1f5ee55e7b11"
 SKILL_BLOB="f6f62faa99b15069921971bfebb91b69e29e86a2"
@@ -41,11 +41,10 @@ cleanup() {
       root_run rm -f /usr/local/bin/dvizhdevctl || true
     fi
     if [[ "$HAD_SKILL" == 1 && -f "$BACKUP_DIR/SKILL.md" ]]; then
-      user_run mkdir -p "$SKILL_DIR" || true
-      user_run cp "$BACKUP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md" || true
-      user_run chmod 0600 "$SKILL_DIR/SKILL.md" || true
+      root_run install -d -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0700 "$SKILL_DIR" || true
+      root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$BACKUP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md" || true
     else
-      user_run rm -rf "$SKILL_DIR" || true
+      root_run rm -rf -- "$SKILL_DIR" || true
     fi
   fi
   rm -rf -- "$TMP_DIR"
@@ -108,25 +107,19 @@ TARGET_GROUP="$(id -gn "$TARGET_USER")"
 SKILL_DIR="$TARGET_HOME/.hermes/skills/dvizh/dvizh-dev"
 BACKUP_DIR="$TARGET_HOME/.hermes/backups/dvizh-dev-$(date -u +%Y%m%dT%H%M%SZ)"
 
-user_run mkdir -p "$BACKUP_DIR" "$SKILL_DIR"
-user_run chmod 0700 "$BACKUP_DIR"
+root_run install -d -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0700 "$BACKUP_DIR" "$SKILL_DIR"
 if [[ -f /usr/local/bin/dvizhdevctl ]]; then
   HAD_CTL=1
-  root_run cp /usr/local/bin/dvizhdevctl "$TMP_DIR/dvizhdevctl.previous"
-  root_run chown "$TARGET_USER:$TARGET_GROUP" "$TMP_DIR/dvizhdevctl.previous"
-  user_run cp "$TMP_DIR/dvizhdevctl.previous" "$BACKUP_DIR/dvizhdevctl"
-  user_run chmod 0600 "$BACKUP_DIR/dvizhdevctl"
+  root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 /usr/local/bin/dvizhdevctl "$BACKUP_DIR/dvizhdevctl"
 fi
 if [[ -f "$SKILL_DIR/SKILL.md" ]]; then
   HAD_SKILL=1
-  user_run cp "$SKILL_DIR/SKILL.md" "$BACKUP_DIR/SKILL.md"
-  user_run chmod 0600 "$BACKUP_DIR/SKILL.md"
+  root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$SKILL_DIR/SKILL.md" "$BACKUP_DIR/SKILL.md"
 fi
 
 INSTALLED=1
 root_run install -o root -g root -m 0755 "$TMP_DIR/dvizhdevctl" /usr/local/bin/dvizhdevctl
-user_run cp "$TMP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md"
-user_run chmod 0600 "$SKILL_DIR/SKILL.md"
+root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$TMP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md"
 
 [[ "$(user_run /usr/local/bin/dvizhdevctl version)" == "2026.09.06-hermes-dev.1" ]]
 user_run /usr/local/bin/dvizhdevctl config >/dev/null
