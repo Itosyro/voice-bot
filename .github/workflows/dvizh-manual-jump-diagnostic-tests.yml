@@ -1,0 +1,48 @@
+name: DVIZH manual jump diagnostic tests
+
+on:
+  push:
+    paths:
+      - 'diagnose-dvizh-manual-jumps.sh'
+      - '.github/workflows/dvizh-manual-jump-diagnostic-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only diagnostic
+        run: |
+          set -euo pipefail
+          bash -n diagnose-dvizh-manual-jumps.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)|\b(rm|mv|cp|install)[[:space:]].*/opt/dvizh|curl[^\n]*(--request|-X)[[:space:]]*(PUT|POST|PATCH|DELETE)' diagnose-dvizh-manual-jumps.sh
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          cat > "$TMP/index.html" <<'HTML'
+          <!doctype html><script src="./ai-home-v2.js"></script>
+          HTML
+          cat > "$TMP/manual.html" <<'HTML'
+          <!doctype html><link rel="stylesheet" href="./styles.css?v=old"><script src="./app.js?v=old"></script>
+          HTML
+          cat > "$TMP/app.js" <<'JS'
+          async function refresh(){ const r=await fetch('/api/state'); render(await r.json()); }
+          function render(x){ document.querySelector('#x').innerHTML=String(x); }
+          setInterval(refresh, 5000);
+          window.addEventListener('visibilitychange', refresh);
+          JS
+          printf 'body{}\n' > "$TMP/styles.css"
+          cat > "$TMP/sw.js" <<'JS'
+          self.addEventListener('fetch', event => event.respondWith(fetch(event.request)));
+          JS
+          before="$(find "$TMP" -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum)"
+          DVIZH_MANUAL_DIAG_ROOT="$TMP" bash diagnose-dvizh-manual-jumps.sh > "$TMP/out.txt"
+          after="$(find "$TMP" -maxdepth 1 -type f ! -name out.txt -print0 | sort -z | xargs -0 sha256sum)"
+          [[ "$before" == "$after" ]]
+          grep -Fq 'setInterval' "$TMP/out.txt"
+          grep -Fq '/api/state' "$TMP/out.txt"
+          grep -Fq 'innerHTML' "$TMP/out.txt"
+          grep -Fq 'RESULT: read-only manual diagnostic complete; site files unchanged.' "$TMP/out.txt"
