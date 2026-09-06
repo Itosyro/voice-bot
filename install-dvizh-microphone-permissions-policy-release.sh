@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-microphone-permissions-policy-release.1"
+VERSION="2026.09.06-microphone-permissions-policy-release.2"
 PAYLOAD_REF="8ab401631a8217efc5df5375c7266b8d2a300adf"
 PAYLOAD_BLOB="cbc2dcfee9f24b2635ce10808250292b22a23db7"
 PAYLOAD_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/install-dvizh-microphone-permissions-policy-fix.sh"
@@ -10,10 +10,11 @@ SERVICE="dvizh.service"
 BACKUP_ROOT="/var/lib/dvizh/backups"
 PROBE_URL="http://127.0.0.1:8000/ai-home-v2-voice-preview.html"
 EXPECTED_POLICY="Permissions-Policy: camera=(), microphone=(self), geolocation=(), payment=()"
+READY_ATTEMPTS=30
 
 [[ $# -eq 0 ]] || { echo "Этот установщик не принимает аргументы." >&2; exit 1; }
 [[ ${EUID:-$(id -u)} -eq 0 ]] || { echo "Для установки нужен root." >&2; exit 1; }
-for tool in curl python3 systemctl mktemp cp install grep chmod chown; do
+for tool in curl python3 systemctl mktemp cp install grep chmod chown tr sleep; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $tool" >&2; exit 1; }
 done
 [[ -f "$TARGET" && ! -L "$TARGET" ]] || { echo "Небезопасный или отсутствующий $TARGET" >&2; exit 1; }
@@ -21,6 +22,30 @@ systemctl is-active --quiet "$SERVICE" || { echo "$SERVICE не active; ниче
 systemctl cat "$SERVICE" 2>/dev/null | grep -Fq "$TARGET" || {
   echo "$SERVICE не ссылается на $TARGET; ничего не изменено." >&2
   exit 1
+}
+
+wait_for_http() {
+  local attempt
+  for ((attempt=1; attempt<=READY_ATTEMPTS; attempt++)); do
+    if curl --fail --silent --output /dev/null --max-time 2 "$PROBE_URL" 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+wait_for_policy() {
+  local attempt headers
+  for ((attempt=1; attempt<=READY_ATTEMPTS; attempt++)); do
+    if headers="$(curl --fail --silent --dump-header - --output /dev/null --max-time 2 "$PROBE_URL" 2>/dev/null | tr -d '\r')"; then
+      if grep -Fqi "$EXPECTED_POLICY" <<<"$headers" && ! grep -Eqi '^Permissions-Policy:.*microphone=\(\)' <<<"$headers"; then
+        return 0
+      fi
+    fi
+    sleep 1
+  done
+  return 1
 }
 
 TMP_DIR="$(mktemp -d /tmp/dvizh-microphone-policy-release.XXXXXX)"
@@ -32,7 +57,9 @@ cleanup() {
   if [[ $rc -ne 0 && "$PATCHED" == 1 && -n "$BACKUP_DIR" && -f "$BACKUP_DIR/server.py" ]]; then
     echo "Ошибка после изменения: возвращаю backup server.py." >&2
     cp -a -- "$BACKUP_DIR/server.py" "$TARGET" || true
-    systemctl restart "$SERVICE" || true
+    if systemctl restart "$SERVICE"; then
+      wait_for_http || echo "Предупреждение: после rollback $SERVICE не ответил на $PROBE_URL за ${READY_ATTEMPTS}с." >&2
+    fi
   fi
   rm -rf -- "$TMP_DIR"
   exit "$rc"
@@ -64,16 +91,11 @@ python3 -m py_compile "$TARGET"
 echo "Перезапускаю только $SERVICE, чтобы новый security header вступил в силу."
 systemctl restart "$SERVICE"
 systemctl is-active --quiet "$SERVICE" || { echo "$SERVICE не поднялся после рестарта." >&2; exit 1; }
-
-HEADERS="$(curl --fail --silent --show-error --dump-header - --output /dev/null --max-time 10 "$PROBE_URL" | tr -d '\r')"
-grep -Fqi "$EXPECTED_POLICY" <<<"$HEADERS" || {
-  echo "После рестарта ожидаемый microphone=(self) header не обнаружен." >&2
+echo "Жду готовности DVIZH на 127.0.0.1:8000 (до ${READY_ATTEMPTS}с)."
+wait_for_policy || {
+  echo "За ${READY_ATTEMPTS}с не получен ожидаемый microphone=(self) header; выполняется rollback." >&2
   exit 1
 }
-if grep -Eqi '^Permissions-Policy:.*microphone=\(\)' <<<"$HEADERS"; then
-  echo "После рестарта всё ещё обнаружен microphone=()." >&2
-  exit 1
-fi
 
 PATCHED=0
 trap - EXIT INT TERM
