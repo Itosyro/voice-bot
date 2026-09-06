@@ -13,6 +13,7 @@ test('live dvizh service routing probe is read-only and does not inspect process
   assert.match(source, /\/proc\/\{pid\}\/cmdline/);
   assert.doesNotMatch(source, /\/proc\/[^\n]*\/environ/);
   assert.doesNotMatch(source, /\bprintenv\b/);
+  assert.doesNotMatch(source, /-p ExecStart/);
   assert.doesNotMatch(source, /systemctl\s+(?:restart|start|stop|enable|disable|daemon-reload)/);
   assert.doesNotMatch(source, /\b(?:cp|mv|rm|install|chmod|chown|touch|truncate|tee)\b/);
 });
@@ -23,6 +24,7 @@ test('probe snapshots site files and redacts common secret-shaped argv/source va
   assert.match(source, /AFTER="\$\(snapshot_site\)"/);
   assert.match(source, /site-file snapshot changed/);
   assert.match(source, /token\|secret\|password/);
+  assert.match(source, /credential/);
   assert.match(source, /<redacted>/);
   assert.match(source, /RESULT: read-only service routing probe complete; site files unchanged\./);
 });
