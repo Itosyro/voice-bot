@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-ai-home-v2-byte-smoke.1"
+VERSION="2026.09.06-ai-home-v2-byte-smoke.2"
 RELEASE_COMMIT="d6418224eae292417a645b2a73da157d939526b9"
 DEFAULT_BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${RELEASE_COMMIT}/ai-home-v2"
 TEST_ROOT="${DVIZH_AI_HOME_V2_ROOT:-}"
@@ -21,7 +21,7 @@ if [[ -z "$TEST_ROOT" && ${EUID:-$(id -u)} -ne 0 ]]; then
   echo "Запусти через sudo: promote меняет только index.html/manual.html." >&2
   exit 1
 fi
-for tool in curl python3 sha256sum cmp grep flock; do
+for tool in curl python3 sha256sum cmp grep flock awk wc; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $tool" >&2; exit 1; }
 done
 if [[ -z "$TEST_ROOT" ]]; then
@@ -182,7 +182,11 @@ sha256sum "$APP_ROOT/app.js" "$APP_ROOT/styles.css" "$APP_ROOT/sw.js" \
   > "$TMP_DIR/readonly.sha256"
 
 http_exact() {
-  local label="$1" path="$2" expected="$3" body="$TMP_DIR/$label.http" code
+  local label="$1"
+  local path="$2"
+  local expected="$3"
+  local body="$TMP_DIR/$label.http"
+  local code
   code="$(curl --silent --show-error --location --max-time 8 \
     -H 'Cache-Control: no-cache' -o "$body" -w '%{http_code}' \
     "$HTTP_BASE$path?_ai_home_v2_byte=$(date +%s%N)")" || {
@@ -200,7 +204,6 @@ http_exact() {
   echo "HTTP $label: OK (byte-exact)"
 }
 
-# Stage 1: publish only the manual copy, while / is still the stable old UI.
 PROMOTION_STARTED=1
 if [[ ! -f "$APP_ROOT/manual.html" ]]; then
   stage_manual="$(mktemp "$APP_ROOT/.manual.html.stage.XXXXXX")"
@@ -208,12 +211,10 @@ if [[ ! -f "$APP_ROOT/manual.html" ]]; then
   mv -f -- "$stage_manual" "$APP_ROOT/manual.html"
 fi
 http_exact manual-preflight /manual.html "$APP_ROOT/manual.html"
-# Root must still be untouched at this point.
 cmp -s "$BACKUP_DIR/index.html" "$APP_ROOT/index.html" || {
   echo "Preflight неожиданно изменил index.html." >&2; exit 1;
 }
 
-# Stage 2: only after the manual route is proven live, atomically publish AI Home at /.
 stage_index="$(mktemp "$APP_ROOT/.index.html.stage.XXXXXX")"
 install -m 0644 "$TMP_DIR/release/index.html" "$stage_index"
 mv -f -- "$stage_index" "$APP_ROOT/index.html"
