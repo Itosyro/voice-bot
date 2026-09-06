@@ -34,17 +34,18 @@ jobs:
       - name: Syntax and static safety boundary
         run: |
           set -euo pipefail
-          python3 -m py_compile hermes-dev-v1/dvizhdevctl.py
+          python3 -m py_compile hermes-dev-v1/dvizhdevctl.py hermes-dev-v1/dvizhdevhandoff.py
           bash -n install-dvizh-hermes-dev.sh
           python3 - <<'PY'
           from pathlib import Path
           import re
 
           ctl = Path('hermes-dev-v1/dvizhdevctl.py').read_text(encoding='utf-8')
+          handoff = Path('hermes-dev-v1/dvizhdevhandoff.py').read_text(encoding='utf-8')
           skill = Path('hermes-dev-v1/skill/SKILL.md').read_text(encoding='utf-8')
           installer = Path('install-dvizh-hermes-dev.sh').read_text(encoding='utf-8')
 
-          forbidden = {
+          forbidden_ctl = {
               'root deploy parser': r'''sub\.add_parser\(["']deploy["']\)''',
               'force push': r'''git[^\n]{0,100}push[^\n]{0,100}(--force|['"]-f['"])''',
               'systemd mutation': r'''systemctl[^\n]{0,120}(restart|start|stop|enable|disable|daemon-reload)''',
@@ -52,22 +53,25 @@ jobs:
               'shell execution': r'''shell\s*=\s*True|os\.system|subprocess\.Popen''',
               'destructive git': r'''git[^\n]{0,100}(reset[^\n]*--hard|clean[^\n]*-[^\n]*f)''',
           }
-          for label, pattern in forbidden.items():
+          for label, pattern in forbidden_ctl.items():
               if re.search(pattern, ctl):
                   raise SystemExit(f'forbidden {label} found')
 
-          for marker in ('deploy-propose', 'pending-user-approval', 'GIT_TERMINAL_PROMPT'):
-              if marker not in ctl:
-                  raise SystemExit(f'missing controller marker: {marker}')
-          for marker in ('Never run `sudo`', 'dvizhdevctl new', 'dvizhdevctl ci', 'production is read-only'):
+          for marker in ('Never run `sudo`', 'dvizhdevctl new', 'dvizhdevhandoff <job-id>', 'GitHub credentials: not required'):
               if marker.lower() not in skill.lower():
-                  raise SystemExit(f'missing skill safety marker: {marker}')
+                  raise SystemExit(f'missing handoff skill marker: {marker}')
+          for marker in ('github_push_required_from_hermes', 'patch_sha256', 'production_status'):
+              if marker not in handoff:
+                  raise SystemExit(f'missing handoff marker: {marker}')
+          if 'git push' in handoff or 'urllib' in handoff or '/opt/dvizh' in handoff:
+              raise SystemExit('handoff exporter must remain local-only and production-agnostic')
 
           required_installer = (
-              'VERSION="2026.09.06-hermes-dev-installer.3"',
-              'PAYLOAD_REF="eb9457c759e2396eab13ccf14a55e7c39b79cd5f"',
+              'VERSION="2026.09.06-hermes-dev-installer.4"',
+              'PAYLOAD_REF="6341635e10f4349747bed0adabf2cfbd6953455a"',
               'CTL_BLOB="41a879b744be907cb379685038df1f5ee55e7b11"',
-              'SKILL_BLOB="f6f62faa99b15069921971bfebb91b69e29e86a2"',
+              'HANDOFF_BLOB="7ea1a7a7a659888f55465939c5a006a7f0564ecb"',
+              'SKILL_BLOB="47a988de4c3f5abc604c96470d43319c86a1b993"',
               'DVIZH_HERMES_DEV_PREPARE_ONLY',
           )
           for marker in required_installer:
@@ -80,16 +84,20 @@ jobs:
         env:
           DVIZH_HERMES_DEV_PREPARE_ONLY: '1'
         run: bash install-dvizh-hermes-dev.sh
-      - name: Exercise real managed worktree against public repository
+      - name: Exercise managed worktree controller
         run: python3 -m unittest -v tests.hermes_dev.test_dvizhdevctl
+      - name: Exercise local ChatGPT handoff exporter
+        run: python3 -m unittest -v tests.hermes_dev.test_handoff
       - name: Exercise installer through the same sudo boundary as production
         run: |
           set -euo pipefail
           target_user="$(id -un)"
           sudo env SUDO_USER="$target_user" bash "$GITHUB_WORKSPACE/install-dvizh-hermes-dev.sh"
           test "$(/usr/local/bin/dvizhdevctl version)" = '2026.09.06-hermes-dev.1'
+          /usr/local/bin/dvizhdevhandoff --help >/dev/null
           test -f "$HOME/.hermes/skills/dvizh/dvizh-dev/SKILL.md"
           grep -q '^name: dvizh-dev$' "$HOME/.hermes/skills/dvizh/dvizh-dev/SKILL.md"
+          grep -Fq 'GitHub credentials: not required' "$HOME/.hermes/skills/dvizh/dvizh-dev/SKILL.md"
           test -d "$HOME/.hermes/dev/dvizh/repo/.git"
           test "$(stat -c '%U' "$HOME/.hermes")" = "$target_user"
           test "$(stat -c '%U' "$HOME/.hermes/dev")" = "$target_user"
@@ -104,23 +112,24 @@ jobs:
     needs: [safety-and-integration]
     steps:
       - uses: actions/checkout@v4
-      - name: Verify deploy remains proposal-only
+      - name: Verify normal workflow stops at local handoff
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          text = Path('hermes-dev-v1/dvizhdevctl.py').read_text(encoding='utf-8')
+          skill = Path('hermes-dev-v1/skill/SKILL.md').read_text(encoding='utf-8')
+          handoff = Path('hermes-dev-v1/dvizhdevhandoff.py').read_text(encoding='utf-8')
           installer = Path('install-dvizh-hermes-dev.sh').read_text(encoding='utf-8')
-          required = [
-              'deploy_capability": "proposal-only; no apply/deploy command exists"',
-              'INERT proposal only. dvizhdevctl has no deploy/apply command.',
-              'pending-user-approval',
+          required_skill = [
+              'Hermes does **not** need GitHub credentials.',
+              'Stop here. Do not push to GitHub.',
+              'ChatGPT owns the GitHub/CI/release side of the workflow.',
           ]
-          for marker in required:
-              if marker not in text:
-                  raise SystemExit(f'missing release-gate marker: {marker}')
-          if 'sub.add_parser("deploy")' in text or "sub.add_parser('deploy')" in text:
-              raise SystemExit('direct deploy command exists')
-          if 'PAYLOAD_REF="eb9457c759e2396eab13ccf14a55e7c39b79cd5f"' not in installer:
+          for marker in required_skill:
+              if marker not in skill:
+                  raise SystemExit(f'missing release handoff marker: {marker}')
+          if 'git push' in handoff or 'github.com' in handoff or 'api.github.com' in handoff:
+              raise SystemExit('handoff exporter unexpectedly reaches GitHub')
+          if 'PAYLOAD_REF="6341635e10f4349747bed0adabf2cfbd6953455a"' not in installer:
               raise SystemExit('installer payload is not immutable')
           PY
