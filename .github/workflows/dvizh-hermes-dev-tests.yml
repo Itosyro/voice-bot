@@ -1,0 +1,62 @@
+name: DVIZH Hermes Dev Mode CI
+
+on:
+  push:
+    paths:
+      - 'hermes-dev-v1/**'
+      - 'tests/hermes_dev/**'
+      - 'install-dvizh-hermes-dev.sh'
+      - '.github/workflows/dvizh-hermes-dev-tests.yml'
+  pull_request:
+    paths:
+      - 'hermes-dev-v1/**'
+      - 'tests/hermes_dev/**'
+      - 'install-dvizh-hermes-dev.sh'
+      - '.github/workflows/dvizh-hermes-dev-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dvizh-hermes-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  safety-and-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax and static safety boundary
+        run: |
+          set -euo pipefail
+          python3 -m py_compile hermes-dev-v1/dvizhdevctl.py
+          ! grep -Eq 'sub\.add_parser\(["'"']deploy["'"']\)' hermes-dev-v1/dvizhdevctl.py
+          ! grep -Eq 'git[[:space:]]+push[^\n]*(--force|-f([[:space:]]|$))' hermes-dev-v1/dvizhdevctl.py
+          ! grep -Eq 'systemctl[^\n]*(restart|start|stop|enable|disable|daemon-reload)' hermes-dev-v1/dvizhdevctl.py
+          ! grep -Eq 'sudo[[:space:]]' hermes-dev-v1/dvizhdevctl.py
+          grep -Fq 'deploy-propose' hermes-dev-v1/dvizhdevctl.py
+          grep -Fq 'pending-user-approval' hermes-dev-v1/dvizhdevctl.py
+          grep -Fq 'Never run `sudo`' hermes-dev-v1/skill/SKILL.md
+          grep -Fq 'dvizhdevctl new' hermes-dev-v1/skill/SKILL.md
+          grep -Fq 'dvizhdevctl ci' hermes-dev-v1/skill/SKILL.md
+      - name: Exercise real managed worktree against public repository
+        run: python3 -m unittest -v tests.hermes_dev.test_dvizhdevctl
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [safety-and-integration]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify deploy remains proposal-only
+        run: |
+          set -euo pipefail
+          grep -Fq 'deploy_capability": "proposal-only; no apply/deploy command exists"' hermes-dev-v1/dvizhdevctl.py
+          grep -Fq 'INERT proposal only. dvizhdevctl has no deploy/apply command.' hermes-dev-v1/dvizhdevctl.py
+          ! grep -Eq 'os\.system|shell=True|subprocess\.Popen' hermes-dev-v1/dvizhdevctl.py
+          ! grep -Eq 'rm[[:space:]]+-rf[[:space:]]+/( |$)|git[[:space:]]+reset[[:space:]]+--hard|git[[:space:]]+clean[[:space:]]+-' hermes-dev-v1/dvizhdevctl.py
