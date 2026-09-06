@@ -1,0 +1,152 @@
+name: DVIZH Microphone Permissions Policy CI
+
+on:
+  push:
+    paths:
+      - 'install-dvizh-microphone-permissions-policy-fix.sh'
+      - 'install-dvizh-microphone-permissions-policy-release.sh'
+      - 'tests/microphone-permissions-policy.test.cjs'
+      - '.github/workflows/dvizh-microphone-permissions-policy-tests.yml'
+  pull_request:
+    paths:
+      - 'install-dvizh-microphone-permissions-policy-fix.sh'
+      - 'install-dvizh-microphone-permissions-policy-release.sh'
+      - 'tests/microphone-permissions-policy.test.cjs'
+      - '.github/workflows/dvizh-microphone-permissions-policy-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dvizh-microphone-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify exact Hermes handoff
+        run: |
+          set -euo pipefail
+          test "$(git hash-object install-dvizh-microphone-permissions-policy-fix.sh)" = 'cbc2dcfee9f24b2635ce10808250292b22a23db7'
+          test "$(git hash-object tests/microphone-permissions-policy.test.cjs)" = '12f27ae4a236c77ed1ee99dcf0b2e4c50d8fa795'
+          actual="$(git diff --binary --full-index ba8214911f5942fdbf36269e1e992eb7607b40f8 8ab401631a8217efc5df5375c7266b8d2a300adf -- . | sha256sum | awk '{print $1}')"
+          test "$actual" = '5249082696b07798d929d205a7b52e508de256e233319d075f3c09bca71326be'
+
+      - name: Regression and syntax
+        run: |
+          set -euo pipefail
+          bash -n install-dvizh-microphone-permissions-policy-fix.sh
+          bash -n install-dvizh-microphone-permissions-policy-release.sh
+          node --test tests/microphone-permissions-policy.test.cjs
+
+      - name: Static release boundary
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          payload = Path('install-dvizh-microphone-permissions-policy-fix.sh').read_text(encoding='utf-8')
+          release = Path('install-dvizh-microphone-permissions-policy-release.sh').read_text(encoding='utf-8')
+          required_payload = [
+              'microphone=(self)',
+              'camera=()',
+              'geolocation=()',
+              'payment=()',
+              'python3 -m py_compile "$TMP_DIR/server.py"',
+          ]
+          for marker in required_payload:
+              if marker not in payload:
+                  raise SystemExit(f'missing payload marker: {marker}')
+          required_release = [
+              'PAYLOAD_REF="8ab401631a8217efc5df5375c7266b8d2a300adf"',
+              'PAYLOAD_BLOB="cbc2dcfee9f24b2635ce10808250292b22a23db7"',
+              'TARGET="/opt/dvizh/server.py"',
+              'SERVICE="dvizh.service"',
+              'systemctl restart "$SERVICE"',
+              'microphone=(self)',
+              'cp -a -- "$BACKUP_DIR/server.py" "$TARGET"',
+          ]
+          for marker in required_release:
+              if marker not in release:
+                  raise SystemExit(f'missing release marker: {marker}')
+          forbidden = [
+              r'/opt/dvizh/static/(?:app\.js|manual\.html|sync\.js|sw\.js)',
+              r'/opt/dvizh-ai-home', r'/etc/dvizh',
+              r'\bsqlite3\b', r'\bpsql\b', r'\bmysql\b',
+              r'systemctl\s+(?:stop|disable|enable|daemon-reload)',
+          ]
+          for pattern in forbidden:
+              if re.search(pattern, release):
+                  raise SystemExit(f'forbidden mutation surface: {pattern}')
+          PY
+
+      - name: Exercise release wrapper on disposable production-shaped fixture
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'sudo rm -rf /opt/dvizh /var/lib/dvizh/backups "$tmp"' EXIT
+          mkdir -p "$tmp/bin"
+          cat > "$tmp/bin/systemctl" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          case "${1:-}" in
+            is-active) exit 0 ;;
+            cat) printf '%s\n' '[Service]' 'ExecStart=/usr/bin/python3 /opt/dvizh/server.py' ;;
+            restart) exit 0 ;;
+            *) exit 1 ;;
+          esac
+          SH
+          cat > "$tmp/bin/curl" <<SH
+          #!/usr/bin/env bash
+          set -euo pipefail
+          out=''
+          probe=0
+          args=("\$@")
+          for ((i=0; i<\${#args[@]}; i++)); do
+            case "\${args[i]}" in
+              -o|--output) out="\${args[i+1]}"; ((i+=1)) ;;
+              --dump-header) ((i+=1)); probe=1 ;;
+            esac
+          done
+          if [[ "\$probe" == 1 ]]; then
+            printf '%s\r\n' 'HTTP/1.1 200 OK' 'Permissions-Policy: camera=(), microphone=(self), geolocation=(), payment=()' ''
+            exit 0
+          fi
+          cp '$GITHUB_WORKSPACE/install-dvizh-microphone-permissions-policy-fix.sh' "\$out"
+          SH
+          chmod +x "$tmp/bin/systemctl" "$tmp/bin/curl"
+          sudo mkdir -p /opt/dvizh /var/lib/dvizh/backups
+          sudo tee /opt/dvizh/server.py >/dev/null <<'PY'
+          class Handler:
+              def headers(self):
+                  self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+          PY
+          sudo env PATH="$tmp/bin:$PATH" bash install-dvizh-microphone-permissions-policy-release.sh
+          grep -Fq 'microphone=(self)' /opt/dvizh/server.py
+          ! grep -Fq 'microphone=()' /opt/dvizh/server.py
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm narrow root-cause release
+        run: |
+          set -euo pipefail
+          grep -Fq 'VERSION="2026.09.06-microphone-permissions-policy-release.1"' install-dvizh-microphone-permissions-policy-release.sh
+          grep -Fq 'camera=(), microphone=(self), geolocation=(), payment=()' install-dvizh-microphone-permissions-policy-fix.sh
+          grep -Fq 'Изменён только $TARGET; app.js, manual.html, sync.js, sw.js, БД и state не изменялись.' install-dvizh-microphone-permissions-policy-release.sh
