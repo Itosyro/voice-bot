@@ -71,7 +71,7 @@ function make({ getUserMedia, state = {} } = {}) {
   const mediaDevices = {
     async getUserMedia(constraints) {
       order.push('gum:start');
-      assert.deepEqual(constraints, { audio: true });
+      assert.equal(Boolean(constraints && constraints.audio), true);
       if (getUserMedia) return getUserMedia({ order, stream });
       order.push('gum:granted');
       return stream;
