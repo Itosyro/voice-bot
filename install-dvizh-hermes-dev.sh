@@ -81,10 +81,14 @@ grep -q '^name: dvizh-dev$' "$TMP_DIR/SKILL.md"
 grep -Fq 'dvizhdevctl new' "$TMP_DIR/SKILL.md"
 grep -Fq 'Never run `sudo`' "$TMP_DIR/SKILL.md"
 grep -Fq 'deploy-propose' "$TMP_DIR/SKILL.md"
-if grep -Eq 'sub\.add_parser\(["'"']deploy["'"']\)' "$TMP_DIR/dvizhdevctl"; then
-  echo "Payload unexpectedly contains direct deploy command." >&2
-  exit 1
-fi
+python3 - "$TMP_DIR/dvizhdevctl" <<'PY'
+from pathlib import Path
+import re
+import sys
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+if re.search(r'''sub\.add_parser\(["']deploy["']\)''', text):
+    raise SystemExit("Payload unexpectedly contains direct deploy command.")
+PY
 
 if [[ "${DVIZH_HERMES_DEV_PREPARE_ONLY:-0}" == "1" ]]; then
   echo "Hermes Dev Mode payload verified: $PAYLOAD_REF"
