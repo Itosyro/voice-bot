@@ -1,0 +1,81 @@
+name: DVIZH Manual Jump Sync CI
+
+on:
+  push:
+    paths:
+      - 'install-dvizh-manual-jump-fix.sh'
+      - 'tests/manual-jump-sync.test.cjs'
+      - '.github/workflows/dvizh-manual-jump-sync-tests.yml'
+  pull_request:
+    paths:
+      - 'install-dvizh-manual-jump-fix.sh'
+      - 'tests/manual-jump-sync.test.cjs'
+      - '.github/workflows/dvizh-manual-jump-sync-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dvizh-manual-jump-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and regression test
+        run: |
+          set -euo pipefail
+          bash -n install-dvizh-manual-jump-fix.sh
+          node --test tests/manual-jump-sync.test.cjs
+      - name: Verify exact Hermes handoff payload
+        run: |
+          set -euo pipefail
+          test "$(git hash-object install-dvizh-manual-jump-fix.sh)" = '7b6c3dc897d839e9f0096d841e9fdaadeaa6cbe4'
+          test "$(git hash-object tests/manual-jump-sync.test.cjs)" = '472351240d11d43824305b6a8e1e8623980ca55e'
+      - name: Static deployment boundary
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path('install-dvizh-manual-jump-fix.sh').read_text(encoding='utf-8')
+          required = [
+              'SYNC="$APP_ROOT/sync.js"',
+              'manualJumpRenderState',
+              'delete packet.exportedAt',
+              'appLoaded && manualJumpChanged',
+              '/var/lib/dvizh/backups/manual-jump-sync.',
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit(f'missing safety/fix marker: {marker}')
+          forbidden = [
+              r'\bsystemctl\b', r'\bservice\s+', r'/opt/dvizh/static/app\.js',
+              r'/opt/dvizh/static/manual\.html', r'/opt/dvizh/server\.py',
+              r'\bsqlite3\b', r'\bpsql\b', r'\bmysql\b', r'/etc/dvizh',
+          ]
+          for pattern in forbidden:
+              if re.search(pattern, text):
+                  raise SystemExit(f'forbidden production mutation surface: {pattern}')
+          PY
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm narrow one-file production patch
+        run: |
+          set -euo pipefail
+          grep -Fq 'VERSION="2026.09.06-manual-jump-sync.1"' install-dvizh-manual-jump-fix.sh
+          grep -Fq 'Сервисы не перезапускались; app.js, manual.html, БД и настройки не изменены.' install-dvizh-manual-jump-fix.sh
+          grep -Fq 'timestampOnly' tests/manual-jump-sync.test.cjs
+          grep -Fq 'changedPlan' tests/manual-jump-sync.test.cjs
