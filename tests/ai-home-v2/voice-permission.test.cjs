@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '../../ai-home-v2/ai-home-v2.js'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '../../ai-home-v2-voice-v1/ai-home-v2.js'), 'utf8');
 const settle = async () => { for (let i = 0; i < 12; i++) await new Promise(setImmediate); };
 const copy = value => JSON.parse(JSON.stringify(value));
 

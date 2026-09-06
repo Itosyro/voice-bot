@@ -276,39 +276,74 @@
     });
   }
 
+  function microphoneDevices() {
+    // Some embedded/test environments expose navigator through a throwing
+    // getter. Treat that exactly like a browser without getUserMedia support.
+    try { return globalThis.navigator?.mediaDevices || null; }
+    catch (_) { return null; }
+  }
+
+  function stopMicrophoneStream(stream) {
+    try {
+      for (const track of Array.from(stream?.getTracks?.() || [])) track.stop?.();
+    } catch (_) {}
+  }
+
+  function microphoneErrorText(error) {
+    const name = String(error?.name || '');
+    if (['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(name)) {
+      return 'Микрофон запрещён для этого сайта. Разреши его в настройках браузера.';
+    }
+    if (name === 'NotFoundError') return 'Микрофон не найден на устройстве.';
+    if (['NotReadableError', 'AbortError'].includes(name)) return 'Микрофон занят или временно недоступен.';
+    return 'Не удалось открыть микрофон. Можно написать.';
+  }
+
   function cancelVoice(restore = true) {
     const session = voice;
     if (!session) return;
     voice = null;
     const instance = session.instance;
-    instance.onstart = instance.onresult = instance.onerror = instance.onend = null;
-    try { instance.abort(); } catch (_) {}
+    if (instance) {
+      instance.onstart = instance.onresult = instance.onerror = instance.onend = null;
+      try { instance.abort(); } catch (_) {}
+    }
     if (restore) { input.value = session.draft; resizeInput(); }
     controls();
   }
 
-  function startVoice() {
-    if (voice) {
-      try { voice.instance.stop(); } catch (_) { cancelVoice(); setStatus(''); }
-      return;
+  async function beginVoice(session, Ctor) {
+    const current = () => voice === session && alive(session.token);
+    const media = microphoneDevices();
+    let stream = null;
+    if (media && typeof media.getUserMedia === 'function') {
+      try {
+        setStatus('Разрешаю микрофон…', 'listening');
+        stream = await media.getUserMedia({ audio: true });
+      } catch (error) {
+        if (!current()) return;
+        cancelVoice();
+        setStatus(microphoneErrorText(error), 'error');
+        return;
+      } finally {
+        // SpeechRecognition owns its own capture. The permission probe stream
+        // must never stay open in parallel or survive a cancelled page.
+        stopMicrophoneStream(stream);
+      }
+      if (!current()) return;
     }
-    if (busy || operation || !alive(epoch)) return;
-    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Ctor) {
-      input.focus();
-      setStatus('Голосовой ввод здесь недоступен. Напиши.');
-      return;
-    }
+
     let instance;
     try { instance = new Ctor(); }
-    catch (_) { setStatus('Не удалось включить микрофон. Напиши.'); return; }
-    const session = { instance, token: epoch, draft: input.value, finalText: '' };
-    voice = session; // Reserve before onstart: rapid taps cannot start two microphones.
-    controls();
+    catch (_) {
+      if (current()) { cancelVoice(); setStatus('Не удалось включить распознавание речи. Можно написать.', 'error'); }
+      return;
+    }
+    if (!current()) return;
+    session.instance = instance;
     instance.lang = 'ru-RU';
     instance.continuous = false;
     instance.interimResults = true;
-    const current = () => voice === session && alive(session.token);
     const combined = text => [session.draft.trim(), text.trim()].filter(Boolean).join(' ').slice(0, 12000);
     instance.onstart = () => { if (current()) setStatus('Слушаю…', 'listening'); };
     instance.onresult = event => {
@@ -325,7 +360,8 @@
       if (!current()) return;
       cancelVoice();
       setStatus(['not-allowed', 'service-not-allowed'].includes(event.error)
-        ? 'Нет доступа к микрофону. Можно написать.' : 'Не расслышал. Можно сказать ещё раз.');
+        ? 'Распознавание речи заблокировано браузером. Проверь доступ к микрофону.'
+        : 'Не расслышал. Можно сказать ещё раз.', 'error');
     };
     instance.onend = () => {
       if (!current()) return;
@@ -335,7 +371,33 @@
       else setStatus('Не расслышал. Можно сказать ещё раз.');
     };
     try { instance.start(); }
-    catch (_) { cancelVoice(); input.focus(); setStatus('Не удалось включить микрофон. Напиши.'); }
+    catch (_) {
+      if (current()) { cancelVoice(); input.focus(); setStatus('Не удалось включить распознавание речи. Можно написать.', 'error'); }
+    }
+  }
+
+  function startVoice() {
+    if (voice) {
+      if (voice.instance) {
+        try { voice.instance.stop(); } catch (_) { cancelVoice(); setStatus(''); }
+      } else {
+        // A second tap while Android/browser permission UI is pending is cancel.
+        cancelVoice();
+        setStatus('');
+      }
+      return;
+    }
+    if (busy || operation || !alive(epoch)) return;
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Ctor) {
+      input.focus();
+      setStatus('Голосовой ввод здесь недоступен. Напиши.');
+      return;
+    }
+    const session = { instance: null, token: epoch, draft: input.value, finalText: '' };
+    voice = session; // Reserve before any permission promise or recognizer callback.
+    controls();
+    void beginVoice(session, Ctor);
   }
 
   function cancelManualHold() {
