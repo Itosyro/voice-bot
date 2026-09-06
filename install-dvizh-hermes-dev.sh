@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-hermes-dev-installer.3"
-PAYLOAD_REF="eb9457c759e2396eab13ccf14a55e7c39b79cd5f"
+VERSION="2026.09.06-hermes-dev-installer.4"
+PAYLOAD_REF="6341635e10f4349747bed0adabf2cfbd6953455a"
 CTL_BLOB="41a879b744be907cb379685038df1f5ee55e7b11"
-SKILL_BLOB="f6f62faa99b15069921971bfebb91b69e29e86a2"
+HANDOFF_BLOB="7ea1a7a7a659888f55465939c5a006a7f0564ecb"
+SKILL_BLOB="47a988de4c3f5abc604c96470d43319c86a1b993"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/hermes-dev-v1"
 
 [[ $# -eq 0 ]] || { echo "Этот установщик не принимает аргументы." >&2; exit 1; }
@@ -19,6 +20,7 @@ TARGET_HOME=""
 TARGET_GROUP=""
 SKILL_DIR=""
 HAD_CTL=0
+HAD_HANDOFF=0
 HAD_SKILL=0
 INSTALLED=0
 
@@ -40,6 +42,11 @@ cleanup() {
     else
       root_run rm -f /usr/local/bin/dvizhdevctl || true
     fi
+    if [[ "$HAD_HANDOFF" == 1 && -f "$BACKUP_DIR/dvizhdevhandoff" ]]; then
+      root_run install -o root -g root -m 0755 "$BACKUP_DIR/dvizhdevhandoff" /usr/local/bin/dvizhdevhandoff || true
+    else
+      root_run rm -f /usr/local/bin/dvizhdevhandoff || true
+    fi
     if [[ "$HAD_SKILL" == 1 && -f "$BACKUP_DIR/SKILL.md" ]]; then
       root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$BACKUP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md" || true
     else
@@ -53,6 +60,8 @@ trap cleanup EXIT INT TERM
 
 curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
   "$BASE_URL/dvizhdevctl.py" -o "$TMP_DIR/dvizhdevctl"
+curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
+  "$BASE_URL/dvizhdevhandoff.py" -o "$TMP_DIR/dvizhdevhandoff"
 curl --fail --silent --show-error --location --retry 4 --retry-delay 1 \
   "$BASE_URL/skill/SKILL.md" -o "$TMP_DIR/SKILL.md"
 
@@ -72,24 +81,31 @@ PY
   }
 }
 verify_git_blob "$TMP_DIR/dvizhdevctl" "$CTL_BLOB"
+verify_git_blob "$TMP_DIR/dvizhdevhandoff" "$HANDOFF_BLOB"
 verify_git_blob "$TMP_DIR/SKILL.md" "$SKILL_BLOB"
-python3 -m py_compile "$TMP_DIR/dvizhdevctl"
+python3 -m py_compile "$TMP_DIR/dvizhdevctl" "$TMP_DIR/dvizhdevhandoff"
 grep -q 'VERSION = "2026.09.06-hermes-dev.1"' "$TMP_DIR/dvizhdevctl"
+grep -q 'VERSION = "2026.09.06-hermes-handoff.1"' "$TMP_DIR/dvizhdevhandoff"
 grep -q '^name: dvizh-dev$' "$TMP_DIR/SKILL.md"
 grep -Fq 'dvizhdevctl new' "$TMP_DIR/SKILL.md"
 grep -Fq 'Never run `sudo`' "$TMP_DIR/SKILL.md"
-grep -Fq 'deploy-propose' "$TMP_DIR/SKILL.md"
-python3 - "$TMP_DIR/dvizhdevctl" <<'PY'
+grep -Fq 'dvizhdevhandoff <job-id>' "$TMP_DIR/SKILL.md"
+grep -Fq 'GitHub credentials: not required' "$TMP_DIR/SKILL.md"
+python3 - "$TMP_DIR/dvizhdevctl" "$TMP_DIR/dvizhdevhandoff" <<'PY'
 from pathlib import Path
 import re
 import sys
-text = Path(sys.argv[1]).read_text(encoding="utf-8")
-if re.search(r'''sub\.add_parser\(["']deploy["']\)''', text):
+ctl = Path(sys.argv[1]).read_text(encoding="utf-8")
+handoff = Path(sys.argv[2]).read_text(encoding="utf-8")
+if re.search(r'''sub\.add_parser\(["']deploy["']\)''', ctl):
     raise SystemExit("Payload unexpectedly contains direct deploy command.")
+for text in (ctl, handoff):
+    if re.search(r'''\bsystemctl\b[^\n]*(restart|start|stop|enable|disable)|subprocess[^\n]*sudo|shell\s*=\s*True|os\.system''', text):
+        raise SystemExit("Payload unexpectedly contains production mutation primitive.")
 PY
 
 if [[ "${DVIZH_HERMES_DEV_PREPARE_ONLY:-0}" == "1" ]]; then
-  echo "Hermes Dev Mode payload verified: $PAYLOAD_REF"
+  echo "Hermes Dev Mode handoff payload verified: $PAYLOAD_REF"
   exit 0
 fi
 
@@ -105,8 +121,6 @@ TARGET_GROUP="$(id -gn "$TARGET_USER")"
 [[ -n "$TARGET_HOME" && -d "$TARGET_HOME" ]] || { echo "Не найден home пользователя $TARGET_USER" >&2; exit 1; }
 [[ "$(stat -c '%U' "$TARGET_HOME")" == "$TARGET_USER" ]] || { echo "Home $TARGET_HOME не принадлежит $TARGET_USER; остановка." >&2; exit 1; }
 
-# All state/skill parents are created by the target user, never by root. This
-# prevents a first sudo install from making ~/.hermes unwritable to Hermes.
 user_run mkdir -p \
   "$TARGET_HOME/.hermes" \
   "$TARGET_HOME/.hermes/backups" \
@@ -131,6 +145,10 @@ if [[ -f /usr/local/bin/dvizhdevctl ]]; then
   HAD_CTL=1
   root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 /usr/local/bin/dvizhdevctl "$BACKUP_DIR/dvizhdevctl"
 fi
+if [[ -f /usr/local/bin/dvizhdevhandoff ]]; then
+  HAD_HANDOFF=1
+  root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 /usr/local/bin/dvizhdevhandoff "$BACKUP_DIR/dvizhdevhandoff"
+fi
 if [[ -f "$SKILL_DIR/SKILL.md" ]]; then
   HAD_SKILL=1
   root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$SKILL_DIR/SKILL.md" "$BACKUP_DIR/SKILL.md"
@@ -138,12 +156,14 @@ fi
 
 INSTALLED=1
 root_run install -o root -g root -m 0755 "$TMP_DIR/dvizhdevctl" /usr/local/bin/dvizhdevctl
+root_run install -o root -g root -m 0755 "$TMP_DIR/dvizhdevhandoff" /usr/local/bin/dvizhdevhandoff
 root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$TMP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md"
 
 [[ "$(user_run /usr/local/bin/dvizhdevctl version)" == "2026.09.06-hermes-dev.1" ]]
 user_run /usr/local/bin/dvizhdevctl config >/dev/null
-# Initialize only Hermes' private development clone/worktree area. This does not
-# touch /opt/dvizh, services, databases, auth, or production Git state.
+user_run /usr/local/bin/dvizhdevhandoff --help >/dev/null
+# Initialize only Hermes' private public clone/worktree area. No GitHub write
+# credentials are needed and production is not touched.
 user_run env GIT_TERMINAL_PROMPT=0 /usr/local/bin/dvizhdevctl init >/dev/null
 
 INSTALLED=0
@@ -156,11 +176,12 @@ Payload: $PAYLOAD_REF
 User: $TARGET_USER
 Skill: $SKILL_DIR/SKILL.md
 Controller: /usr/local/bin/dvizhdevctl
+Handoff: /usr/local/bin/dvizhdevhandoff
 Backup: $BACKUP_DIR
 
 Production НЕ изменён: /opt/dvizh, БД, systemd, auth, AI Home и Telegram service не трогались.
-Dev Mode умеет worktree/test/commit/push/CI и только INERT deploy-proposal; apply/deploy команды нет.
+GitHub credentials Hermes НЕ нужны: по умолчанию он делает local worktree/test/commit и handoff в ChatGPT.
 
-В Telegram Hermes отправь /reset, затем можно написать обычным текстом:
-  "Ручной режим ДВИЖа периодически прыгает. Найди причину и исправь сам через dvizh-dev. Прод не трогай."
+В Telegram Hermes отправь /reset. Для уже готового managed job можно написать:
+  "Используй dvizh-dev. Сделай handoff текущего локального commit для ChatGPT. Ничего не push и прод не трогай."
 EOF
