@@ -1,0 +1,40 @@
+name: Inspect DVIZH auth release routing
+
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-dvizh-auth-release-routing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct verified auth release and inspect only routing-related source
+        run: |
+          set -euo pipefail
+          TMP="$(mktemp -d)"
+          trap 'rm -rf "$TMP"' EXIT
+          cat dvizh-auth-release/part-*.b64 | base64 --decode > "$TMP/release.tar.gz"
+          echo '1bdc9b0ed9ed7e4f2961d57a437dbdc3fc0424567303cb6760b3d029ca1d1be3  '"$TMP/release.tar.gz" | sha256sum -c -
+          mkdir "$TMP/release"
+          tar -xzf "$TMP/release.tar.gz" -C "$TMP/release"
+
+          echo '=== release files ==='
+          find "$TMP/release" -type f -printf '%P\n' | sort
+
+          echo '=== routing/static matches ==='
+          while IFS= read -r file; do
+            case "$file" in
+              *.py|*.sh|*.service|*.md|*.txt|*.json)
+                grep -nEi 'manual\.html|index\.html|ai-home-v2-preview|StaticFiles|FileResponse|@app\.(get|route)|add_api_route|/api/health|static|proxy|upstream|8000|8002' "$file" \
+                  | sed "s#^#$file:#" || true
+                ;;
+            esac
+          done < <(find "$TMP/release" -type f \
+            ! -name '*.env' ! -name '*.db' ! -name '*.sqlite' ! -name '*.key' ! -name '*.pem' | sort)
