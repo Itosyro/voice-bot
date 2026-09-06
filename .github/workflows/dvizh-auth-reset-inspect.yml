@@ -1,0 +1,33 @@
+name: DVIZH Auth Reset Inspect
+
+on:
+  push:
+    branches:
+      - codex/dvizh-auth-reset-2026-09-06
+    paths:
+      - '.github/workflows/dvizh-auth-reset-inspect.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct public auth release and inspect reset contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat dvizh-auth-release/part-00.b64 dvizh-auth-release/part-01.b64 dvizh-auth-release/part-02.b64 dvizh-auth-release/part-03.b64 | base64 --decode > /tmp/auth.tar.gz
+          echo '1bdc9b0ed9ed7e4f2961d57a437dbdc3fc0424567303cb6760b3d029ca1d1be3  /tmp/auth.tar.gz' | sha256sum -c -
+          rm -rf /tmp/auth-release
+          mkdir -p /tmp/auth-release
+          tar -xzf /tmp/auth.tar.gz -C /tmp/auth-release
+          echo '=== FILES ==='
+          find /tmp/auth-release -maxdepth 4 -type f -printf '%p\n' | sort
+          echo '=== AUTH TERMS ==='
+          grep -RInE -C 3 'password|username|setup|reset|scrypt|session|sqlite|database|change' /tmp/auth-release/dvizh-auth-build \
+            --exclude='*.css' --exclude='*.html' --exclude='*.svg' || true
