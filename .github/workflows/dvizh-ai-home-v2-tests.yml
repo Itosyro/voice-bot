@@ -9,6 +9,7 @@ on:
       - 'install-dvizh-ai-home-v2-preview-from-github.sh'
       - 'promote-dvizh-ai-home-v2-from-github.sh'
       - 'promote-dvizh-ai-home-v2-relative-fix.sh'
+      - 'promote-dvizh-ai-home-v2-byte-smoke.sh'
       - 'diagnose-dvizh-ai-home-v2.sh'
       - 'diagnose-dvizh-ai-home-v2-routing.sh'
       - 'diagnose-dvizh-service-routing.sh'
@@ -23,6 +24,7 @@ on:
       - 'install-dvizh-ai-home-v2-preview-from-github.sh'
       - 'promote-dvizh-ai-home-v2-from-github.sh'
       - 'promote-dvizh-ai-home-v2-relative-fix.sh'
+      - 'promote-dvizh-ai-home-v2-byte-smoke.sh'
       - 'diagnose-dvizh-ai-home-v2.sh'
       - 'diagnose-dvizh-ai-home-v2-routing.sh'
       - 'diagnose-dvizh-service-routing.sh'
@@ -54,6 +56,7 @@ jobs:
           bash -n install-dvizh-ai-home-v2-preview-from-github.sh
           bash -n promote-dvizh-ai-home-v2-from-github.sh
           bash -n promote-dvizh-ai-home-v2-relative-fix.sh
+          bash -n promote-dvizh-ai-home-v2-byte-smoke.sh
           bash -n diagnose-dvizh-ai-home-v2.sh
           bash -n diagnose-dvizh-ai-home-v2-routing.sh
           bash -n diagnose-dvizh-service-routing.sh
@@ -63,10 +66,12 @@ jobs:
           ! grep -Eq '/proc/[^[:space:]]*/environ|\bprintenv\b' diagnose-dvizh-service-routing.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-relative-fix.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-byte-smoke.sh
           ! grep -Eq "method=['\"]PUT['\"]|/api/state[^\n]*PUT" diagnose-dvizh-ai-home-v2.sh
           ! grep -Eq 'curl[^\n]*(--request|-X)[[:space:]]*(PUT|POST|PATCH|DELETE)' diagnose-dvizh-ai-home-v2-routing.sh
           node --check ai-home-v2/ai-home-v2.js
           node --test tests/ai-home-v2/*.test.cjs
+          python3 tests/ai-home-v2/promote_byte_smoke_test.py
 
   hermes-bridge-contract:
     runs-on: ubuntu-latest
@@ -118,6 +123,7 @@ jobs:
           set -euo pipefail
           grep -q '^RELEASE_COMMIT="d6418224eae292417a645b2a73da157d939526b9"$' install-dvizh-ai-home-v2-preview-from-github.sh
           grep -q '^RELEASE_COMMIT="d6418224eae292417a645b2a73da157d939526b9"$' promote-dvizh-ai-home-v2-from-github.sh
+          grep -q '^RELEASE_COMMIT="d6418224eae292417a645b2a73da157d939526b9"$' promote-dvizh-ai-home-v2-byte-smoke.sh
           grep -q '^BASE_PROMOTE_COMMIT="575e174e9b2c1ad06c35fa2c428314f9ffaa2fa6"$' promote-dvizh-ai-home-v2-relative-fix.sh
           grep -q '^BASE_PROMOTE_BLOB="81d8cbdaa351991f9e8bf0bd26ccac93b4a098d1"$' promote-dvizh-ai-home-v2-relative-fix.sh
           grep -Fq 'count != 4' promote-dvizh-ai-home-v2-relative-fix.sh
@@ -126,13 +132,21 @@ jobs:
           grep -Fq -- '--promote' promote-dvizh-ai-home-v2-from-github.sh
           grep -Fq 'автоматически возвращаю предыдущую главную' promote-dvizh-ai-home-v2-from-github.sh
           grep -Fq 'http://127.0.0.1:8000/manual.html' promote-dvizh-ai-home-v2-from-github.sh
+          grep -Fq 'http_exact manual-preflight /manual.html' promote-dvizh-ai-home-v2-byte-smoke.sh
+          grep -Fq 'http_exact root / ' promote-dvizh-ai-home-v2-byte-smoke.sh
+          grep -Fq 'http_exact index /index.html' promote-dvizh-ai-home-v2-byte-smoke.sh
+          grep -Fq 'http_exact manual /manual.html' promote-dvizh-ai-home-v2-byte-smoke.sh
+          grep -Fq 'cmp -s "$expected" "$body"' promote-dvizh-ai-home-v2-byte-smoke.sh
+          grep -Fq 'Promotion не подтверждён: возвращаю предыдущую главную и ручной маршрут.' promote-dvizh-ai-home-v2-byte-smoke.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' install-dvizh-ai-home-v2-preview-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-from-github.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-relative-fix.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' promote-dvizh-ai-home-v2-byte-smoke.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' diagnose-dvizh-ai-home-v2-routing.sh
           ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' diagnose-dvizh-service-routing.sh
           ! grep -Eq '/proc/[^[:space:]]*/environ|\bprintenv\b' diagnose-dvizh-service-routing.sh
           ! grep -Eq 'serviceWorker|caches[[:space:]]*\.' promote-dvizh-ai-home-v2-relative-fix.sh
+          ! grep -Eq 'serviceWorker|caches[[:space:]]*\.' promote-dvizh-ai-home-v2-byte-smoke.sh
           grep -Fq 'snapshot_known' diagnose-dvizh-ai-home-v2-routing.sh
           grep -Fq 'RESULT: read-only probe complete; site files unchanged.' diagnose-dvizh-ai-home-v2-routing.sh
           grep -Fq 'RESULT: read-only service routing probe complete; site files unchanged.' diagnose-dvizh-service-routing.sh
