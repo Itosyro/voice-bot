@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.06-hermes-dev-installer.2"
+VERSION="2026.09.06-hermes-dev-installer.3"
 PAYLOAD_REF="eb9457c759e2396eab13ccf14a55e7c39b79cd5f"
 CTL_BLOB="41a879b744be907cb379685038df1f5ee55e7b11"
 SKILL_BLOB="f6f62faa99b15069921971bfebb91b69e29e86a2"
 BASE_URL="https://raw.githubusercontent.com/Itosyro/voice-bot/${PAYLOAD_REF}/hermes-dev-v1"
 
 [[ $# -eq 0 ]] || { echo "Этот установщик не принимает аргументы." >&2; exit 1; }
-for tool in curl python3 git getent id; do
+for tool in curl python3 git getent id stat; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $tool" >&2; exit 1; }
 done
 
@@ -41,7 +41,6 @@ cleanup() {
       root_run rm -f /usr/local/bin/dvizhdevctl || true
     fi
     if [[ "$HAD_SKILL" == 1 && -f "$BACKUP_DIR/SKILL.md" ]]; then
-      root_run install -d -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0700 "$SKILL_DIR" || true
       root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 "$BACKUP_DIR/SKILL.md" "$SKILL_DIR/SKILL.md" || true
     else
       root_run rm -rf -- "$SKILL_DIR" || true
@@ -104,10 +103,30 @@ id "$TARGET_USER" >/dev/null 2>&1 || { echo "Пользователь не на�
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_GROUP="$(id -gn "$TARGET_USER")"
 [[ -n "$TARGET_HOME" && -d "$TARGET_HOME" ]] || { echo "Не найден home пользователя $TARGET_USER" >&2; exit 1; }
+[[ "$(stat -c '%U' "$TARGET_HOME")" == "$TARGET_USER" ]] || { echo "Home $TARGET_HOME не принадлежит $TARGET_USER; остановка." >&2; exit 1; }
+
+# All state/skill parents are created by the target user, never by root. This
+# prevents a first sudo install from making ~/.hermes unwritable to Hermes.
+user_run mkdir -p \
+  "$TARGET_HOME/.hermes" \
+  "$TARGET_HOME/.hermes/backups" \
+  "$TARGET_HOME/.hermes/skills" \
+  "$TARGET_HOME/.hermes/skills/dvizh" \
+  "$TARGET_HOME/.hermes/dev"
+for dir in \
+  "$TARGET_HOME/.hermes" \
+  "$TARGET_HOME/.hermes/backups" \
+  "$TARGET_HOME/.hermes/skills" \
+  "$TARGET_HOME/.hermes/skills/dvizh" \
+  "$TARGET_HOME/.hermes/dev"; do
+  [[ "$(stat -c '%U' "$dir")" == "$TARGET_USER" ]] || { echo "Небезопасный владелец каталога: $dir" >&2; exit 1; }
+done
+
 SKILL_DIR="$TARGET_HOME/.hermes/skills/dvizh/dvizh-dev"
 BACKUP_DIR="$TARGET_HOME/.hermes/backups/dvizh-dev-$(date -u +%Y%m%dT%H%M%SZ)"
+user_run mkdir -p "$BACKUP_DIR" "$SKILL_DIR"
+user_run chmod 0700 "$BACKUP_DIR" "$SKILL_DIR"
 
-root_run install -d -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0700 "$BACKUP_DIR" "$SKILL_DIR"
 if [[ -f /usr/local/bin/dvizhdevctl ]]; then
   HAD_CTL=1
   root_run install -o "$TARGET_USER" -g "$TARGET_GROUP" -m 0600 /usr/local/bin/dvizhdevctl "$BACKUP_DIR/dvizhdevctl"
