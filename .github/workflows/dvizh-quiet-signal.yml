@@ -44,4 +44,15 @@ jobs:
       - name: Exercise actual Manual bundle with offline fixtures
         env:
           NODE_PATH: /tmp/quiet-signal-browser/node_modules
-        run: node --test minimal-ui-v1/quiet-signal/tests/browser.cjs
+        run: |
+          status=0
+          node --test minimal-ui-v1/quiet-signal/tests/browser.cjs > /tmp/manual-browser.log 2>&1 || status=$?
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/manual-browser.log').read_text()
+          print(text)
+          if 'not ok' in text or 'Error' in text:
+              escaped = text[-24000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Manual browser diagnostic::' + escaped)
+          PY
+          exit "$status"
