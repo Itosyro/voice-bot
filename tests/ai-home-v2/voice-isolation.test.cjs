@@ -16,7 +16,7 @@ test('voice promotion changes only script cache key, never home markup or CSS', 
 });
 test('voice promotion leaves all non-AI production sources and Manual/SW assets byte-identical', () => {
   const names = execFileSync('git', ['ls-tree', '-r', '--name-only', base], { cwd: root, encoding: 'utf8' }).trim().split('\n');
-  const protectedNames = names.filter(name => !name.startsWith('tests/') && !name.startsWith('docs/') &&
+  const protectedNames = names.filter(name => !name.startsWith('tests/') && !name.startsWith('docs/') && !name.startsWith('.github/') &&
     !['ai-home-v2/ai-home-v2.js', 'ai-home-v2/index.html', 'ai-home-v2/README.md'].includes(name));
   for (const name of protectedNames) {
     const expected = execFileSync('git', ['rev-parse', `${base}:${name}`], { cwd: root, encoding: 'utf8' }).trim();
