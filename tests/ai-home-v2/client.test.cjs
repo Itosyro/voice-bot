@@ -36,7 +36,7 @@ class Element extends Target {
   requestSubmit() { this.emit('submit'); }
   set innerHTML(_) { throw Error('HTML injection is forbidden'); }
 }
-function make({ state = {}, handler, speech = true, hidden = false, autoStart = true, mediaDevices, pathname = '/ai-home-v2-preview.html' } = {}) {
+function make({ state = {}, handler, speech = true, hidden = false, autoStart = true, mediaDevices, synthesis, pathname = '/ai-home-v2-preview.html' } = {}) {
   const clock = { now: 1000, next: 0, timers: new Map() };
   const setTimer = (fn, delay) => { const id = ++clock.next; clock.timers.set(id, { at: clock.now + delay, fn }); return id; };
   clock.advance = async ms => {
@@ -66,6 +66,10 @@ function make({ state = {}, handler, speech = true, hidden = false, autoStart = 
     }
   }
   if (speech) window.SpeechRecognition = Recognition;
+  if (synthesis) {
+    window.speechSynthesis = synthesis;
+    window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+  }
   const store = { revision: 1, state: copy(state) };
   const calls = [], navigations = [];
   let sequence = 0;
@@ -407,4 +411,159 @@ test('long hold waits for release and never starts speech after navigation', asy
   assert.equal(h.navigations.length, 0); assert.equal(h.clock.timers.size, 0);
   h.aiOrb.emit('pointerup'); h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/']);
   assert.equal(h.recognitions.length, 0);
+});
+
+function speaker() {
+  return { spoken: [], cancelled: 0, getVoices: () => [],
+    speak(utterance) { this.spoken.push(utterance); },
+    cancel() { this.cancelled++; } };
+}
+function completed(id, content = 'Готово', updatedAt = '2026-09-08T12:00:00Z') {
+  return { aiHomeRequests: [{ id, status: 'done' }],
+    aiHomeMessages: [{ role: 'assistant', content }],
+    aiHomeStatus: { state: 'ready', requestId: id, updatedAt } };
+}
+test('fresh completed request automatically speaks its answer in Russian', async () => {
+  const synthesis = speaker();
+  const h = make({ synthesis }); await settle(); await h.send('Привет');
+  h.store.state = completed(h.store.state.aiHomeRequests[0].id);
+  await h.clock.advance(900);
+  assert.equal(synthesis.spoken.length, 1);
+  assert.equal(synthesis.spoken[0].text, 'Готово');
+  assert.equal(synthesis.spoken[0].lang, 'ru-RU');
+  assert.equal(h.aiInput.disabled, false);
+});
+
+async function refresh(h, state) {
+  if (state) h.store.state = state;
+  h.window.emit('online'); await settle();
+}
+test('persisted history stays silent, including initial hidden load and resume', async () => {
+  for (const hidden of [false, true]) {
+    const synthesis = speaker(), h = make({ synthesis, hidden, state: completed('old') });
+    await settle(); h.show(); await settle();
+    await refresh(h); h.hide(); h.show(); await settle();
+    assert.equal(synthesis.spoken.length, 0);
+    assert.equal(h.aiAnswer.hidden, true);
+  }
+});
+test('request identity deduplicates sync/resume but allows identical answers from two requests', async () => {
+  const synthesis = speaker(), h = make({ synthesis }); await settle();
+  await refresh(h, completed('one'));
+  assert.equal(h.aiAnswer.hidden, false);
+  await refresh(h, completed('one', 'Готово', 'later'));
+  h.hide(); h.show(); await settle();
+  h.window.emit('pagehide'); h.window.emit('pageshow', { persisted: true }); await settle();
+  assert.equal(synthesis.spoken.length, 1);
+  await refresh(h, completed('two'));
+  assert.deepEqual(synthesis.spoken.map(u => u.text), ['Готово', 'Готово']);
+  await refresh(h, completed('one'));
+  assert.equal(synthesis.spoken.length, 2);
+});
+test('request observed active at boot speaks when completed, including completion while hidden', async () => {
+  const synthesis = speaker(), h = make({ synthesis, state: active() }); await settle();
+  h.hide(); h.store.state = completed('existing'); h.show(); await settle();
+  assert.equal(synthesis.spoken.length, 1);
+});
+test('queued and failed statuses never read an assistant message', async () => {
+  const synthesis = speaker(), h = make({ synthesis }); await settle();
+  for (const state of ['queued', 'processing', 'error']) {
+    const snapshot = completed(state); snapshot.aiHomeStatus.state = state;
+    await refresh(h, snapshot);
+  }
+  assert.equal(synthesis.spoken.length, 0);
+});
+test('voice selection uses exact ru-RU, with late voices used on subsequent replies', async () => {
+  const synthesis = speaker(), h = make({ synthesis }); await settle();
+  await refresh(h, completed('default'));
+  assert.equal(synthesis.spoken[0].voice, undefined);
+  synthesis.spoken[0].onend();
+  const exact = { lang: 'ru-RU' };
+  synthesis.getVoices = () => [{ lang: 'en-US', default: true }, { lang: 'ru' }, exact];
+  await refresh(h, completed('russian'));
+  assert.equal(synthesis.spoken[1].voice, exact);
+  assert.equal(synthesis.spoken.length, 2);
+});
+test('long answers play sequentially without truncation and ignore duplicate end callbacks', async () => {
+  const synthesis = speaker(), h = make({ synthesis }); await settle();
+  const content = ('Предложение про тренировку.\n' + '😀'.repeat(150) + ' ').repeat(25).trim();
+  await refresh(h, completed('long', content));
+  assert.equal(synthesis.spoken.length, 1);
+  for (let i = 0; i < synthesis.spoken.length; i++) {
+    assert.ok(i < 200);
+    const utterance = synthesis.spoken[i];
+    assert.ok(utterance.text.length <= 220);
+    assert.doesNotMatch(utterance.text, /^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/u);
+    const end = utterance.onend; end(); end();
+  }
+  assert.equal(synthesis.spoken.map(u => u.text).join(''), content);
+  assert.equal(h.clock.timers.size, 0);
+  assert.equal(h.aiAnswer.textContent, content);
+});
+for (const action of ['mic', 'submit', 'hide', 'pagehide', 'manual', 'auth']) {
+  test(`${action} cancels speech and late callbacks cannot continue a long answer`, async () => {
+    let denied = false;
+    const synthesis = speaker();
+    const h = make({ synthesis, handler: () => denied ? reply({}, 401) : undefined,
+      mediaDevices: { getUserMedia: async () => {
+        assert.ok(synthesis.cancelled > before); return { getTracks: () => [] };
+      } } });
+    await settle(); await refresh(h, completed('long', 'Длинный ответ. '.repeat(100)));
+    const utterance = synthesis.spoken[0], end = utterance.onend, error = utterance.onerror;
+    const before = synthesis.cancelled;
+    if (action === 'mic') { h.aiOrb.emit('click'); await settle(); }
+    if (action === 'submit') await h.send('Следующий');
+    if (action === 'hide') h.hide();
+    if (action === 'pagehide') h.window.emit('pagehide');
+    if (action === 'manual') await h.send('/manual');
+    if (action === 'auth') { denied = true; await refresh(h); }
+    assert.ok(synthesis.cancelled > before);
+    end(); error({ error: 'interrupted' }); await settle();
+    assert.equal(synthesis.spoken.length, 1);
+    if (action === 'mic') assert.equal(h.recognitions[0].started, 1);
+  });
+}
+for (const failure of ['unsupported', 'getter', 'constructor', 'speak', 'cancel', 'voices', 'async']) {
+  test(`synthesis ${failure} failure does not break input or retry`, async () => {
+    const synthesis = speaker(), h = make({ synthesis }); await settle();
+    if (failure === 'unsupported') delete h.window.speechSynthesis;
+    if (failure === 'getter') Object.defineProperty(h.window, 'speechSynthesis', { get() { throw Error('unavailable'); } });
+    if (failure === 'constructor') h.window.SpeechSynthesisUtterance = class { constructor() { throw Error('unavailable'); } };
+    if (failure === 'speak') synthesis.speak = function(u) { this.spoken.push(u); throw Error('blocked'); };
+    if (failure === 'cancel') synthesis.cancel = () => { throw Error('cancel'); };
+    if (failure === 'voices') synthesis.getVoices = () => { throw Error('voices'); };
+    await refresh(h, completed('failure', 'Ответ. '.repeat(100)));
+    if (failure === 'async') {
+      const u = synthesis.spoken[0], end = u.onend;
+      u.onerror({ error: 'not-allowed' }); end();
+    }
+    const attempts = synthesis.spoken.length, calls = h.calls.length;
+    await h.clock.advance(20000);
+    assert.equal(h.calls.length, calls); assert.equal(h.clock.timers.size, 0);
+    await refresh(h); h.hide(); h.show(); await settle();
+    assert.equal(synthesis.spoken.length, attempts);
+    assert.equal(h.aiInput.disabled, false); assert.equal(h.aiStatus.textContent, '');
+    await h.send('Текст работает'); assert.equal(h.puts().length, 1);
+  });
+}
+test('late completion GET after hide cannot start speech', async () => {
+  let resolve, delay = false;
+  const synthesis = speaker(), h = make({ synthesis, handler: () => delay ? new Promise(done => { resolve = done; }) : undefined });
+  await settle(); delay = true; h.window.emit('online'); await settle(); h.hide();
+  resolve(reply({ revision: 2, state: completed('late') })); await settle();
+  assert.equal(synthesis.spoken.length, 0); assert.equal(h.clock.timers.size, 0);
+});
+test('completion without assistant content never speaks user text', async () => {
+  const synthesis = speaker(), h = make({ synthesis }); await settle();
+  const state = completed('empty'); state.aiHomeMessages = [{ role: 'user', content: 'Не читай' }];
+  await refresh(h, state);
+  assert.equal(synthesis.spoken.length, 0); assert.equal(h.aiInput.disabled, false);
+});
+test('voices loading during a long reply apply to its next chunk without replay', async () => {
+  const synthesis = speaker(), h = make({ synthesis }); await settle();
+  await refresh(h, completed('long', 'Ответ '.repeat(100)));
+  const russian = { lang: 'ru-RU' }; synthesis.getVoices = () => [russian];
+  synthesis.spoken[0].onend();
+  assert.equal(synthesis.spoken.length, 2);
+  assert.equal(synthesis.spoken[1].voice, russian);
 });

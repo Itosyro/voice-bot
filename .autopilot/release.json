@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "name": "AI Home automatic browser speech output",
+  "operations": [
+    {
+      "source": "ai-home-v2/ai-home-v2.js",
+      "target": "/opt/dvizh/static/ai-home-v2.js",
+      "http_path": "/ai-home-v2.js"
+    },
+    {
+      "source": "ai-home-v2/index.html",
+      "target": "/opt/dvizh/static/index.html",
+      "http_path": "/"
+    }
+  ],
+  "restarts": []
+}

@@ -29,8 +29,12 @@
   let holdStartedAt = null;
   let holdOpenedManual = false;
   // A fresh page session starts visually empty. Open this gate only after this
-  // page has observed an active request (including one resumed after reload).
+  // page has observed an active request or a fresh completion after its first read.
   let responseGateOpen = false;
+  let speechBaseline = false;
+  const completedSpeechRequests = new Set();
+  // Hold the session and current utterance strongly until completion/cancellation.
+  let speechOutput = null;
   const controllers = new Set();
   const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
   const rows = value => Array.isArray(value) ? value.filter(object) : [];
@@ -77,6 +81,82 @@
     answer.hidden = true;
   }
 
+  function stopSpeech() {
+    const session = speechOutput;
+    speechOutput = null; // Invalidate callbacks before cancel(), which may fire events.
+    if (session?.utterance) {
+      session.utterance.onend = session.utterance.onerror = null;
+      session.utterance = null;
+    }
+    try { window.speechSynthesis?.cancel(); } catch (_) {}
+  }
+
+  function speakAnswer(text) {
+    stopSpeech();
+    try {
+      const synth = window.speechSynthesis;
+      const Ctor = window.SpeechSynthesisUtterance;
+      if (!synth || typeof synth.speak !== 'function' || typeof Ctor !== 'function') return;
+      const session = { utterance: null, offset: 0 };
+      speechOutput = session;
+      const next = () => {
+        if (speechOutput !== session || !alive(epoch) || voice) return;
+        if (session.offset >= text.length) { speechOutput = null; return; }
+        try {
+          // Bound each browser utterance without dropping any text. Prefer a
+          // word boundary and never split a UTF-16 surrogate pair.
+          let end = Math.min(session.offset + 220, text.length);
+          if (end < text.length) {
+            const segment = text.slice(session.offset, end);
+            const boundary = Math.max(segment.lastIndexOf(' '), segment.lastIndexOf('\n'));
+            if (boundary > 0) end = session.offset + boundary + 1;
+            else if (/[\uD800-\uDBFF]/.test(text[end - 1])) end--;
+          }
+          const utterance = new Ctor(text.slice(session.offset, end));
+          session.offset = end;
+          session.utterance = utterance;
+          utterance.lang = 'ru-RU';
+          // Requery for each chunk/reply: voices may initially be empty. The
+          // language hint safely uses the browser default until voices load.
+          try {
+            const voices = Array.from(synth.getVoices?.() || []);
+            const russian = voices.find(item => /^ru[-_]ru$/i.test(item.lang))
+              || voices.find(item => /^ru(?:[-_]|$)/i.test(item.lang));
+            if (russian) utterance.voice = russian;
+          } catch (_) {}
+          utterance.onend = () => {
+            if (speechOutput !== session || session.utterance !== utterance) return;
+            utterance.onend = utterance.onerror = null;
+            session.utterance = null;
+            next();
+          };
+          utterance.onerror = () => {
+            if (speechOutput === session && session.utterance === utterance) stopSpeech();
+          };
+          synth.speak(utterance);
+        } catch (_) { if (speechOutput === session) stopSpeech(); }
+      };
+      next();
+    } catch (_) { stopSpeech(); }
+  }
+
+  function observeSpeech(state) {
+    const ready = state.aiHomeStatus;
+    const id = ready?.state === 'ready' && ready.requestId;
+    if (!speechBaseline) {
+      speechBaseline = true;
+      if (id) completedSpeechRequests.add(id);
+      return; // The first snapshot is history, even if it has a ready answer.
+    }
+    if (!id || completedSpeechRequests.has(id)) return;
+    completedSpeechRequests.add(id); // Errors/cancellation must never replay it.
+    const last = rows(state.aiHomeMessages).filter(row => row.role === 'assistant').at(-1);
+    const text = String(last?.content || '').trim();
+    if (!text) return;
+    responseGateOpen = true;
+    speakAnswer(text);
+  }
+
   function resizeInput() {
     input.style.height = 'auto';
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
@@ -106,6 +186,7 @@
   }
 
   function showAuth() {
+    stopSpeech();
     stopPolling();
     cancelVoice();
     authLink.href = manualTarget();
@@ -175,6 +256,7 @@
     auth.hidden = true;
     composer.hidden = false;
     acknowledge(state);
+    observeSpeech(state);
     if (activeRequest(state)) {
       responseGateOpen = true;
       showAnswer();
@@ -242,6 +324,7 @@
       return;
     }
     if (!clean || busy || voice || operation || !alive(epoch)) return;
+    stopSpeech();
     clearPoll();
     return run(async token => {
       setBusy(true);
@@ -397,6 +480,7 @@
       setStatus('Голосовой ввод здесь недоступен. Напиши.');
       return;
     }
+    stopSpeech();
     const session = { instance: null, token: epoch, draft: input.value, finalText: '' };
     voice = session; // Reserve before any permission promise or recognizer callback.
     controls();
@@ -408,6 +492,7 @@
   }
 
   function suspend() {
+    stopSpeech();
     pageAlive = false;
     epoch += 1;
     clearPoll();
