@@ -34,6 +34,9 @@ for (const width of [320,390,760,900,1440]) test(`mode header and all routes rea
       const box=await link.boundingBox();
       assert.ok(box.width>=44 && box.height>=44);
     }
+    // The intro was dismissed with a pointer click. Enter keyboard modality
+    // before asserting :focus-visible; focus() alone preserves pointer modality.
+    await page.keyboard.press('Tab');
     await header.locator('a').first().focus();
     assert.equal(await header.locator('a').first().evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
     const nav=width<=760?'.mobile-nav':'.nav-list';
