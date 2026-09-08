@@ -75,7 +75,11 @@ policy_ok() {
 }
 
 http_exact() {
-  local label="$1" path="$2" expected="$3" body="$TMP/${label}.body" code
+  local label path expected body code
+  label="$1"
+  path="$2"
+  expected="$3"
+  body="$TMP/${label}.body"
   code="$(curl --silent --show-error --max-time 8 -H 'Cache-Control: no-cache' -o "$body" -w '%{http_code}' "$HTTP_BASE$path")" || return 1
   [[ "$code" == 200 ]] || { echo "HTTP $label: ожидался 200, получен $code" >&2; return 1; }
   cmp -s "$expected" "$body" || { echo "HTTP $label: body не совпал байт-в-байт." >&2; return 1; }
