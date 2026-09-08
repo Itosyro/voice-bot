@@ -1,0 +1,71 @@
+name: DVIZH AI Home v2 stable voice release CI
+
+on:
+  push:
+    paths:
+      - 'install-dvizh-ai-home-v2-stable-voice-release.sh'
+      - 'tests/ai-home-v2/stable_voice_release_test.py'
+      - '.github/workflows/dvizh-ai-home-v2-stable-voice-release-tests.yml'
+  pull_request:
+    paths:
+      - 'install-dvizh-ai-home-v2-stable-voice-release.sh'
+      - 'tests/ai-home-v2/stable_voice_release_test.py'
+      - '.github/workflows/dvizh-ai-home-v2-stable-voice-release-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-home-v2-stable-voice-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify immutable accepted source and narrow mutation boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'SOURCE_COMMIT="4c74d5216e2cfcca5a14bdaf179cf520aecfd685"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'SOURCE_INDEX_BLOB="e27cbfedf3022525fff3d6b77a12d824055c252c"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'SOURCE_JS_BLOB="c25a48d815f4cb05b0be90d4d3c5196d60be6e6f"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          test "$(git rev-parse 4c74d5216e2cfcca5a14bdaf179cf520aecfd685:ai-home-v2/index.html)" = 'e27cbfedf3022525fff3d6b77a12d824055c252c'
+          test "$(git rev-parse 4c74d5216e2cfcca5a14bdaf179cf520aecfd685:ai-home-v2/ai-home-v2.js)" = 'c25a48d815f4cb05b0be90d4d3c5196d60be6e6f'
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' install-dvizh-ai-home-v2-stable-voice-release.sh
+          ! grep -Eq '/opt/dvizh/(?:server\.py|state|.*\.db)|/opt/dvizh-ai-home' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'microphone=(self)' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'Stable voice update не подтверждён: возвращаю backup index.html и ai-home-v2.js.' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'Изменены только index.html и ai-home-v2.js.' install-dvizh-ai-home-v2-stable-voice-release.sh
+
+      - name: Exercise success idempotence rollback and policy refusal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 tests/ai-home-v2/stable_voice_release_test.py
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [release-test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm stable voice release identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          grep -Fq 'VERSION="2026.09.08-ai-home-v2-stable-voice.1"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'SOURCE_COMMIT="4c74d5216e2cfcca5a14bdaf179cf520aecfd685"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq '/ai-home-v2.js?v=20260905-3.1-voice-20260908' ai-home-v2/index.html
+          grep -Fq 'getUserMedia({ audio: true })' ai-home-v2/ai-home-v2.js
+          grep -Fq 'stopMicrophoneStream(stream)' ai-home-v2/ai-home-v2.js
