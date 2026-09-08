@@ -1,0 +1,112 @@
+name: DVIZH AI Home v2 voice preview cleanup CI
+
+on:
+  push:
+    branches:
+      - codex/ai-home-v2-stable-voice-2026-09-08
+    paths:
+      - 'cleanup-dvizh-ai-home-v2-voice-preview.sh'
+      - '.github/workflows/dvizh-ai-home-v2-voice-preview-cleanup-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify narrow cleanup contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'EXPECTED_HTML_BLOB="05e4bef31c39ac4f917062e97609ada3c5513fa4"' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'EXPECTED_JS_BLOB="64e2698d90968cc0c8d86ae81207f97976710db2"' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'STABLE_INDEX_BLOB="e27cbfedf3022525fff3d6b77a12d824055c252c"' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'STABLE_JS_BLOB="c25a48d815f4cb05b0be90d4d3c5196d60be6e6f"' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'microphone=(self)' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          ! grep -Eq 'systemctl[[:space:]]+(restart|start|stop|enable|disable|daemon-reload)' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          ! grep -Eq '\b(sqlite3|psql|mysql)\b' cleanup-dvizh-ai-home-v2-voice-preview.sh
+      - name: Exercise success idempotence rollback and unknown-preview refusal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp="$(mktemp -d)"
+          trap '[[ -n "${server_pid:-}" ]] && kill "$server_pid" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+          root="$tmp/static"
+          mkdir -p "$root"
+          git show 4c74d5216e2cfcca5a14bdaf179cf520aecfd685:ai-home-v2/index.html > "$root/index.html"
+          git show 4c74d5216e2cfcca5a14bdaf179cf520aecfd685:ai-home-v2/ai-home-v2.js > "$root/ai-home-v2.js"
+          git show 4c74d5216e2cfcca5a14bdaf179cf520aecfd685:ai-home-v2/ai-home-v2.css > "$root/ai-home-v2.css"
+          printf '<!doctype html><p>manual</p>\n' > "$root/manual.html"
+          printf 'console.log("app");\n' > "$root/app.js"
+          printf 'console.log("sync");\n' > "$root/sync.js"
+          printf '// sw\n' > "$root/sw.js"
+          curl -fsSL https://raw.githubusercontent.com/Itosyro/voice-bot/03ff9a86dc20aac4f13bd47f073ed3d987714f0d/ai-home-v2-voice-v1/index.html -o "$root/ai-home-v2-voice-preview.html"
+          curl -fsSL https://raw.githubusercontent.com/Itosyro/voice-bot/03ff9a86dc20aac4f13bd47f073ed3d987714f0d/ai-home-v2-voice-v1/ai-home-v2.js -o "$root/ai-home-v2-voice.js"
+          cat > "$tmp/server.py" <<'PY'
+          import http.server, os, socketserver, sys
+          root, port_file = sys.argv[1:3]
+          class H(http.server.SimpleHTTPRequestHandler):
+              def end_headers(self):
+                  self.send_header('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()')
+                  super().end_headers()
+              def log_message(self, *a): pass
+              def translate_path(self, path):
+                  import urllib.parse
+                  path=urllib.parse.urlsplit(path).path
+                  if path == '/': path='/index.html'
+                  return os.path.join(root, path.lstrip('/'))
+          with socketserver.ThreadingTCPServer(('127.0.0.1',0), H) as s:
+              open(port_file,'w').write(str(s.server_address[1]))
+              s.serve_forever()
+          PY
+          python3 "$tmp/server.py" "$root" "$tmp/port" & server_pid=$!
+          for i in {1..50}; do [[ -s "$tmp/port" ]] && break; sleep .1; done
+          port="$(cat "$tmp/port")"
+          base="http://127.0.0.1:$port"
+          before="$(find "$root" -maxdepth 1 -type f ! -name 'ai-home-v2-voice-preview.html' ! -name 'ai-home-v2-voice.js' -print0 | sort -z | xargs -0 sha256sum)"
+          env DVIZH_VOICE_CLEANUP_ROOT="$root" DVIZH_VOICE_CLEANUP_HTTP_BASE="$base" bash cleanup-dvizh-ai-home-v2-voice-preview.sh
+          test ! -e "$root/ai-home-v2-voice-preview.html"
+          test ! -e "$root/ai-home-v2-voice.js"
+          after="$(find "$root" -maxdepth 1 -type f ! -name 'ai-home-v2-voice-preview.html' ! -name 'ai-home-v2-voice.js' -print0 | sort -z | xargs -0 sha256sum)"
+          test "$before" = "$after"
+          env DVIZH_VOICE_CLEANUP_ROOT="$root" DVIZH_VOICE_CLEANUP_HTTP_BASE="$base" bash cleanup-dvizh-ai-home-v2-voice-preview.sh
+          curl -fsSL https://raw.githubusercontent.com/Itosyro/voice-bot/03ff9a86dc20aac4f13bd47f073ed3d987714f0d/ai-home-v2-voice-v1/index.html -o "$root/ai-home-v2-voice-preview.html"
+          curl -fsSL https://raw.githubusercontent.com/Itosyro/voice-bot/03ff9a86dc20aac4f13bd47f073ed3d987714f0d/ai-home-v2-voice-v1/ai-home-v2.js -o "$root/ai-home-v2-voice.js"
+          set +e
+          env DVIZH_VOICE_CLEANUP_ROOT="$root" DVIZH_VOICE_CLEANUP_HTTP_BASE="$base" DVIZH_VOICE_CLEANUP_FAIL_AFTER_DELETE=1 bash cleanup-dvizh-ai-home-v2-voice-preview.sh
+          rc=$?
+          set -e
+          test "$rc" = 77
+          test "$(git hash-object "$root/ai-home-v2-voice-preview.html")" = '05e4bef31c39ac4f917062e97609ada3c5513fa4'
+          test "$(git hash-object "$root/ai-home-v2-voice.js")" = '64e2698d90968cc0c8d86ae81207f97976710db2'
+          printf 'unknown preview\n' > "$root/ai-home-v2-voice-preview.html"
+          set +e
+          env DVIZH_VOICE_CLEANUP_ROOT="$root" DVIZH_VOICE_CLEANUP_HTTP_BASE="$base" bash cleanup-dvizh-ai-home-v2-voice-preview.sh
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -Fq 'unknown preview' "$root/ai-home-v2-voice-preview.html"
+          test -f "$root/ai-home-v2-voice.js"
+
+  release-gate:
+    runs-on: ubuntu-latest
+    needs: [cleanup-test]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm cleanup identity
+        run: |
+          set -euo pipefail
+          grep -Fq 'VERSION="2026.09.08-ai-home-v2-voice-preview-cleanup.1"' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'rm -f -- "$HTML" "$JS"' cleanup-dvizh-ai-home-v2-voice-preview.sh
+          grep -Fq 'Stable AI Home / и Manual /manual.html подтверждены byte-exact.' cleanup-dvizh-ai-home-v2-voice-preview.sh
