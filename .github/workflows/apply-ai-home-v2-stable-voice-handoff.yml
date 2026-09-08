@@ -26,16 +26,7 @@ jobs:
           BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
           EXPECTED_SHA='9ea5fae4e2715575c2ffa4f020cab672424a6ad9469622d9e55cf2eabf77eb76'
           git merge-base --is-ancestor "$BASE" HEAD
-          : > /tmp/handoff.patch
-          for f in \
-            .handoff/voice-20260908/part-00.b64 \
-            .handoff/voice-20260908/part-01.b64 \
-            .handoff/voice-20260908/part-02.b64 \
-            .handoff/voice-20260908/part-03.b64 \
-            .handoff/voice-20260908/part-04.b64
-          do
-            base64 --decode "$f" >> /tmp/handoff.patch
-          done
+          base64 --decode .handoff/voice-20260908/handoff.patch.gz.b64 | gzip -dc > /tmp/handoff.patch
           test "$(wc -c < /tmp/handoff.patch | tr -d ' ')" = '34127'
           printf '%s  %s\n' "$EXPECTED_SHA" /tmp/handoff.patch | sha256sum -c -
           git apply --check /tmp/handoff.patch
