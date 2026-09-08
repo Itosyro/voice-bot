@@ -1,0 +1,200 @@
+name: DVIZH AI Home v2 stable voice release
+
+on:
+  push:
+    paths:
+      - 'install-dvizh-ai-home-v2-stable-voice-release.sh'
+      - '.github/workflows/dvizh-ai-home-v2-stable-voice-release.yml'
+  pull_request:
+    paths:
+      - 'install-dvizh-ai-home-v2-stable-voice-release.sh'
+      - '.github/workflows/dvizh-ai-home-v2-stable-voice-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-home-v2-stable-voice-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Syntax and immutable source contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n install-dvizh-ai-home-v2-stable-voice-release.sh
+          SOURCE='4c74d5216e2cfcca5a14bdaf179cf520aecfd685'
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          test "$(git rev-parse "$SOURCE:ai-home-v2/index.html")" = 'e27cbfedf3022525fff3d6b77a12d824055c252c'
+          test "$(git rev-parse "$SOURCE:ai-home-v2/ai-home-v2.js")" = 'c25a48d815f4cb05b0be90d4d3c5196d60be6e6f'
+          test "$(git rev-parse "$BASE:ai-home-v2/index.html")" = '2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e'
+          test "$(git rev-parse "$BASE:ai-home-v2/ai-home-v2.js")" = '95b1ce6a09341840802efebb958f41441cc43560'
+          test "$(git rev-parse "$SOURCE:ai-home-v2/ai-home-v2.css")" = '273934a33d7913c45f4b7656315aeedfd6e4e813'
+          git diff --binary --full-index "$BASE" "$SOURCE" -- . > /tmp/hermes.patch
+          test "$(wc -c < /tmp/hermes.patch | tr -d ' ')" = '34127'
+          echo '9ea5fae4e2715575c2ffa4f020cab672424a6ad9469622d9e55cf2eabf77eb76  /tmp/hermes.patch' | sha256sum -c -
+
+      - name: Static mutation boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s = Path('install-dvizh-ai-home-v2-stable-voice-release.sh').read_text(encoding='utf-8')
+          required = [
+              'SOURCE_COMMIT="4c74d5216e2cfcca5a14bdaf179cf520aecfd685"',
+              'SOURCE_INDEX_BLOB="e27cbfedf3022525fff3d6b77a12d824055c252c"',
+              'SOURCE_JS_BLOB="c25a48d815f4cb05b0be90d4d3c5196d60be6e6f"',
+              'EXPECTED_POLICY="Permissions-Policy: camera=(), microphone=(self), geolocation=(), payment=()"',
+              'replace_from_source "$tmp/source/ai-home-v2.js" "$JS"',
+              'replace_from_source "$tmp/source/index.html" "$INDEX"',
+              'Stable voice update не подтверждён: возвращаю backup index.html и ai-home-v2.js.',
+              'http_exact root', 'http_exact js', 'protected_snapshot',
+          ]
+          for marker in required:
+              if marker not in s:
+                  raise SystemExit(f'missing release marker: {marker}')
+          forbidden = [
+              r'\bsystemctl\b',
+              r'\bservice\s+(?:start|stop|restart)',
+              r'/var/lib/dvizh/(?:state|auth\.db)',
+              r'\bsqlite3\b|\bpsql\b|\bmysql\b',
+              r'serviceWorker|caches\s*\.',
+              r'mv[^\n]*(?:manual\.html|app\.js|sync\.js|sw\.js|ai-home-v2\.css)',
+              r'cat[^\n]*>[^\n]*(?:manual\.html|app\.js|sync\.js|sw\.js|ai-home-v2\.css)',
+              r'rm[^\n]*(?:manual\.html|app\.js|sync\.js|sw\.js|ai-home-v2\.css)',
+          ]
+          for pattern in forbidden:
+              if re.search(pattern, s):
+                  raise SystemExit(f'forbidden mutation surface: {pattern}')
+          PY
+
+      - name: Exercise install, idempotence, rollback, tamper refusal and symlink refusal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp="$(mktemp -d)"
+          root="$tmp/site"
+          source="$tmp/source"
+          mkdir -p "$root" "$source"
+          SOURCE_COMMIT='4c74d5216e2cfcca5a14bdaf179cf520aecfd685'
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          git show "$SOURCE_COMMIT:ai-home-v2/index.html" > "$source/index.html"
+          git show "$SOURCE_COMMIT:ai-home-v2/ai-home-v2.js" > "$source/ai-home-v2.js"
+          git show "$BASE:ai-home-v2/index.html" > "$root/index.html"
+          git show "$BASE:ai-home-v2/ai-home-v2.js" > "$root/ai-home-v2.js"
+          git show "$BASE:ai-home-v2/ai-home-v2.css" > "$root/ai-home-v2.css"
+          printf '%s\n' '<!doctype html><title>manual</title>' > "$root/manual.html"
+          printf '%s\n' 'console.log("manual")' > "$root/app.js"
+          printf '%s\n' 'console.log("sync")' > "$root/sync.js"
+          printf '%s\n' '// worker' > "$root/sw.js"
+          printf '%s\n' '<!doctype html><title>voice preview</title>' > "$root/ai-home-v2-voice-preview.html"
+          sha256sum "$root/manual.html" "$root/app.js" "$root/sync.js" "$root/sw.js" "$root/ai-home-v2.css" "$root/ai-home-v2-voice-preview.html" > "$tmp/protected.sha"
+
+          cat > "$tmp/server.py" <<'PY'
+          import http.server, pathlib, sys
+          from urllib.parse import urlsplit, unquote
+          root = pathlib.Path(sys.argv[1]).resolve()
+          portfile = pathlib.Path(sys.argv[2])
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  path = unquote(urlsplit(self.path).path)
+                  target = root / ('index.html' if path == '/' else path.lstrip('/'))
+                  try:
+                      resolved = target.resolve()
+                      if root not in resolved.parents and resolved != root:
+                          raise FileNotFoundError
+                      body = resolved.read_bytes()
+                  except (FileNotFoundError, IsADirectoryError):
+                      self.send_response(404); self.end_headers(); return
+                  self.send_response(200)
+                  self.send_header('Content-Length', str(len(body)))
+                  self.send_header('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()')
+                  self.end_headers()
+                  self.wfile.write(body)
+              def log_message(self, *args): pass
+          server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+          portfile.write_text(str(server.server_address[1]), encoding='ascii')
+          server.serve_forever()
+          PY
+          python3 "$tmp/server.py" "$root" "$tmp/port" &
+          server_pid=$!
+          cleanup() { kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true; rm -rf "$tmp"; }
+          trap cleanup EXIT
+          for _ in {1..50}; do [[ -s "$tmp/port" ]] && break; sleep 0.1; done
+          [[ -s "$tmp/port" ]]
+          base="http://127.0.0.1:$(cat "$tmp/port")"
+          env_common=(DVIZH_STABLE_VOICE_ROOT="$root" DVIZH_STABLE_VOICE_HTTP_BASE="$base" DVIZH_STABLE_VOICE_SOURCE_DIR="$source")
+
+          env "${env_common[@]}" bash install-dvizh-ai-home-v2-stable-voice-release.sh | tee "$tmp/install.out"
+          grep -Fq 'Установлен 2026.09.08-ai-home-v2-stable-voice.1' "$tmp/install.out"
+          test "$(git hash-object "$root/index.html")" = 'e27cbfedf3022525fff3d6b77a12d824055c252c'
+          test "$(git hash-object "$root/ai-home-v2.js")" = 'c25a48d815f4cb05b0be90d4d3c5196d60be6e6f'
+          sha256sum --check --status "$tmp/protected.sha"
+
+          env "${env_common[@]}" bash install-dvizh-ai-home-v2-stable-voice-release.sh | tee "$tmp/idempotent.out"
+          grep -Fq 'Stable voice уже установлен и повторно проверен' "$tmp/idempotent.out"
+          sha256sum --check --status "$tmp/protected.sha"
+
+          git show "$BASE:ai-home-v2/index.html" > "$root/index.html"
+          git show "$BASE:ai-home-v2/ai-home-v2.js" > "$root/ai-home-v2.js"
+          if env "${env_common[@]}" DVIZH_STABLE_VOICE_FAIL_AFTER_WRITE=1 bash install-dvizh-ai-home-v2-stable-voice-release.sh; then
+            echo 'forced rollback test unexpectedly succeeded' >&2; exit 1
+          fi
+          test "$(git hash-object "$root/index.html")" = '2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e'
+          test "$(git hash-object "$root/ai-home-v2.js")" = '95b1ce6a09341840802efebb958f41441cc43560'
+          sha256sum --check --status "$tmp/protected.sha"
+
+          cp -a "$source" "$tmp/bad-source"
+          printf '%s\n' '// tampered' >> "$tmp/bad-source/ai-home-v2.js"
+          if DVIZH_STABLE_VOICE_ROOT="$root" DVIZH_STABLE_VOICE_HTTP_BASE="$base" DVIZH_STABLE_VOICE_SOURCE_DIR="$tmp/bad-source" \
+             bash install-dvizh-ai-home-v2-stable-voice-release.sh; then
+            echo 'tampered source unexpectedly accepted' >&2; exit 1
+          fi
+          test "$(git hash-object "$root/index.html")" = '2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e'
+          test "$(git hash-object "$root/ai-home-v2.js")" = '95b1ce6a09341840802efebb958f41441cc43560'
+
+          mv "$root/index.html" "$root/index.real"
+          ln -s index.real "$root/index.html"
+          if env "${env_common[@]}" bash install-dvizh-ai-home-v2-stable-voice-release.sh; then
+            echo 'symlink destination unexpectedly accepted' >&2; exit 1
+          fi
+          test -L "$root/index.html"
+          test "$(git hash-object "$root/index.real")" = '2a703fbc0ca731ae68cf733c0ce6fb9552fceb2e'
+
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [release-test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Confirm release is pinned to accepted Hermes production source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SOURCE='4c74d5216e2cfcca5a14bdaf179cf520aecfd685'
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          grep -Fq 'VERSION="2026.09.08-ai-home-v2-stable-voice.1"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq "SOURCE_COMMIT=\"$SOURCE\"" install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'SOURCE_INDEX_BLOB="e27cbfedf3022525fff3d6b77a12d824055c252c"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          grep -Fq 'SOURCE_JS_BLOB="c25a48d815f4cb05b0be90d4d3c5196d60be6e6f"' install-dvizh-ai-home-v2-stable-voice-release.sh
+          test "$(git rev-parse "$BASE:app.js")" = "$(git rev-parse "$SOURCE:app.js")"
+          test "$(git rev-parse "$BASE:sync.js")" = "$(git rev-parse "$SOURCE:sync.js")"
+          test "$(git rev-parse "$BASE:sw.js")" = "$(git rev-parse "$SOURCE:sw.js")"
+          test "$(git rev-parse "$BASE:ai-home-v2/ai-home-v2.css")" = "$(git rev-parse "$SOURCE:ai-home-v2/ai-home-v2.css")"
+          ! grep -Eq '\bsystemctl\b|serviceWorker|caches[[:space:]]*\.' install-dvizh-ai-home-v2-stable-voice-release.sh
