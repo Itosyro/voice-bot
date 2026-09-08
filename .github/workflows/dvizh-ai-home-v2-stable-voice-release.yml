@@ -193,8 +193,19 @@ jobs:
           grep -Fq "SOURCE_COMMIT=\"$SOURCE\"" install-dvizh-ai-home-v2-stable-voice-release.sh
           grep -Fq 'SOURCE_INDEX_BLOB="e27cbfedf3022525fff3d6b77a12d824055c252c"' install-dvizh-ai-home-v2-stable-voice-release.sh
           grep -Fq 'SOURCE_JS_BLOB="c25a48d815f4cb05b0be90d4d3c5196d60be6e6f"' install-dvizh-ai-home-v2-stable-voice-release.sh
-          test "$(git rev-parse "$BASE:app.js")" = "$(git rev-parse "$SOURCE:app.js")"
-          test "$(git rev-parse "$BASE:sync.js")" = "$(git rev-parse "$SOURCE:sync.js")"
-          test "$(git rev-parse "$BASE:sw.js")" = "$(git rev-parse "$SOURCE:sw.js")"
           test "$(git rev-parse "$BASE:ai-home-v2/ai-home-v2.css")" = "$(git rev-parse "$SOURCE:ai-home-v2/ai-home-v2.css")"
+          git diff --name-only "$BASE" "$SOURCE" -- . | sort > /tmp/changed
+          cat > /tmp/expected <<'EOF'
+          ai-home-v2/ai-home-v2.js
+          ai-home-v2/index.html
+          docs/ai-home-v2-voice-handoff.md
+          tests/ai-home-v2/bootstrap.test.cjs
+          tests/ai-home-v2/browser_test.py
+          tests/ai-home-v2/client.test.cjs
+          tests/ai-home-v2/pinned-release.cjs
+          tests/ai-home-v2/promote-bootstrap.test.cjs
+          tests/ai-home-v2/promote-relative-path-fix.test.cjs
+          tests/ai-home-v2/voice-isolation.test.cjs
+          EOF
+          diff -u /tmp/expected /tmp/changed
           ! grep -Eq '\bsystemctl\b|serviceWorker|caches[[:space:]]*\.' install-dvizh-ai-home-v2-stable-voice-release.sh
