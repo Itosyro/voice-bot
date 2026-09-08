@@ -23,7 +23,6 @@ def load_gate(home: Path, base_sha: str):
     os.environ.update({
         "DVIZH_GIT_GATE_TEST_MODE": "1",
         "DVIZH_GIT_GATE_HOME": str(home),
-        "DVIZH_GIT_GATE_BASE_SHA": base_sha,
         "SUDO_USER": "tester",
     })
     spec = importlib.util.spec_from_file_location(f"dvizhgitpush_test_{id(home)}", MODULE_PATH)
@@ -31,6 +30,7 @@ def load_gate(home: Path, base_sha: str):
     assert spec and spec.loader
     spec.loader.exec_module(module)
     os.environ.clear(); os.environ.update(old)
+    module.public_base_sha = lambda: base_sha
     return module
 
 
