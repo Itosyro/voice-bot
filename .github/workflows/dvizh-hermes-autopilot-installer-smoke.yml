@@ -42,8 +42,8 @@ jobs:
           sudo -u "$user" sudo -n /usr/local/sbin/dvizhrelease doctor >/tmp/doctor.json
           grep -Fq '"ok": true' /tmp/doctor.json
           sudo visudo -cf /etc/sudoers.d/dvizh-hermes-autopilot >/dev/null
-          grep -Fq "$user ALL=(root) NOPASSWD: /usr/local/sbin/dvizhrelease *" /etc/sudoers.d/dvizh-hermes-autopilot
-          ! grep -Fq 'NOPASSWD: ALL' /etc/sudoers.d/dvizh-hermes-autopilot
+          sudo grep -Fq "$user ALL=(root) NOPASSWD: /usr/local/sbin/dvizhrelease *" /etc/sudoers.d/dvizh-hermes-autopilot
+          ! sudo grep -Fq 'NOPASSWD: ALL' /etc/sudoers.d/dvizh-hermes-autopilot
           key="$home/.hermes/dev/dvizh/github/id_ed25519"
           test -f "$key" && test -f "$key.pub"
           test "$(stat -c '%a' "$key")" = 600
