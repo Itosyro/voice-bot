@@ -38,17 +38,23 @@ jobs:
       - name: Syntax and static security boundary
         run: |
           set -Eeuo pipefail
-          python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py
+          python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py hermes-dev-v2/dvizhgitpush.py
           bash -n install-dvizh-hermes-autopilot.sh
-          grep -Fq 'VERSION = "2026.09.08-hermes-autopilot.1"' hermes-dev-v2/dvizhautopilot.py
+          grep -Fq 'VERSION = "2026.09.08-hermes-autopilot.2"' hermes-dev-v2/dvizhautopilot.py
           grep -Fq 'VERSION = "2026.09.08-dvizh-release-gate.1"' hermes-dev-v2/dvizhrelease.py
+          grep -Fq 'VERSION = "2026.09.08-dvizh-git-push-gate.1"' hermes-dev-v2/dvizhgitpush.py
           grep -q '^name: dvizh-dev$' hermes-dev-v2/skill/SKILL.md
           grep -Fq 'Do not call release-apply until a later user Telegram message contains that exact phrase.' hermes-dev-v2/skill/SKILL.md
-          grep -Fq 'SAFE_TARGETS' hermes-dev-v2/dvizhrelease.py
-          grep -Fq 'DENY_PREFIXES' hermes-dev-v2/dvizhrelease.py
-          grep -Fq 'consume_approval' hermes-dev-v2/dvizhrelease.py
-          grep -Fq 'PAYLOAD_REF="4424a8922c4cc8013ecb15bda501558808070490"' install-dvizh-hermes-autopilot.sh
+          grep -Fq 'FRIEND_PROJECT_MARKERS' hermes-dev-v2/dvizhgitpush.py
+          grep -Fq 'CONTROL_PLANE_DENY' hermes-dev-v2/dvizhgitpush.py
+          grep -Fq '"src/"' hermes-dev-v2/dvizhgitpush.py
+          grep -Fq '"migrations/"' hermes-dev-v2/dvizhgitpush.py
+          grep -Fq 'KEY = Path(os.environ.get("DVIZH_GIT_GATE_KEY", "/var/lib/dvizh/autopilot-github/id_ed25519"))' hermes-dev-v2/dvizhgitpush.py
+          ! grep -Fq 'id_ed25519' hermes-dev-v2/dvizhautopilot.py
+          grep -Fq 'PAYLOAD_REF="0b6f9f17f1d1d314be61ec6b9b2a104b343ba864"' install-dvizh-hermes-autopilot.sh
+          grep -Fq 'NOPASSWD: /usr/local/sbin/dvizhgitpush *' install-dvizh-hermes-autopilot.sh
           grep -Fq 'NOPASSWD: /usr/local/sbin/dvizhrelease *' install-dvizh-hermes-autopilot.sh
+          grep -Fq 'ROOT_KEY_DIR="/var/lib/dvizh/autopilot-github"' install-dvizh-hermes-autopilot.sh
           ! grep -Fq 'NOPASSWD: ALL' install-dvizh-hermes-autopilot.sh
           ! grep -Eq 'shell\s*=\s*True|os\.system\(' hermes-dev-v2/*.py
           ! grep -Eq 'git[^\n]*push[^\n]*--force|reset[^\n]*--hard|clean[^\n]*-fd' hermes-dev-v2/*.py
@@ -57,7 +63,7 @@ jobs:
           set -Eeuo pipefail
           DVIZH_HERMES_AUTOPILOT_PREPARE_ONLY=1 bash install-dvizh-hermes-autopilot.sh
           DVIZH_HERMES_AUTOPILOT_PREPARE_ONLY=1 bash install-dvizh-hermes-autopilot.sh
-      - name: Unit and rollback tests
+      - name: Unit and rollback and repository isolation tests
         run: python3 -m unittest discover -s tests/hermes_autopilot -v
 
   workflow-contract:
@@ -65,11 +71,13 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-      - name: Generic Hermes branch CI must gate secrets and AI browser smoke
+      - name: Generic Hermes branch CI must repeat path isolation and AI browser smoke
         run: |
           set -Eeuo pipefail
           grep -Fq "'hermes/dev/**'" .github/workflows/dvizh-hermes-autopilot.yml
           grep -Fq 'credential-shaped path forbidden' .github/workflows/dvizh-hermes-autopilot.yml
+          grep -Fq 'DVIZH-only path gate rejected' .github/workflows/dvizh-hermes-autopilot.yml
+          grep -Fq 'gate.path_allowed(name)' .github/workflows/dvizh-hermes-autopilot.yml
           grep -Fq 'playwright==1.57.0' .github/workflows/dvizh-hermes-autopilot.yml
           grep -Fq 'python tests/ai-home-v2/browser_test.py' .github/workflows/dvizh-hermes-autopilot.yml
           grep -Fq 'Autopilot gate: green' .github/workflows/dvizh-hermes-autopilot.yml
@@ -80,13 +88,14 @@ jobs:
     needs: [contracts, workflow-contract]
     steps:
       - uses: actions/checkout@v4
-      - name: Confirm no unrestricted root surface
+      - name: Confirm no unrestricted root or Git surface
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          text=Path('hermes-dev-v2/dvizhrelease.py').read_text()
-          required=[
+          release=Path('hermes-dev-v2/dvizhrelease.py').read_text()
+          push=Path('hermes-dev-v2/dvizhgitpush.py').read_text()
+          required_release=[
             '"/opt/dvizh/static/index.html"',
             '"/opt/dvizh/static/ai-home-v2.js"',
             '"/opt/dvizh/static/ai-home-v2.css"',
@@ -95,8 +104,18 @@ jobs:
             'target is outside the release allowlist',
             'approval challenge does not match this exact proposal',
           ]
-          for marker in required:
-            if marker not in text: raise SystemExit(f'missing marker: {marker}')
+          for marker in required_release:
+            if marker not in release: raise SystemExit(f'missing release marker: {marker}')
+          required_push=[
+            'FRIEND_PROJECT_MARKERS', 'CONTROL_PLANE_DENY',
+            'friend-project/out-of-scope paths',
+            'merge commits are not allowed',
+            'git@github.com:{REPO}.git',
+          ]
+          for marker in required_push:
+            if marker not in push: raise SystemExit(f'missing push marker: {marker}')
           for forbidden in ['/etc/systemd/system/', '/var/lib/dvizh/auth', 'iptables', 'ufw ', 'authorized_keys']:
-            if forbidden in text: raise SystemExit(f'forbidden root surface: {forbidden}')
+            if forbidden in release + push: raise SystemExit(f'forbidden root surface: {forbidden}')
+          if 'git push --force' in push or 'reset --hard' in push:
+            raise SystemExit('unsafe Git primitive')
           PY
