@@ -64,22 +64,26 @@ jobs:
           git diff --name-only -z "$merge" HEAD -- . > /tmp/changed.z
           python3 - <<'PY'
           from pathlib import Path
-          import re, subprocess
+          import importlib.util, re
           raw=Path('/tmp/changed.z').read_bytes().split(b'\0')
           names=[x.decode('utf-8') for x in raw if x]
           forbidden=[
             re.compile(r'(^|/)(\.env(?:\.|$)|credentials?(?:\.|$)|secrets?(?:\.|$)|auth\.json$)', re.I),
             re.compile(r'\.(pem|key|p12|pfx)$', re.I),
           ]
+          spec=importlib.util.spec_from_file_location('dvizhgitpush_ci', Path('hermes-dev-v2/dvizhgitpush.py'))
+          gate=importlib.util.module_from_spec(spec); spec.loader.exec_module(gate)
           for name in names:
             if name.startswith('/') or '..' in Path(name).parts:
               raise SystemExit(f'unsafe path: {name}')
             if any(rx.search(name) for rx in forbidden):
               raise SystemExit(f'credential-shaped path forbidden: {name}')
+            if not gate.path_allowed(name):
+              raise SystemExit(f'DVIZH-only path gate rejected: {name}')
             p=Path(name)
             if p.is_file() and p.stat().st_size > 5_000_000:
               raise SystemExit(f'changed file too large: {name}')
-          print(f'validated {len(names)} changed paths')
+          print(f'DVIZH-only validated {len(names)} changed paths')
           PY
           while IFS= read -r -d '' file; do
             [[ -f "$file" ]] || continue
@@ -125,10 +129,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Test Autopilot controller and root gate
+      - name: Test Autopilot controller and root gates
         run: |
           set -Eeuo pipefail
-          python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py
+          python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py hermes-dev-v2/dvizhgitpush.py
           python3 -m unittest discover -s tests/hermes_autopilot -v
 
   ai-home-contracts:
