@@ -1,0 +1,90 @@
+{
+  "ok": true,
+  "paths": [
+    "ai-home-v2/ai-home-v2.css",
+    "ai-home-v2/ai-home-v2.js",
+    "ai-home-v2/index.html",
+    "tests/ai-home-v2/browser_test.py",
+    "tests/ai-home-v2/client.test.cjs",
+    "tests/ai-home-v2/stable_voice_release_test.py",
+    "tests/ai-home-v2/voice-isolation.test.cjs",
+    ".autopilot/",
+    ".github/workflows/dvizh-quiet-signal.yml",
+    "ai-home-v2/QUIET-SIGNAL-V2.md",
+    "minimal-ui-v1/quiet-signal/",
+    "minimal-ui-v1/release/",
+    "tests/ai-home-v2/quiet-signal.test.cjs"
+  ],
+  "profiles": [
+    "quick",
+    "ai-home-v2"
+  ],
+  "results": [
+    {
+      "at": "2026-09-08T21:23:30.476223+00:00",
+      "ok": true,
+      "profile": "quick",
+      "results": [
+        {
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "output": "",
+          "returncode": 0
+        }
+      ]
+    },
+    {
+      "at": "2026-09-08T21:23:36.809288+00:00",
+      "ok": true,
+      "profile": "ai-home-v2",
+      "results": [
+        {
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "output": "",
+          "returncode": 0
+        },
+        {
+          "command": [
+            "node",
+            "--check",
+            "ai-home-v2/ai-home-v2.js"
+          ],
+          "output": "",
+          "returncode": 0
+        },
+        {
+          "command": [
+            "node",
+            "--test",
+            "tests/ai-home-v2/bootstrap.test.cjs",
+            "tests/ai-home-v2/client.test.cjs",
+            "tests/ai-home-v2/installer.test.cjs",
+            "tests/ai-home-v2/promote-bootstrap.test.cjs",
+            "tests/ai-home-v2/promote-relative-path-fix.test.cjs",
+            "tests/ai-home-v2/quiet-signal.test.cjs",
+            "tests/ai-home-v2/routing-diagnostic.test.cjs",
+            "tests/ai-home-v2/service-routing-diagnostic.test.cjs",
+            "tests/ai-home-v2/voice-isolation.test.cjs"
+          ],
+          "output": "✔ immutable bootstrap installs only the preview from the pinned release payload (366.431291ms)\n✔ bootstrap refuses a payload whose Git blob does not match the pinned release (114.00001ms)\n✔ bootstrap cannot be used as a promotion entry point (21.040254ms)\n✔ bootstrap release source and blob identities are immutable (0.788096ms)\n✔ stable root primes permission and stops every track before recognition, then shows answer (10.407472ms)\n✔ permission NotAllowedError never starts recognition and text still works (2.818156ms)\n✔ permission SecurityError never starts recognition and text still works (1.537873ms)\n✔ permission NotFoundError never starts recognition and text still works (2.008988ms)\n✔ permission NotReadableError never starts recognition and text still works (1.283677ms)\n✔ permission AbortError never starts recognition and text still works (1.386914ms)\n✔ permission UnknownError never starts recognition and text still works (1.309787ms)\n✔ late permission after tap releases tracks without recognition (2.436838ms)\n✔ late permission after escape releases tracks without recognition (1.267503ms)\n✔ late permission after hide releases tracks without recognition (1.140751ms)\n✔ text at stable root does not request microphone and unsupported speech stays usable (1.712137ms)\n✔ webkit recognition uses the same permission flow (1.092577ms)\n✔ missing mediaDevices does not bypass permission priming (1.025286ms)\n✔ idle boot reads once, never writes or schedules a perpetual poll (0.912815ms)\n✔ one submitted message preserves tasks, proposals and unknown state fields (2.24057ms)\n✔ double submit produces a single write (1.499565ms)\n✔ active request polls until answer, then stops (0.918533ms)\n✔ a request started by another tab is not duplicated (1.584925ms)\n✔ 409 retry rereads and preserves concurrent data (1.547418ms)\n✔ revision conflict retries are bounded and preserve the draft (1.305661ms)\n✔ ambiguous successful PUT is reconciled by id instead of written again (2.270045ms)\n✔ hung HTTP fetch is aborted and controls recover (1.042502ms)\n✔ HTTP timeout also covers a stalled JSON body (1.246041ms)\n✔ GET 401 presents auth without writes (1.04787ms)\n✔ GET 403 presents auth without writes (0.961379ms)\n✔ PUT 401 preserves draft and enters auth (1.609863ms)\n✔ auth can recover on a subsequent visible-page read (1.046628ms)\n✔ malformed GET fails closed: {} (0.903711ms)\n✔ malformed GET fails closed: {\"state\":[],\"revision\":1} (0.923641ms)\n✔ malformed GET fails closed: {\"state\":{},\"revision\":-1} (1.026487ms)\n✔ malformed GET fails closed: {\"state\":{},\"revision\":\"oops\"} (1.101331ms)\n✔ non-successful PUT payload does not clear input or automatically retry (1.755323ms)\n✔ polling never overlaps a pending HTTP request (1.099869ms)\n✔ polling an endless pending request has a finite deadline (24.367733ms)\n✔ polling network errors also stops at the deadline (9.162442ms)\n✔ repeated BFCache hide/show cycles restore pending polling (1.324579ms)\n✔ visibility hide aborts work and visible resumes with one read (0.983002ms)\n✔ an initially hidden page does not start network activity (0.721976ms)\n✔ late GET cannot repaint a hidden page or restart its poll (0.800284ms)\n✔ old operation completion cannot release a new visible-page operation (0.991785ms)\n✔ hide during accepted PUT never replays it after returning (1.126639ms)\n✔ answer remains literal text and unchanged refresh preserves scroll (0.805372ms)\n✔ IME composition and Shift+Enter do not submit (1.677235ms)\n✔ unsupported speech falls back to focused text input (1.00177ms)\n✔ microphone permission error cannot send the existing draft via late onend (0.98865ms)\n✔ interim-only speech never autosends a draft (0.85026ms)\n✔ final transcript sends exactly once and appends to draft (1.14719ms)\n✔ speech error after a final result still does not autosend (2.765837ms)\n✔ Escape aborts voice and ignores late results (0.824281ms)\n✔ leaving while listening cannot send a hidden request (0.871703ms)\n✔ rapid microphone taps reserve one recognition before onstart (0.877722ms)\n✔ manual hold remains available while thinking without starting speech (0.908779ms)\n✔ cancelled hold does not navigate (0.659961ms)\n✔ pagehide cancels a held manual gesture (0.709726ms)\n✔ manual command and keyboard shortcut navigate without state writes (1.702513ms)\n✔ viewport updates only the isolated root and does not override pinch zoom (0.762377ms)\n✔ standalone source has no shared-worker/cache mutation, DOM observer or interval (0.550836ms)\n✔ final plus interim result sends and clears only the final transcript (1.029272ms)\n✔ idle and completed answer do not add a greeting or follow-up on the empty home (1.065737ms)\n✔ promoted / uses manual.html, including auth (0.739311ms)\n✔ promoted /index.html uses manual.html, including auth (0.638579ms)\n✔ promoted /index.html/ uses manual.html, including auth (0.673612ms)\n✔ preview auth leads to stable root instead of missing manual.html (0.748556ms)\n✔ long hold waits for release and never starts speech after navigation (0.697579ms)\n✔ live speech fix: history silent, fresh completion chunked once, cancellation invalidates callbacks (1.315566ms)\n✔ ribbon has shaded geometry, one frame loop, hidden/reduced/pagehide lifecycle (80.275962ms)\n✔ speaking follows actual utterance start/end, never queued speech or late callbacks (69.408222ms)\n✔ broken animation APIs cannot break requests or microphone controls (11.982521ms)\n✔ visible Manual link saves only bounded draft for one return; blocked storage is harmless (72.606816ms)\n✔ new answer scrolls into view once without resetting repeated answer scroll (1.388136ms)\n✔ draft excludes credentials, oversized text and mode commands, expires and rejects malformed records (228.678701ms)\n✔ ribbon failures after startup and missing SVG support leave API flow intact (21.027665ms)\n✔ ribbon tracks recognition and thinking; interrupted speech returns idle (94.779718ms)\n✔ speech history stays silent; unsupported output and synth errors retain readable answers (2.575268ms)\n✔ speech chunk boundaries preserve surrogate pairs and loaded Russian voices (1.139038ms)\n✔ modified Manual click keeps native navigation and writes no draft (18.531698ms)\n✔ keyboard viewport follows offset scroll and preserves pinch zoom (0.878263ms)\n✔ back-forward cache return consumes saved draft without overwriting in-memory text (43.595586ms)\n✔ unresolved accepted PUT is never restored as an ordinary Manual draft (61.866159ms)\n✔ ribbon fallback readiness: listener (1.12082ms)\n✔ ribbon fallback readiness: runtime (19.585226ms)\n✔ ribbon fallback readiness: request-missing (43.71634ms)\n✔ ribbon fallback readiness: cancel-missing (42.139617ms)\n✔ ribbon fallback readiness: request-throws (9.331879ms)\n✔ default mode only validates and leaves the site directory byte-for-byte unchanged (45.70033ms)\n✔ preview install creates only its own page, preserving absent manual and stable root (52.747424ms)\n✔ repeated preview install does not overwrite an existing manual interface (94.059295ms)\n✔ missing payload fails before modifying any site files (8.404793ms)\n✔ worker/cache-mutating payload is rejected (12.100109ms)\n✔ old application bundle with \" quotes is rejected (12.672668ms)\n✔ old application bundle with ' quotes is rejected (12.239662ms)\n✔ symlink destination is rejected and its target is untouched (4.330541ms)\n✔ root already replaced by AI without a manual page is refused (5.410158ms)\n✔ promotion without an installed preview and unexpected flags are refused (31.315535ms)\n✔ a mid-install failure restores previous preview files and does not create a manual alias (45.047129ms)\n✔ installer uses a local checkout and read-only default without service changes (0.37581ms)\n✔ explicit legacy preview environment mode is preserved (40.147045ms)\n✔ explicit promote preserves stable root as manual and repeated promote is safe (130.272741ms)\n✔ promote cannot replace a different existing manual or promote changed assets (130.201253ms)\n✔ preview after promotion cannot silently update assets used by the main page (150.530077ms)\n✔ promotion bootstrap publishes AI root and preserves the old root as manual (289.710173ms)\n✔ failure after promote automatically restores the previous root and removes newly-created manual (244.273272ms)\n✔ changed preview is refused before the stable root can be replaced (150.237193ms)\n✔ promotion bootstrap is idempotent after a successful promote (434.553271ms)\n✔ promotion bootstrap accepts no flags and cannot float to an unverified release (54.970997ms)\n✔ recovered relative ./app.js manual promotes successfully (288.982159ms)\n✔ relative-path compatibility fix keeps automatic rollback (293.25354ms)\n✔ compatibility wrapper is pinned and only patches the four legacy app.js checks (55.367488ms)\n✔ Quiet Signal shell exposes brand, semantic modes and real mic in composer (1.217848ms)\n✔ layout retains readable answer space, keyboard offset and 44px controls (0.267355ms)\n✔ static ribbon is hidden only after successful geometry (0.175496ms)\n✔ read-only routing probe detects file-backed root and manual fallback without changing site files (61.339961ms)\n✔ routing diagnostic contains no site mutation or service restart path (0.509343ms)\n✔ live dvizh service routing probe is read-only and does not inspect process environment (0.888668ms)\n✔ probe snapshots site files and redacts common secret-shaped argv/source values (0.181795ms)\n✔ probe focuses source inspection on routing and excludes static, backups and virtualenvs (0.234005ms)\n✔ Quiet Signal intentionally updates isolated AI markup and CSS, retaining version lineage (0.891412ms)\n✔ voice promotion leaves all non-AI production sources and Manual/SW assets byte-identical (549.224182ms)\nℹ tests 122\nℹ suites 0\nℹ pass 122\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 5025.705985\n",
+          "returncode": 0
+        },
+        {
+          "command": [
+            "python3",
+            "tests/ai-home-v2/bridge_contract_test.py"
+          ],
+          "output": "test_hermes_failure_is_published_without_touching_other_dvizh_data (__main__.BridgeContractTest.test_hermes_failure_is_published_without_touching_other_dvizh_data) ... AI Home request failed: BridgeError: Hermes API HTTP 503\nok\ntest_pending_request_round_trips_through_real_bridge_contract (__main__.BridgeContractTest.test_pending_request_round_trips_through_real_bridge_contract) ... ok\n\n----------------------------------------------------------------------\nRan 2 tests in 1.127s\n\nOK\n",
+          "returncode": 0
+        }
+      ]
+    }
+  ]
+}

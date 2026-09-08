@@ -1,0 +1,8 @@
+Browser verification attempted 2026-09-08 in the managed worktree.
+Existing dependency: /home/exedev/.npm/_npx/e41f203b7505f1fb/node_modules/playwright
+Command: NODE_PATH=/home/exedev/.npm/_npx/e41f203b7505f1fb/node_modules node minimal-ui-v1/quiet-signal/tests/browser.cjs
+All six tests were blocked at Chromium launch, before page assertions:
+browserType.launch: Target page, context or browser has been closed
+FATAL:content/browser/sandbox_host_linux.cc:41
+Check failed: . shutdown: Operation not permitted (1)
+No installs, escalation, or permission changes attempted. This is NOT a passing browser run.

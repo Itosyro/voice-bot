@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "name": "Quiet Signal v2: real AI and dark Manual presentation",
+  "operations": [
+    {"source": "ai-home-v2/ai-home-v2.css", "target": "/opt/dvizh/static/ai-home-v2.css", "http_path": "/ai-home-v2.css"},
+    {"source": "ai-home-v2/ai-home-v2.js", "target": "/opt/dvizh/static/ai-home-v2.js", "http_path": "/ai-home-v2.js"},
+    {"source": "ai-home-v2/index.html", "target": "/opt/dvizh/static/index.html", "http_path": "/"},
+    {"source": "minimal-ui-v1/release/manual.html", "target": "/opt/dvizh/static/manual.html", "http_path": "/manual.html"}
+  ],
+  "restarts": []
+}

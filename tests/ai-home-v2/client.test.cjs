@@ -36,7 +36,7 @@ class Element extends Target {
   requestSubmit() { this.emit('submit'); }
   set innerHTML(_) { throw Error('HTML injection is forbidden'); }
 }
-function make({ state = {}, handler, speech = true, hidden = false, autoStart = true, mediaDevices, pathname = '/ai-home-v2-preview.html' } = {}) {
+function make({ state = {}, handler, speech = true, hidden = false, autoStart = true, mediaDevices, pathname = '/ai-home-v2-preview.html', setup } = {}) {
   const clock = { now: 1000, next: 0, timers: new Map() };
   const setTimer = (fn, delay) => { const id = ++clock.next; clock.timers.set(id, { at: clock.now + delay, fn }); return id; };
   clock.advance = async ms => {
@@ -92,6 +92,7 @@ function make({ state = {}, handler, speech = true, hidden = false, autoStart = 
     return { mediaDevices: mediaDevices === undefined ? { getUserMedia: async () => ({ getTracks: () => [] }) } : mediaDevices,
       get serviceWorker() { throw Error('service worker accessed'); } };
   } });
+  setup?.({ window, document, elements, sandbox });
   vm.runInNewContext(source, sandbox);
   const send = async text => { elements.aiInput.value = text; elements.aiComposer.emit('submit'); await settle(); };
   const hide = () => { document.hidden = true; document.emit('visibilitychange'); };
@@ -356,7 +357,7 @@ test('rapid microphone taps reserve one recognition before onstart', async () =>
 });
 test('manual hold remains available while thinking without starting speech', async () => {
   const h = make({ state: active() }); await settle(); h.aiOrb.emit('pointerdown'); await h.clock.advance(1100); h.aiOrb.emit('pointerup');
-  h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/']); assert.equal(h.recognitions.length, 0); assert.equal(h.clock.timers.size, 0);
+  h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/manual.html?v=20260908-quiet-signal-2']); assert.equal(h.recognitions.length, 0); assert.equal(h.clock.timers.size, 0);
 });
 test('cancelled hold does not navigate', async () => {
   const h = make(); await settle(); h.aiOrb.emit('pointerdown'); h.aiOrb.emit('pointercancel'); await h.clock.advance(1200);
@@ -367,8 +368,8 @@ test('pagehide cancels a held manual gesture', async () => {
   assert.equal(h.navigations.length, 0);
 });
 test('manual command and keyboard shortcut navigate without state writes', async () => {
-  const h = make(); await settle(); await h.send('/manual'); assert.deepEqual(h.navigations, ['/']); assert.equal(h.puts().length, 0);
-  const busy = make({ state: active() }); await settle(); busy.window.emit('keydown', { altKey: true, code: 'KeyM' }); assert.equal(busy.navigations[0], '/');
+  const h = make(); await settle(); await h.send('/manual'); assert.deepEqual(h.navigations, ['/manual.html?v=20260908-quiet-signal-2']); assert.equal(h.puts().length, 0);
+  const busy = make({ state: active() }); await settle(); busy.window.emit('keydown', { altKey: true, code: 'KeyM' }); assert.equal(busy.navigations[0], '/manual.html?v=20260908-quiet-signal-2');
 });
 test('viewport updates only the isolated root and does not override pinch zoom', async () => {
   const h = make(); await settle(); h.window.visualViewport.height = 380; h.window.visualViewport.emit('resize');
@@ -397,7 +398,7 @@ test('idle and completed answer do not add a greeting or follow-up on the empty 
 for (const pathname of ['/', '/index.html', '/index.html/']) test(`promoted ${pathname} uses manual.html, including auth`, async () => {
   const h = make({ pathname, handler: () => reply({}, 401) }); await settle();
   assert.equal(h.aiAuthLink.href, '/manual.html');
-  h.window.emit('keydown', { altKey: true, code: 'KeyM' }); assert.deepEqual(h.navigations, ['/manual.html']);
+  h.window.emit('keydown', { altKey: true, code: 'KeyM' }); assert.deepEqual(h.navigations, ['/manual.html?v=20260908-quiet-signal-2']);
 });
 test('preview auth leads to stable root instead of missing manual.html', async () => {
   const h = make({ handler: () => reply({}, 401) }); await settle(); assert.equal(h.aiAuthLink.href, '/');
@@ -405,6 +406,184 @@ test('preview auth leads to stable root instead of missing manual.html', async (
 test('long hold waits for release and never starts speech after navigation', async () => {
   const h = make(); await settle(); h.aiOrb.emit('pointerdown'); await h.clock.advance(1200);
   assert.equal(h.navigations.length, 0); assert.equal(h.clock.timers.size, 0);
-  h.aiOrb.emit('pointerup'); h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/']);
+  h.aiOrb.emit('pointerup'); h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/manual.html?v=20260908-quiet-signal-2']);
   assert.equal(h.recognitions.length, 0);
 });
+
+
+test('live speech fix: history silent, fresh completion chunked once, cancellation invalidates callbacks', async () => {
+  const spoken = []; let cancelled = 0;
+  const h = make({ setup({window}) {
+    window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+    window.speechSynthesis = { speak(u) { spoken.push(u); }, cancel() { cancelled++; }, getVoices: () => [{lang:'ru-RU'}] };
+  }});
+  await settle();
+  const text = 'Ответ '.repeat(100) + '😀';
+  h.store.state = {aiHomeStatus:{state:'ready',requestId:'fresh'},aiHomeMessages:[{role:'assistant',content:text}]};
+  h.window.emit('online'); await settle();
+  assert.equal(spoken.length, 1);
+  for (let i=0; i<spoken.length; i++) { assert.ok(spoken[i].text.length <= 220); spoken[i].onend(); }
+  assert.equal(spoken.map(u=>u.text).join(''),text);
+  const count=spoken.length; h.window.emit('online'); await settle(); assert.equal(spoken.length,count);
+  h.store.state.aiHomeStatus.requestId='second'; h.window.emit('online'); await settle();
+  const late=spoken.at(-1).onend; h.hide(); late(); assert.equal(spoken.length,count+1); assert.ok(cancelled);
+});
+
+function visualSetup({window, document, elements}) {
+  for (const id of ['aiRibbonMesh','aiManual']) elements[id] = new Element();
+  elements.aiRibbonMesh.children=[];
+  elements.aiRibbonMesh.append = p => { const a=elements.aiRibbonMesh.children; const i=a.indexOf(p); if(i>=0)a.splice(i,1); a.push(p); };
+  document.createElementNS = () => new Element();
+  const frames=new Map(); let id=0;
+  window.requestAnimationFrame=fn=>{frames.set(++id,fn);return id;};
+  window.cancelAnimationFrame=id=>frames.delete(id);
+  const motion=new Target(); motion.matches=false; window.matchMedia=()=>motion;
+  window.frames=frames; window.motion=motion;
+  window.tick=time=>{const batch=[...frames.values()];frames.clear();batch.forEach(fn=>fn(time));};
+}
+test('ribbon has shaded geometry, one frame loop, hidden/reduced/pagehide lifecycle', async () => {
+  const h=make({setup:visualSetup}); await settle();
+  const mesh=h.aiRibbonMesh;
+  assert.equal(mesh.children.length,32); assert.equal(h.window.frames.size,1);
+  const initial=mesh.children.map(p=>p.attributes.d).join('');
+  h.window.tick(100); h.window.tick(150);
+  assert.notEqual(mesh.children.map(p=>p.attributes.d).join(''),initial);
+  assert.ok(new Set(mesh.children.map(p=>p.style.fill)).size>20);
+  h.hide(); assert.equal(h.window.frames.size,0);
+  h.show(); await settle(); assert.equal(h.window.frames.size,1);
+  h.window.motion.matches=true;h.window.motion.emit('change');assert.equal(h.window.frames.size,0);
+  h.window.motion.matches=false;h.window.motion.emit('change');assert.equal(h.window.frames.size,1);
+  h.window.emit('pagehide');assert.equal(h.window.frames.size,0);
+});
+test('speaking follows actual utterance start/end, never queued speech or late callbacks', async () => {
+  const spoken=[];
+  const h=make({setup(args){visualSetup(args);args.window.SpeechSynthesisUtterance=class {};args.window.speechSynthesis={speak:u=>spoken.push(u),cancel(){}};}});
+  await settle();h.store.state={aiHomeStatus:{state:'ready',requestId:'new'},aiHomeMessages:[{role:'assistant',content:'Ответ'}]};
+  h.window.emit('online');await settle();assert.ok(!h.aiApp.classes.has('is-speaking'));
+  spoken[0].onstart();assert.ok(h.aiApp.classes.has('is-speaking'));
+  spoken[0].onend();assert.ok(!h.aiApp.classes.has('is-speaking'));
+  h.store.state.aiHomeStatus.requestId='next';h.window.emit('online');await settle();
+  const late=spoken[1].onstart;h.hide();late();assert.ok(!h.aiApp.classes.has('is-speaking'));
+});
+test('broken animation APIs cannot break requests or microphone controls', async () => {
+  const h=make({setup(args){visualSetup(args);args.window.requestAnimationFrame=()=>{throw Error('unsupported');};}});
+  await settle();await h.send('Работает');assert.equal(h.puts().length,1);
+});
+test('visible Manual link saves only bounded draft for one return; blocked storage is harmless', async () => {
+  const data=new Map(); const storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
+  const setup=args=>{visualSetup(args);args.window.sessionStorage=storage;};
+  const h=make({setup});await settle();h.aiInput.value='Мой черновик';h.aiManual.emit('click');
+  assert.deepEqual(h.navigations,['/manual.html?v=20260908-quiet-signal-2']);assert.equal(data.size,1);
+  const back=make({setup});await settle();assert.equal(back.aiInput.value,'Мой черновик');assert.equal(data.size,0);
+  const blocked=make({setup(args){visualSetup(args);Object.defineProperty(args.window,'sessionStorage',{get(){throw Error('blocked');}});}});
+  await settle();blocked.aiManual.emit('click');assert.equal(blocked.navigations.length,1);
+});
+
+test('new answer scrolls into view once without resetting repeated answer scroll', async()=>{
+ let scrolls=0;
+ const h=make({setup({elements}){elements.aiAnswer.scrollIntoView=()=>scrolls++;}});
+ await settle();await h.send('Вопрос');h.store.state=done();await h.clock.advance(900);
+ assert.equal(scrolls,1);h.aiAnswer.scrollTop=80;h.window.emit('online');await settle();
+ assert.equal(scrolls,1);assert.equal(h.aiAnswer.scrollTop,80);
+});
+test('draft excludes credentials, oversized text and mode commands, expires and rejects malformed records',async()=>{
+ const key='dvizh.ai-home-v2.manual-draft', data=new Map();
+ const storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
+ const setup=args=>{visualSetup(args);args.window.sessionStorage=storage;};
+ for(const value of ['token=abc','пароль: abc','sk-proj-abcd','a'.repeat(12001),'/manual','eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoxfQ.signature']){
+  const h=make({setup});await settle();h.aiInput.value=value;h.aiManual.emit('click');assert.equal(data.size,0,value.slice(0,30));
+ }
+ for(const raw of ['{',JSON.stringify({text:'expired',expires:999}),JSON.stringify({text:12,expires:2000}),JSON.stringify({text:'future',expires:999999999})]){
+  data.set(key,raw);const h=make({setup});await settle();assert.equal(h.aiInput.value,'');assert.equal(data.size,0);
+ }
+});
+test('ribbon failures after startup and missing SVG support leave API flow intact',async()=>{
+ for(const failure of ['draw','svg','motion']){
+  const h=make({setup(args){visualSetup(args);
+   if(failure==='svg')args.document.createElementNS=undefined;
+   if(failure==='motion')args.window.matchMedia=()=>{throw Error('unavailable');};
+  }});await settle();
+  if(failure==='draw'){h.aiRibbonMesh.children[0].setAttribute=()=>{throw Error('renderer');};h.window.tick(30);assert.equal(h.window.frames.size,0);}
+  await h.send('Текст');assert.equal(h.puts().length,1);
+ }
+});
+test('ribbon tracks recognition and thinking; interrupted speech returns idle',async()=>{
+ const h=make({setup:visualSetup});await settle();assert.equal(h.aiApp.attributes['data-signal-state'],'idle');
+ h.aiOrb.emit('click');await settle();assert.equal(h.aiApp.attributes['data-signal-state'],'listening');
+ h.recognitions[0].result('Вопрос');h.recognitions[0].onend();await settle();assert.equal(h.aiApp.attributes['data-signal-state'],'thinking');
+ h.store.state=done();await h.clock.advance(900);assert.equal(h.aiApp.attributes['data-signal-state'],'idle');
+});
+
+test('speech history stays silent; unsupported output and synth errors retain readable answers',async()=>{
+ for(const synthMode of ['supported','missing','throws']){
+  const spoken=[];
+  const state={aiHomeStatus:{state:'ready',requestId:'history'},aiHomeMessages:[{role:'assistant',content:'История'}]};
+  const h=make({state,setup({window}){
+   if(synthMode!=='missing'){window.SpeechSynthesisUtterance=class {};window.speechSynthesis={cancel(){},speak:u=>{if(synthMode==='throws')throw Error('audio unavailable');spoken.push(u);}};}
+  }});await settle();assert.equal(spoken.length,0);assert.equal(h.aiAnswer.hidden,true);
+  h.store.state.aiHomeStatus.requestId='fresh';h.window.emit('online');await settle();assert.equal(h.aiAnswer.hidden,false);
+  if(synthMode==='supported'){assert.equal(spoken.length,1);spoken[0].onstart();assert.ok(h.aiApp.classes.has('is-speaking'));spoken[0].onerror();assert.ok(!h.aiApp.classes.has('is-speaking'));}
+  h.window.emit('online');await settle();assert.equal(spoken.length,synthMode==='supported'?1:0);
+  assert.equal(h.aiInput.disabled,false);
+ }
+});
+test('speech chunk boundaries preserve surrogate pairs and loaded Russian voices',async()=>{
+ const spoken=[];const russian={lang:'ru-RU'};
+ const h=make({setup({window}){window.SpeechSynthesisUtterance=class {constructor(text){this.text=text;}};window.speechSynthesis={cancel(){},speak:u=>spoken.push(u),getVoices:()=>[russian]};}});
+ await settle();const text='x'.repeat(219)+'😀'+'я'.repeat(300);
+ h.store.state={aiHomeStatus:{state:'ready',requestId:'unicode'},aiHomeMessages:[{role:'assistant',content:text}]};h.window.emit('online');await settle();
+ for(let i=0;i<spoken.length;i++){const u=spoken[i];assert.equal(u.voice,russian);assert.doesNotMatch(u.text,/[\uD800-\uDBFF]$/);u.onend();}
+ assert.equal(spoken.map(u=>u.text).join(''),text);
+});
+test('modified Manual click keeps native navigation and writes no draft',async()=>{
+ let writes=0;const h=make({setup(args){visualSetup(args);args.window.sessionStorage={getItem(){},removeItem(){},setItem(){writes++;}};}});
+ await settle();h.aiInput.value='Черновик';const event=h.aiManual.emit('click',{ctrlKey:true});assert.ok(!event.prevented);assert.equal(writes,0);assert.equal(h.navigations.length,0);
+});
+test('keyboard viewport follows offset scroll and preserves pinch zoom',async()=>{
+ const h=make();await settle();h.window.visualViewport.offsetTop=120;h.window.visualViewport.height=320;h.window.visualViewport.emit('scroll');
+ assert.equal(h.aiApp.style['--ai-top'],'120px');assert.equal(h.aiApp.style['--ai-height'],'320px');
+ h.window.visualViewport.scale=2;h.window.visualViewport.offsetTop=200;h.window.visualViewport.emit('scroll');assert.equal(h.aiApp.style['--ai-top'],'120px');
+});
+
+test('back-forward cache return consumes saved draft without overwriting in-memory text',async()=>{
+ const data=new Map();const h=make({setup(args){visualSetup(args);args.window.sessionStorage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};}});
+ await settle();h.aiInput.value='Черновик';h.aiManual.emit('click');assert.equal(data.size,1);
+ h.window.emit('pageshow',{persisted:true});await settle();assert.equal(data.size,0);assert.equal(h.aiInput.value,'Черновик');
+});
+
+ test('unresolved accepted PUT is never restored as an ordinary Manual draft', async()=>{
+ const key='dvizh.ai-home-v2.manual-draft', data=new Map();
+ const setup=args=>{visualSetup(args);args.window.sessionStorage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};};
+ let release;
+ const h=make({setup,handler:({options,normal})=>{
+   if(options.method==='PUT'){const accepted=normal();return new Promise(resolve=>{release=()=>resolve(accepted);});}
+ }});
+ await settle();await h.send('Добавь задачу');assert.equal(h.puts().length,1);
+ data.set(key,JSON.stringify({text:'Старый черновик',expires:2000}));
+ h.window.emit('keydown',{key:'m',code:'KeyM',altKey:true});
+ assert.equal(data.size,0,'remove stale draft and exclude unresolved submission');
+ assert.equal(h.navigations.length,1);
+ release();await settle();
+ const state=copy(h.store.state);state.aiHomeRequests[0].status='done';
+ state.aiHomeStatus={state:'ready',requestId:state.aiHomeRequests[0].id};
+ state.aiHomeMessages.push({role:'assistant',content:'Задача добавлена'});
+ const back=make({setup,state});await settle();assert.equal(back.aiInput.value,'');
+ back.aiInput.emit('keydown',{key:'Enter'});await settle();assert.equal(back.puts().length,0);
+ });
+ for(const failure of ['listener','runtime','request-missing','cancel-missing','request-throws']) test(`ribbon fallback readiness: ${failure}`,async()=>{
+ const h=make({setup(args){visualSetup(args);
+  if(failure==='listener')args.window.motion.addEventListener=()=>{throw Error('listener unavailable');};
+  if(failure==='request-missing')delete args.window.requestAnimationFrame;
+  if(failure==='cancel-missing')delete args.window.cancelAnimationFrame;
+  if(failure==='request-throws')args.window.requestAnimationFrame=()=>{throw Error('animation unavailable');};
+ }});await settle();
+ if(failure==='runtime'){
+  assert.equal(h.aiRibbonMesh.attributes['data-ready'],'true');
+  h.aiRibbonMesh.children[0].setAttribute=()=>{throw Error('late draw failure');};h.window.tick(30);
+ }
+ const failed=['listener','runtime','request-throws'].includes(failure);
+ assert.equal(h.aiRibbonMesh.attributes['data-ready'],failed?'false':'true');
+ if(!failed)assert.ok(h.aiRibbonMesh.children.every(p=>p.attributes.d?.endsWith('Z')));
+ assert.equal(h.window.frames.size,0);
+ await h.send('Работает');assert.equal(h.puts().length,1);
+ });

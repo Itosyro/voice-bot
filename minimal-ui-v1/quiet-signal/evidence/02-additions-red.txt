@@ -1,0 +1,36 @@
+test_accessible_mode_links_without_route_handler (test_build.AdditiveTests.test_accessible_mode_links_without_route_handler) ... FAIL
+test_css_insert_rejects_html_and_external_or_executable_content (test_build.AdditiveTests.test_css_insert_rejects_html_and_external_or_executable_content) ... ERROR
+test_exact_additions_preserve_all_original_bytes (test_build.AdditiveTests.test_exact_additions_preserve_all_original_bytes) ... ERROR
+test_deterministic_identity_and_reject_drift (test_build.BuildTests.test_deterministic_identity_and_reject_drift) ... ok
+test_pinned_snapshot (test_build.BuildTests.test_pinned_snapshot) ... ok
+
+======================================================================
+ERROR: test_css_insert_rejects_html_and_external_or_executable_content (test_build.AdditiveTests.test_css_insert_rejects_html_and_external_or_executable_content)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/tests/test_build.py", line 88, in test_css_insert_rejects_html_and_external_or_executable_content
+    self.assertIn(b'<style', mod.style_block())
+                             ^^^^^^^^^^^^^^^
+AttributeError: module 'quiet_manual' has no attribute 'style_block'
+
+======================================================================
+ERROR: test_exact_additions_preserve_all_original_bytes (test_build.AdditiveTests.test_exact_additions_preserve_all_original_bytes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/tests/test_build.py", line 53, in test_exact_additions_preserve_all_original_bytes
+    style = mod.style_block()
+            ^^^^^^^^^^^^^^^
+AttributeError: module 'quiet_manual' has no attribute 'style_block'
+
+======================================================================
+FAIL: test_accessible_mode_links_without_route_handler (test_build.AdditiveTests.test_accessible_mode_links_without_route_handler)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/tests/test_build.py", line 75, in test_accessible_mode_links_without_route_handler
+    self.assertEqual(len(headers), 1)
+AssertionError: 0 != 1
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.004s
+
+FAILED (failures=1, errors=2)

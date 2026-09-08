@@ -1,0 +1,2 @@
+# Byte-exact read-only production snapshot, including its trailing blank line.
+app.js -whitespace

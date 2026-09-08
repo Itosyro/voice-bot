@@ -1,0 +1,141 @@
+/* Additive Manual presentation. No script, network resources or generated data. */
+html:root .qs-mode-header {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: calc(76px + env(safe-area-inset-top));
+  padding: calc(10px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  background: #0b0e11; color: #e5e9ec; border-bottom: 1px solid #283138;
+}
+html:root .qs-brand { font-weight: 750; letter-spacing: .06em; }
+html:root .qs-brand small { display: block; color: #9ba7af; font-size: 9px; }
+html:root .qs-modes { display: flex; padding: 4px; border: 1px solid #283138; border-radius: 28px; background: #131a20; }
+html:root .qs-modes a {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 68px; min-height: 44px; padding: 0 14px;
+  border-radius: 24px; color: #9ba7af; text-decoration: none; font-size: 14px;
+}
+html:root .qs-modes a[aria-current="page"] { background: #c8ddd9; color: #101917; }
+html:root .qs-modes a:focus-visible { outline: 2px solid #9de0bd; outline-offset: 3px; }
+html:root .qs-modes a:hover { color: #e5e9ec; background: #283138; }
+html:root .sidebar { top: calc(76px + env(safe-area-inset-top)); }
+html:root { scroll-padding-top: calc(92px + env(safe-area-inset-top)); }
+
+/* Pin the palette in both existing minimal-mode states and both copy tones.
+   These later html:root rules match or exceed the live important selectors. */
+html:root, html:root body {
+  color-scheme: dark !important;
+  --bg: #0b0e11 !important; --bg-soft: #10161b !important;
+  --panel: #12191e !important; --panel-2: #171e24 !important;
+  --text: #e5e9ec !important; --muted: #9ba7af !important; --faint: #8d9ba5 !important;
+  --line: #283138 !important; --line-strong: #39464f !important;
+  --lime: #9de0bd !important; --lime-ink: #10251b !important; --accent: #9de0bd !important;
+  --orange: #d9b884 !important; --violet: #b4a9d8 !important;
+  --blue: #8cc8dc !important; --red: #e6a3ac !important; --green: #9de0bd !important;
+  --radius: 18px !important; --shadow: none !important;
+  background: var(--bg) !important; color: var(--text) !important;
+}
+html:root .sidebar { background: var(--bg); overflow-y: auto; }
+html:root .panel,
+html:root .checkin-card,
+html:root .next-step-card,
+html:root .rescue-card,
+html:root .focus-card,
+html:root .modal,
+html:root .stat-card {
+  background: var(--panel) !important; color: var(--text) !important;
+  border: 1px solid var(--line) !important; border-radius: 18px !important;
+  box-shadow: none !important; padding: 20px !important;
+}
+html:root .toast { background: var(--panel-2); color: var(--text); border: 1px solid var(--line-strong); box-shadow: none; }
+html:root input,
+html:root textarea,
+html:root select {
+  background-color: var(--panel-2) !important; color: var(--text) !important;
+  border-color: var(--line-strong) !important; border-radius: 12px !important;
+  accent-color: var(--lime); font: inherit;
+}
+html:root input::placeholder, html:root textarea::placeholder { color: var(--faint); }
+html:root button { min-height: 44px !important; box-shadow: none !important; text-shadow: none !important; }
+html:root .icon-button, html:root .task-check, html:root .task-card-actions button,
+html:root .plan-actions button { min-width: 44px; }
+html:root .button-primary, html:root button.primary {
+  background: var(--lime) !important; color: var(--lime-ink) !important;
+  border: 1px solid transparent; border-radius: 12px !important; padding: 10px 16px;
+}
+html:root .button-primary:hover:not(:disabled), html:root button.primary:hover:not(:disabled) { background: #bcefd2 !important; }
+html:root .button-ghost, html:root button.ghost, html:root .button-dark {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line-strong);
+  border-radius: 12px !important; padding: 10px 12px;
+}
+html:root .button-danger, html:root .ghost.danger { color: #e6a3ac; border-color: #69434a; }
+html:root .segmented button.is-active, html:root .filter-chip.is-active,
+html:root .tone-picker button.is-active { background: #c8ddd9; color: #101917; }
+html:root :is(button,a,input,select,textarea):focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+html:root .topbar h1, html:root .section-heading.page-heading h2 {
+  font-size: clamp(24px, 3.5vw, 34px) !important; font-weight: 500;
+  line-height: 1.18 !important; letter-spacing: -.025em !important;
+}
+html:root .section-heading.page-heading .eyebrow,
+html:root #view-week .week-overview-head>p { display: block; }
+html:root .section-heading { gap: 14px; flex-wrap: wrap; }
+html:root .rescue-card .eyebrow, html:root .rescue-card p { color: var(--muted); }
+html:root .rescue-card h2 { color: var(--text); }
+html:root .energy-badge-dot, html:root .live-pill i { box-shadow: none !important; }
+html:root .task-card { border-radius: 14px; box-shadow: none; padding: 16px; }
+html:root .task-card-actions { flex-wrap: wrap; }
+
+/* Preserve the original route switch and initial closed Details state. */
+html:root .minimal-ui-shortcuts { display: grid; }
+html:root [hidden] { display: none !important; }
+
+/* Existing, labeled real-data graphics: never set counts, ratios or values.
+   updateTimerUI owns --progress; renderProof owns has-proof and day contents. */
+html:root #timerRing {
+  background: conic-gradient(var(--lime) var(--progress), #29353c 0);
+  box-shadow: none;
+}
+html:root .day-proof { background: var(--panel); border-radius: 12px; }
+html:root .day-proof.has-proof { background: #192a24; border-color: #517c68; }
+html:root .day-proof.has-proof strong { color: var(--lime); }
+html:root .training-metrics, html:root .social-metrics, html:root .jump-metrics { gap: 10px; }
+html:root .training-metrics b { color: var(--blue); font-variant-numeric: tabular-nums; }
+html:root .social-metrics b { color: var(--orange); font-variant-numeric: tabular-nums; }
+html:root .jump-metrics b { color: var(--violet); font-variant-numeric: tabular-nums; }
+/* The six live social columns keep their actual stage names, counts and cards. */
+html:root .social-column { border-top: 3px solid #d9b884 !important; background: var(--panel) !important; }
+html:root .social-column:nth-child(2), html:root .social-column:nth-child(3) { border-top-color: #8cc8dc !important; }
+html:root .social-column:nth-child(4) { border-top-color: #b4a9d8 !important; }
+html:root .social-column:nth-child(5), html:root .social-column:nth-child(6) { border-top-color: #9de0bd !important; }
+html:root #view-proof .page-heading, html:root #view-tasks .page-heading { border-bottom: 1px solid #517c68; padding-bottom: 16px; }
+html:root #view-training .page-heading { border-bottom: 1px solid #4d6d80; padding-bottom: 16px; }
+html:root #view-social .page-heading { border-bottom: 1px solid #796949; padding-bottom: 16px; }
+/* Keep existing safety states distinguishable after panel border overrides. */
+html:root .training-readiness-card[data-status="green"], html:root .jump-safety-card[data-reviewed="yes"] { border-color: #517c68 !important; }
+html:root .training-readiness-card[data-status="yellow"], html:root .jump-safety-card[data-reviewed="no"] { border-color: #a88b55 !important; }
+html:root .training-readiness-card[data-status="red"] { border-color: #b5707c !important; }
+
+@media (max-width: 760px) {
+  html:root .main-content { padding-bottom: calc(142px + env(safe-area-inset-bottom)); }
+  html:root .panel, html:root .checkin-card, html:root .next-step-card,
+  html:root .rescue-card, html:root .focus-card, html:root .modal { padding: 16px !important; }
+  html:root .mobile-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important; padding: 6px !important; border-radius: 18px !important;
+    background: #12191e; border-color: var(--line); box-shadow: none !important;
+    left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right));
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  html:root .mobile-nav [data-nav] { display: grid !important; min-height: 44px !important; }
+  html:root .mobile-nav [data-nav] small { font-size: 10px !important; }
+  html:root .mobile-nav [data-nav] span { font-size: 16px !important; }
+  html:root .mobile-nav [data-nav].is-active { color: var(--lime); background: #20332a; }
+  html:root .task-card { gap: 8px; }
+  html:root .task-card-actions { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:root { scroll-behavior: auto; }
+  html:root *, html:root *::before, html:root *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}

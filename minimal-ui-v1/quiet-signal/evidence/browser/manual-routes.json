@@ -1,0 +1,282 @@
+[
+  {
+    "width": 320,
+    "route": "home",
+    "active": "home",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "tasks",
+    "active": "tasks",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "focus",
+    "active": "focus",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "proof",
+    "active": "proof",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "week",
+    "active": "week",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "training",
+    "active": "training",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "social",
+    "active": "social",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "route": "settings",
+    "active": "settings",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "home",
+    "active": "home",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "tasks",
+    "active": "tasks",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "focus",
+    "active": "focus",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "proof",
+    "active": "proof",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "week",
+    "active": "week",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "training",
+    "active": "training",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "social",
+    "active": "social",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 393,
+    "route": "settings",
+    "active": "settings",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "home",
+    "active": "home",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "tasks",
+    "active": "tasks",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "focus",
+    "active": "focus",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "proof",
+    "active": "proof",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "week",
+    "active": "week",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "training",
+    "active": "training",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "social",
+    "active": "social",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 760,
+    "route": "settings",
+    "active": "settings",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "home",
+    "active": "home",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "tasks",
+    "active": "tasks",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "focus",
+    "active": "focus",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "proof",
+    "active": "proof",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "week",
+    "active": "week",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "training",
+    "active": "training",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "social",
+    "active": "social",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 900,
+    "route": "settings",
+    "active": "settings",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "home",
+    "active": "home",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "tasks",
+    "active": "tasks",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "focus",
+    "active": "focus",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "proof",
+    "active": "proof",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "week",
+    "active": "week",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "training",
+    "active": "training",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "social",
+    "active": "social",
+    "headerY": 0,
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "route": "settings",
+    "active": "settings",
+    "headerY": 0,
+    "overflow": false
+  }
+]

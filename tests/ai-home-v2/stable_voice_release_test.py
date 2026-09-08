@@ -119,6 +119,19 @@ def run_installer(root: Path, server: FixtureServer, *, fail_after_write: bool =
 
 
 class StableVoiceReleaseTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # This installer verifies an immutable historical release. Quiet Signal
+        # deliberately changes the working UI; keep its historical byte contract.
+        global SOURCE
+        cls.source_fixture = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.source_fixture.cleanup)
+        SOURCE = Path(cls.source_fixture.name)
+        for name in ["index.html", "ai-home-v2.js"]:
+            data = subprocess.check_output(
+                ["git", "show", f"4c74d5216e2cfcca5a14bdaf179cf520aecfd685:ai-home-v2/{name}"], cwd=REPO)
+            (SOURCE / name).write_bytes(data)
+
     def test_success_updates_only_root_and_stable_js_then_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

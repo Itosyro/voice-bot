@@ -11,11 +11,12 @@ from pathlib import Path
 import shutil
 import threading
 import unittest
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[2]
-RESULTS = ROOT / 'test-results'
+RESULTS = Path(os.environ.get('DVIZH_TEST_RESULTS', str(ROOT / 'test-results')))
 IN_MEMORY = os.environ.get('DVIZH_BROWSER_IN_MEMORY') == '1'
 MANUAL = b'<!doctype html><html lang="ru"><title>Manual fixture</title><body><main id="manual">STABLE MANUAL</main><script src="/app.js"></script></body></html>'
 
@@ -104,8 +105,8 @@ class BrowserSmoke(unittest.TestCase):
             # Rendering-only fallback when the host browser prohibits navigation.
             # No network policy is changed; all fixtures stay in memory.
             html = (ROOT / 'ai-home-v2/index.html').read_text()
-            html = html.replace('<link rel="stylesheet" href="/ai-home-v2.css?v=20260905-3.1">', '')
-            html = html.replace('<script src="/ai-home-v2.js?v=20260905-3.1" defer></script>', '')
+            html = re.sub(r'<link[^>]+href="/ai-home-v2\.css[^>]+>', '', html)
+            html = re.sub(r'<script[^>]+src="/ai-home-v2\.js[^>]+></script>', '', html)
             self.page.set_content(html)
             self.page.add_style_tag(path=str(ROOT / 'ai-home-v2/ai-home-v2.css'))
             self.page.evaluate("""() => { window.fetch = async (_url, options = {}) => {
@@ -135,10 +136,11 @@ class BrowserSmoke(unittest.TestCase):
 
     def test_01_minimal_idle_has_no_old_bundle_or_idle_poll(self):
         self.open()
-        self.assertEqual(self.page.locator('body').evaluate("el => getComputedStyle(el).backgroundColor"), 'rgb(0, 0, 0)')
+        self.assertEqual(self.page.locator('body').evaluate("el => getComputedStyle(el).backgroundColor"), 'rgb(11, 14, 17)')
         expect(self.page.locator('#aiAnswer')).to_be_hidden()
         expect(self.page.locator('#aiStatus')).to_have_text('')
-        self.assertEqual(self.page.locator('nav, .card, .check-in').count(), 0)
+        self.assertEqual(self.page.locator('nav[aria-label="Режим работы"]').count(), 1)
+        self.assertEqual(self.page.locator('.card, .check-in').count(), 0)
         self.assertEqual(self.page.locator('script[src*="app.js"]').count(), 0)
         self.assertFalse(self.page.evaluate('Boolean(window.manualReady)'))
         before = self.gets
@@ -251,7 +253,9 @@ class BrowserSmoke(unittest.TestCase):
     def test_09_reduced_motion_disables_orb_animation(self):
         self.page.emulate_media(reduced_motion='reduce')
         self.open()
-        self.assertEqual(self.page.locator('#aiOrb span').first.evaluate('el => getComputedStyle(el).animationName'), 'none')
+        before = self.page.locator('#aiRibbonMesh').inner_html()
+        self.page.wait_for_timeout(150)
+        self.assertEqual(self.page.locator('#aiRibbonMesh').inner_html(), before)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

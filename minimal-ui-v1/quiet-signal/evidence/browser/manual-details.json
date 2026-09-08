@@ -1,0 +1,49 @@
+[
+  {
+    "route": "training",
+    "panels": 6,
+    "closed": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "open": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "reclosed": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  {
+    "route": "social",
+    "panels": 3,
+    "closed": [
+      false,
+      false,
+      false
+    ],
+    "open": [
+      true,
+      true,
+      true
+    ],
+    "reclosed": [
+      false,
+      false,
+      false
+    ]
+  }
+]

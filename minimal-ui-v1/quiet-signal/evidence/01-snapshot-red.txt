@@ -1,0 +1,29 @@
+test_deterministic_identity_and_reject_drift (test_build.BuildTests.test_deterministic_identity_and_reject_drift) ... ERROR
+test_pinned_snapshot (test_build.BuildTests.test_pinned_snapshot) ... FAIL
+
+======================================================================
+ERROR: test_deterministic_identity_and_reject_drift (test_build.BuildTests.test_deterministic_identity_and_reject_drift)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/tests/test_build.py", line 28, in test_deterministic_identity_and_reject_drift
+    mod = builder()
+          ^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/tests/test_build.py", line 17, in builder
+    spec.loader.exec_module(module)
+  File "<frozen importlib._bootstrap_external>", line 936, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1073, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1130, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/build_manual.py'
+
+======================================================================
+FAIL: test_pinned_snapshot (test_build.BuildTests.test_pinned_snapshot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/worktrees/20260908-210251-6e52f7/minimal-ui-v1/quiet-signal/tests/test_build.py", line 24, in test_pinned_snapshot
+    self.assertTrue(path.is_file(), f'missing pinned {name}')
+AssertionError: False is not true : missing pinned manual.html
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+FAILED (failures=1, errors=1)

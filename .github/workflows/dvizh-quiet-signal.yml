@@ -1,0 +1,47 @@
+name: DVIZH Quiet Signal Manual
+
+on:
+  push:
+    branches: ['hermes/dev/**']
+    paths:
+      - 'minimal-ui-v1/quiet-signal/**'
+      - 'minimal-ui-v1/release/manual.html'
+      - '.github/workflows/dvizh-quiet-signal.yml'
+      - '.autopilot/release.json'
+  pull_request:
+    paths:
+      - 'minimal-ui-v1/quiet-signal/**'
+      - 'minimal-ui-v1/release/manual.html'
+      - '.github/workflows/dvizh-quiet-signal.yml'
+      - '.autopilot/release.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  manual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test additive Manual build and old component contracts
+        run: |
+          python -m unittest discover -s minimal-ui-v1/tests -v
+          python -m unittest discover -s minimal-ui-v1/quiet-signal/tests -v
+          python minimal-ui-v1/quiet-signal/build_manual.py
+          git diff --exit-code -- minimal-ui-v1/release/manual.html
+      - name: Browser tooling on disposable runner only
+        run: |
+          npm install --prefix /tmp/quiet-signal-browser playwright@1.57.0
+          /tmp/quiet-signal-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Exercise actual Manual bundle with offline fixtures
+        env:
+          NODE_PATH: /tmp/quiet-signal-browser/node_modules
+        run: node --test minimal-ui-v1/quiet-signal/tests/browser.cjs

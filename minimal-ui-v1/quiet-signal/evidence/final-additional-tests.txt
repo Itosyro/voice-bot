@@ -1,0 +1,26 @@
+test_accessible_mode_links_without_route_handler (test_build.AdditiveTests.test_accessible_mode_links_without_route_handler) ... ok
+test_css_insert_rejects_html_and_external_or_executable_content (test_build.AdditiveTests.test_css_insert_rejects_html_and_external_or_executable_content) ... ok
+test_exact_additions_preserve_all_original_bytes (test_build.AdditiveTests.test_exact_additions_preserve_all_original_bytes) ... ok
+test_deterministic_identity_and_reject_drift (test_build.BuildTests.test_deterministic_identity_and_reject_drift) ... ok
+test_pinned_snapshot (test_build.BuildTests.test_pinned_snapshot) ... ok
+test_existing_patch_idempotence (test_release.ExistingComponentTests.test_existing_patch_idempotence) ... ok
+test_existing_patch_root (test_release.ExistingComponentTests.test_existing_patch_root) ... ok
+test_release_is_current_from_any_working_directory (test_release.ReleaseTests.test_release_is_current_from_any_working_directory) ... ok
+test_dark_tokens_win_over_both_live_modes (test_styles.StyleTests.test_dark_tokens_win_over_both_live_modes) ... ok
+test_mobile_routes_override_existing_hiding_without_removing_hooks (test_styles.StyleTests.test_mobile_routes_override_existing_hiding_without_removing_hooks) ... ok
+test_real_data_infographics_only (test_styles.StyleTests.test_real_data_infographics_only) ... ok
+test_structural_css_safety (test_styles.StyleTests.test_structural_css_safety) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.060s
+
+OK
+minimal UI patch=ok changed=index.html,app.js,styles.css,sw.js
+minimal UI patch=ok changed=none
+minimal UI patch check=ok
+Manual release is reproducible
+...
+----------------------------------------------------------------------
+Ran 3 tests in 1.896s
+
+OK
