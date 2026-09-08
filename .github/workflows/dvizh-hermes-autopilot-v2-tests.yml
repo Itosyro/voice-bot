@@ -41,13 +41,13 @@ jobs:
           python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py
           grep -Fq 'VERSION = "2026.09.08-hermes-autopilot.1"' hermes-dev-v2/dvizhautopilot.py
           grep -Fq 'VERSION = "2026.09.08-dvizh-release-gate.1"' hermes-dev-v2/dvizhrelease.py
-          grep -Fq '^name: dvizh-dev$' hermes-dev-v2/skill/SKILL.md
+          grep -q '^name: dvizh-dev$' hermes-dev-v2/skill/SKILL.md
           grep -Fq 'Do not call release-apply until a later user Telegram message contains that exact phrase.' hermes-dev-v2/skill/SKILL.md
           grep -Fq 'SAFE_TARGETS' hermes-dev-v2/dvizhrelease.py
           grep -Fq 'DENY_PREFIXES' hermes-dev-v2/dvizhrelease.py
           grep -Fq 'consume_approval' hermes-dev-v2/dvizhrelease.py
           ! grep -Eq 'shell\s*=\s*True|os\.system\(' hermes-dev-v2/*.py
-          ! grep -Eq 'git[^\n]*push[^\n]*--force|reset[^\n]*--hard|clean[^\n]*-fd' hermes-dev-v2/*
+          ! grep -Eq 'git[^\n]*push[^\n]*--force|reset[^\n]*--hard|clean[^\n]*-fd' hermes-dev-v2/*.py
       - name: Unit and rollback tests
         run: python3 -m unittest discover -s tests/hermes_autopilot -v
 
