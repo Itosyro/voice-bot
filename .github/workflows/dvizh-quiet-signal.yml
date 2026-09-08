@@ -33,7 +33,7 @@ jobs:
           node-version: '22'
       - name: Test additive Manual build and old component contracts
         run: |
-          python -m unittest discover -s minimal-ui-v1/tests -v
+          # This suite also invokes the two legacy pytest-style tests explicitly.
           python -m unittest discover -s minimal-ui-v1/quiet-signal/tests -v
           python minimal-ui-v1/quiet-signal/build_manual.py
           git diff --exit-code -- minimal-ui-v1/release/manual.html
