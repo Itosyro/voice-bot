@@ -1,0 +1,111 @@
+name: Verify AI Home v2 stable voice handoff
+
+on:
+  push:
+    branches:
+      - codex/ai-home-v2-stable-voice-2026-09-08
+    paths:
+      - '.github/workflows/verify-ai-home-v2-stable-voice-handoff.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact accepted Hermes source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          SOURCE='4c74d5216e2cfcca5a14bdaf179cf520aecfd685'
+          EXPECTED_SHA='9ea5fae4e2715575c2ffa4f020cab672424a6ad9469622d9e55cf2eabf77eb76'
+          git diff --binary --full-index "$BASE" "$SOURCE" -- . > /tmp/source.patch
+          test "$(wc -c < /tmp/source.patch | tr -d ' ')" = '34127'
+          printf '%s  %s\n' "$EXPECTED_SHA" /tmp/source.patch | sha256sum -c -
+          git diff --exit-code "$SOURCE" HEAD -- ai-home-v2 tests/ai-home-v2 docs/ai-home-v2-voice-handoff.md
+      - name: Run AI Home v2 contracts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node --check ai-home-v2/ai-home-v2.js
+          node --test tests/ai-home-v2/*.test.cjs
+          python3 tests/ai-home-v2/promote_byte_smoke_test.py
+          python3 tests/ai-home-v2/bridge_contract_test.py
+          python3 -m py_compile hermes-control-v1/dvizh_ai_home_bridge.py
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium tooling on disposable runner only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Run real Chromium browser smoke
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python tests/ai-home-v2/browser_test.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stable-voice-browser-results
+          path: test-results/
+          if-no-files-found: warn
+
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [contracts, browser]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gate isolation and immutable history
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          SOURCE='4c74d5216e2cfcca5a14bdaf179cf520aecfd685'
+          cat > /tmp/expected <<'EOF'
+          ai-home-v2/ai-home-v2.js
+          ai-home-v2/index.html
+          docs/ai-home-v2-voice-handoff.md
+          tests/ai-home-v2/bootstrap.test.cjs
+          tests/ai-home-v2/browser_test.py
+          tests/ai-home-v2/client.test.cjs
+          tests/ai-home-v2/pinned-release.cjs
+          tests/ai-home-v2/promote-bootstrap.test.cjs
+          tests/ai-home-v2/promote-relative-path-fix.test.cjs
+          tests/ai-home-v2/voice-isolation.test.cjs
+          EOF
+          git diff --name-only "$BASE" "$SOURCE" | sort > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          test "$(git rev-parse "$BASE:ai-home-v2/ai-home-v2.css")" = "$(git rev-parse "$SOURCE:ai-home-v2/ai-home-v2.css")"
+          test "$(git rev-parse "$BASE:app.js")" = "$(git rev-parse "$SOURCE:app.js")"
+          test "$(git rev-parse "$BASE:sync.js")" = "$(git rev-parse "$SOURCE:sync.js")"
+          test "$(git rev-parse "$BASE:sw.js")" = "$(git rev-parse "$SOURCE:sw.js")"
+          grep -Fq 'getUserMedia({ audio: true })' ai-home-v2/ai-home-v2.js
+          grep -Fq 'stopMicrophoneStream(stream)' ai-home-v2/ai-home-v2.js
+          grep -Fq '20260905-3.1-voice-20260908' ai-home-v2/index.html
+          grep -Fq "const commit = 'd6418224eae292417a645b2a73da157d939526b9';" tests/ai-home-v2/pinned-release.cjs
