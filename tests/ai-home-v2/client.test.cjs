@@ -36,7 +36,7 @@ class Element extends Target {
   requestSubmit() { this.emit('submit'); }
   set innerHTML(_) { throw Error('HTML injection is forbidden'); }
 }
-function make({ state = {}, handler, speech = true, hidden = false, autoStart = true, pathname = '/ai-home-v2-preview.html' } = {}) {
+function make({ state = {}, handler, speech = true, hidden = false, autoStart = true, mediaDevices, pathname = '/ai-home-v2-preview.html' } = {}) {
   const clock = { now: 1000, next: 0, timers: new Map() };
   const setTimer = (fn, delay) => { const id = ++clock.next; clock.timers.set(id, { at: clock.now + delay, fn }); return id; };
   clock.advance = async ms => {
@@ -88,7 +88,10 @@ function make({ state = {}, handler, speech = true, hidden = false, autoStart = 
     AbortController, console, performance: { now: () => clock.now }, Date: ClockDate, setTimeout: setTimer, clearTimeout: id => clock.timers.delete(id),
     crypto: { randomUUID: () => `test-${++sequence}` } };
   Object.defineProperty(sandbox, 'caches', { get() { throw Error('shared caches accessed'); } });
-  Object.defineProperty(sandbox, 'navigator', { get() { throw Error('service worker accessed'); } });
+  Object.defineProperty(sandbox, 'navigator', { get() {
+    return { mediaDevices: mediaDevices === undefined ? { getUserMedia: async () => ({ getTracks: () => [] }) } : mediaDevices,
+      get serviceWorker() { throw Error('service worker accessed'); } };
+  } });
   vm.runInNewContext(source, sandbox);
   const send = async text => { elements.aiInput.value = text; elements.aiComposer.emit('submit'); await settle(); };
   const hide = () => { document.hidden = true; document.emit('visibilitychange'); };
@@ -96,6 +99,68 @@ function make({ state = {}, handler, speech = true, hidden = false, autoStart = 
   const puts = () => calls.filter(call => call.method === 'PUT');
   return { ...elements, window, document, store, calls, clock, send, puts, hide, show, recognitions, navigations };
 }
+
+test('stable root primes permission and stops every track before recognition, then shows answer', async () => {
+  let resolve, asked = 0, stopped = 0;
+  const h = make({ pathname: '/', mediaDevices: { getUserMedia(options) {
+    assert.deepEqual(copy(options), { audio: true }); asked++;
+    return new Promise(done => { resolve = done; });
+  } } });
+  await settle(); h.aiOrb.emit('click'); await settle();
+  assert.equal(asked, 1); assert.equal(h.recognitions.length, 0);
+  resolve({ getTracks: () => [1, 2].map(() => ({ stop() {
+    assert.equal(h.recognitions.length, 0); stopped++;
+  } })) });
+  await settle(); assert.equal(stopped, 2);
+  assert.equal(h.recognitions[0].started, 1); assert.ok(h.aiApp.classes.has('is-listening'));
+  h.recognitions[0].result('Голос'); h.recognitions[0].onend(); await settle();
+  assert.equal(h.puts().length, 1); assert.equal(h.store.state.aiHomeRequests[0].text, 'Голос');
+  assert.ok(h.aiApp.classes.has('is-thinking'));
+  h.store.state = done(); await h.clock.advance(900);
+  assert.equal(h.aiAnswer.hidden, false); assert.equal(h.aiAnswer.textContent, 'Готово');
+  assert.equal(h.clock.timers.size, 0);
+});
+
+for (const name of ['NotAllowedError', 'SecurityError', 'NotFoundError', 'NotReadableError', 'AbortError', 'UnknownError']) {
+  test(`permission ${name} never starts recognition and text still works`, async () => {
+    const h = make({ pathname: '/', mediaDevices: { getUserMedia: async () => { throw Object.assign(Error('permission'), { name }); } } });
+    await settle(); h.aiInput.value = 'Черновик'; h.aiOrb.emit('click'); await settle();
+    assert.equal(h.recognitions.length, 0); assert.equal(h.puts().length, 0);
+    assert.equal(h.aiInput.value, 'Черновик'); assert.equal(h.aiInput.disabled, false);
+    assert.ok(h.aiApp.classes.has('is-error')); assert.equal(h.clock.timers.size, 0);
+    await h.send('Текст'); assert.equal(h.puts().length, 1);
+  });
+}
+for (const cancel of ['tap', 'escape', 'hide']) test(`late permission after ${cancel} releases tracks without recognition`, async () => {
+  let resolve, stopped = 0;
+  const h = make({ mediaDevices: { getUserMedia: () => new Promise(done => { resolve = done; }) } });
+  await settle(); h.aiOrb.emit('click'); await settle();
+  if (cancel === 'tap') h.aiOrb.emit('click');
+  else if (cancel === 'escape') h.window.emit('keydown', { key: 'Escape' });
+  else h.hide();
+  resolve({ getTracks: () => [{ stop() { stopped++; } }] }); await settle();
+  assert.equal(stopped, 1); assert.equal(h.recognitions.length, 0);
+  assert.equal(h.puts().length, 0); assert.equal(h.clock.timers.size, 0);
+});
+test('text at stable root does not request microphone and unsupported speech stays usable', async () => {
+  let asked = 0;
+  const h = make({ pathname: '/', speech: false, mediaDevices: { getUserMedia() { asked++; throw Error('must not run'); } } });
+  await settle(); h.aiOrb.emit('click'); await settle(); assert.equal(h.aiInput.focused, true);
+  await h.send('Текст'); assert.equal(asked, 0); assert.equal(h.puts().length, 1);
+});
+test('webkit recognition uses the same permission flow', async () => {
+  let asked = 0;
+  const h = make({ mediaDevices: { getUserMedia: async () => { asked++; return { getTracks: () => [] }; } } });
+  h.window.webkitSpeechRecognition = h.window.SpeechRecognition; delete h.window.SpeechRecognition;
+  await settle(); h.aiOrb.emit('click'); await settle();
+  assert.equal(asked, 1); assert.equal(h.recognitions[0].started, 1);
+});
+
+test('missing mediaDevices does not bypass permission priming', async () => {
+  const h = make({ mediaDevices: null }); await settle(); h.aiOrb.emit('click'); await settle();
+  assert.equal(h.recognitions.length, 0); assert.equal(h.aiInput.disabled, false);
+  assert.ok(h.aiApp.classes.has('is-error'));
+});
 
 // This is a deterministic DOM/event contract harness, NOT a real-browser test.
 test('idle boot reads once, never writes or schedules a perpetual poll', async () => {
@@ -251,47 +316,47 @@ test('IME composition and Shift+Enter do not submit', async () => {
   h.aiInput.emit('keydown', { key: 'Enter' }); await settle(); assert.equal(h.puts().length, 1);
 });
 test('unsupported speech falls back to focused text input', async () => {
-  const h = make({ speech: false }); await settle(); h.aiOrb.emit('click');
+  const h = make({ speech: false }); await settle(); h.aiOrb.emit('click'); await settle();
   assert.equal(h.aiInput.focused, true); assert.equal(h.puts().length, 0);
 });
 test('microphone permission error cannot send the existing draft via late onend', async () => {
-  const h = make(); await settle(); h.aiInput.value = 'Старый черновик'; h.aiOrb.emit('click');
+  const h = make(); await settle(); h.aiInput.value = 'Старый черновик'; h.aiOrb.emit('click'); await settle();
   const mic = h.recognitions[0], lateEnd = mic.onend;
   mic.onerror({ error: 'not-allowed' }); lateEnd(); await settle();
   assert.equal(h.aiInput.value, 'Старый черновик'); assert.equal(h.puts().length, 0); assert.equal(mic.aborted, 1);
 });
 test('interim-only speech never autosends a draft', async () => {
-  const h = make(); await settle(); h.aiInput.value = 'Черновик'; h.aiOrb.emit('click');
+  const h = make(); await settle(); h.aiInput.value = 'Черновик'; h.aiOrb.emit('click'); await settle();
   h.recognitions[0].result('неуверенно', false); h.recognitions[0].onend(); await settle();
   assert.equal(h.puts().length, 0); assert.equal(h.aiInput.value, 'Черновик');
 });
 test('final transcript sends exactly once and appends to draft', async () => {
-  const h = make(); await settle(); h.aiInput.value = 'План:'; h.aiOrb.emit('click');
+  const h = make(); await settle(); h.aiInput.value = 'План:'; h.aiOrb.emit('click'); await settle();
   const mic = h.recognitions[0], lateEnd = mic.onend; mic.result('тренировка'); mic.onend(); lateEnd(); await settle();
   assert.equal(h.puts().length, 1); assert.equal(h.store.state.aiHomeRequests[0].text, 'План: тренировка');
 });
 test('speech error after a final result still does not autosend', async () => {
-  const h = make(); await settle(); h.aiOrb.emit('click'); const mic = h.recognitions[0], lateEnd = mic.onend;
+  const h = make(); await settle(); h.aiOrb.emit('click'); await settle(); const mic = h.recognitions[0], lateEnd = mic.onend;
   mic.result('Не отправлять'); mic.onerror({ error: 'network' }); lateEnd(); await settle(); assert.equal(h.puts().length, 0);
 });
 test('Escape aborts voice and ignores late results', async () => {
-  const h = make(); await settle(); h.aiInput.value = 'Исходный'; h.aiOrb.emit('click');
+  const h = make(); await settle(); h.aiInput.value = 'Исходный'; h.aiOrb.emit('click'); await settle();
   const mic = h.recognitions[0], lateEnd = mic.onend; mic.result('диктовка');
   h.window.emit('keydown', { key: 'Escape' }); lateEnd(); await settle();
   assert.equal(h.aiInput.value, 'Исходный'); assert.equal(h.puts().length, 0);
 });
 test('leaving while listening cannot send a hidden request', async () => {
-  const h = make(); await settle(); h.aiOrb.emit('click'); const mic = h.recognitions[0], lateEnd = mic.onend;
+  const h = make(); await settle(); h.aiOrb.emit('click'); await settle(); const mic = h.recognitions[0], lateEnd = mic.onend;
   mic.result('Не отправлять'); h.window.emit('pagehide'); lateEnd(); await settle();
   assert.equal(h.puts().length, 0); assert.equal(h.clock.timers.size, 0);
 });
 test('rapid microphone taps reserve one recognition before onstart', async () => {
-  const h = make({ autoStart: false }); await settle(); h.aiOrb.emit('click'); h.aiOrb.emit('click');
+  const h = make({ autoStart: false }); await settle(); h.aiOrb.emit('click'); await settle(); h.aiOrb.emit('click'); await settle();
   assert.equal(h.recognitions.length, 1); assert.equal(h.recognitions[0].stopped, 1);
 });
 test('manual hold remains available while thinking without starting speech', async () => {
   const h = make({ state: active() }); await settle(); h.aiOrb.emit('pointerdown'); await h.clock.advance(1100); h.aiOrb.emit('pointerup');
-  h.aiOrb.emit('click'); assert.deepEqual(h.navigations, ['/']); assert.equal(h.recognitions.length, 0); assert.equal(h.clock.timers.size, 0);
+  h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/']); assert.equal(h.recognitions.length, 0); assert.equal(h.clock.timers.size, 0);
 });
 test('cancelled hold does not navigate', async () => {
   const h = make(); await settle(); h.aiOrb.emit('pointerdown'); h.aiOrb.emit('pointercancel'); await h.clock.advance(1200);
@@ -318,7 +383,7 @@ test('standalone source has no shared-worker/cache mutation, DOM observer or int
   assert.match(html, /interactive-widget=resizes-content/); assert.match(html, /20260905-3/);
 });
 test('final plus interim result sends and clears only the final transcript', async () => {
-  const h = make(); await settle(); h.aiOrb.emit('click'); const mic = h.recognitions[0];
+  const h = make(); await settle(); h.aiOrb.emit('click'); await settle(); const mic = h.recognitions[0];
   const final = [{ transcript: 'Готовый текст' }]; final.isFinal = true;
   const interim = [{ transcript: 'неуверенный хвост' }]; interim.isFinal = false;
   mic.onresult({ resultIndex: 0, results: [final, interim] }); mic.onend(); await settle();
@@ -340,6 +405,6 @@ test('preview auth leads to stable root instead of missing manual.html', async (
 test('long hold waits for release and never starts speech after navigation', async () => {
   const h = make(); await settle(); h.aiOrb.emit('pointerdown'); await h.clock.advance(1200);
   assert.equal(h.navigations.length, 0); assert.equal(h.clock.timers.size, 0);
-  h.aiOrb.emit('pointerup'); h.aiOrb.emit('click'); assert.deepEqual(h.navigations, ['/']);
+  h.aiOrb.emit('pointerup'); h.aiOrb.emit('click'); await settle(); assert.deepEqual(h.navigations, ['/']);
   assert.equal(h.recognitions.length, 0);
 });

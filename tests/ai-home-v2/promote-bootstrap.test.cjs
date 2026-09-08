@@ -7,6 +7,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const project = path.resolve(__dirname, '../..');
+const pinnedRelease = require('./pinned-release.cjs');
 const installer = path.join(project, 'install-dvizh-ai-home-v2.sh');
 const bootstrap = path.join(project, 'promote-dvizh-ai-home-v2-from-github.sh');
 
@@ -17,6 +18,7 @@ function fileUrl(dir) {
 function fixture(t) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-home-v2-promote-bootstrap-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const release = pinnedRelease(temp);
   const root = path.join(temp, 'site');
   fs.mkdirSync(root);
   const stable = {
@@ -33,7 +35,7 @@ function fixture(t) {
       ...process.env,
       TMPDIR: temp,
       DVIZH_AI_HOME_V2_ROOT: root,
-      DVIZH_AI_HOME_V2_SOURCE_DIR: path.join(project, 'ai-home-v2'),
+      DVIZH_AI_HOME_V2_SOURCE_DIR: path.join(release, 'ai-home-v2'),
     },
   });
   assert.equal(preview.status, 0, preview.stdout + preview.stderr);
@@ -44,7 +46,7 @@ function fixture(t) {
       ...process.env,
       TMPDIR: temp,
       DVIZH_AI_HOME_V2_ROOT: root,
-      DVIZH_AI_HOME_V2_PROMOTE_BASE_URL: fileUrl(project),
+      DVIZH_AI_HOME_V2_PROMOTE_BASE_URL: fileUrl(release),
       ...extra,
     },
   });

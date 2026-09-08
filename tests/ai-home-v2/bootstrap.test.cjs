@@ -7,11 +7,13 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const project = path.resolve(__dirname, '../..');
+const pinnedRelease = require('./pinned-release.cjs');
 const bootstrap = path.join(project, 'install-dvizh-ai-home-v2-preview-from-github.sh');
 
 function makeRoot(t) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-home-v2-bootstrap-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const release = pinnedRelease(temp);
   const root = path.join(temp, 'site');
   fs.mkdirSync(root);
   const stable = {
@@ -26,7 +28,7 @@ function makeRoot(t) {
       assert.equal(fs.readFileSync(path.join(root, name), 'utf8'), content, name);
     }
   };
-  return { temp, root, stable, intact };
+  return { temp, root, release, stable, intact };
 }
 
 function run(root, baseUrl, args = []) {
@@ -46,18 +48,18 @@ function fileUrl(dir) {
 
 test('immutable bootstrap installs only the preview from the pinned release payload', t => {
   const h = makeRoot(t);
-  const result = run(h.root, fileUrl(project));
+  const result = run(h.root, fileUrl(h.release));
   assert.equal(result.status, 0, result.stdout + result.stderr);
   h.intact();
   assert.equal(fs.existsSync(path.join(h.root, 'manual.html')), false);
   assert.equal(
     fs.readFileSync(path.join(h.root, 'ai-home-v2-preview.html'), 'utf8'),
-    fs.readFileSync(path.join(project, 'ai-home-v2', 'index.html'), 'utf8'),
+    fs.readFileSync(path.join(h.release, 'ai-home-v2', 'index.html'), 'utf8'),
   );
   for (const name of ['ai-home-v2.js', 'ai-home-v2.css']) {
     assert.equal(
       fs.readFileSync(path.join(h.root, name), 'utf8'),
-      fs.readFileSync(path.join(project, 'ai-home-v2', name), 'utf8'),
+      fs.readFileSync(path.join(h.release, 'ai-home-v2', name), 'utf8'),
       name,
     );
   }
@@ -69,7 +71,7 @@ test('bootstrap refuses a payload whose Git blob does not match the pinned relea
   fs.mkdirSync(path.join(release, 'ai-home-v2'), { recursive: true });
   fs.copyFileSync(path.join(project, 'install-dvizh-ai-home-v2.sh'), path.join(release, 'install-dvizh-ai-home-v2.sh'));
   for (const name of ['index.html', 'ai-home-v2.js', 'ai-home-v2.css']) {
-    fs.copyFileSync(path.join(project, 'ai-home-v2', name), path.join(release, 'ai-home-v2', name));
+    fs.copyFileSync(path.join(h.release, 'ai-home-v2', name), path.join(release, 'ai-home-v2', name));
   }
   fs.appendFileSync(path.join(release, 'ai-home-v2', 'ai-home-v2.js'), '\n// tampered\n');
   const result = run(h.root, fileUrl(release));
@@ -81,7 +83,7 @@ test('bootstrap refuses a payload whose Git blob does not match the pinned relea
 
 test('bootstrap cannot be used as a promotion entry point', t => {
   const h = makeRoot(t);
-  const result = run(h.root, fileUrl(project), ['--promote']);
+  const result = run(h.root, fileUrl(h.release), ['--promote']);
   assert.notEqual(result.status, 0);
   h.intact();
   assert.equal(fs.existsSync(path.join(h.root, 'ai-home-v2-preview.html')), false);

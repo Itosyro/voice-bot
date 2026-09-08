@@ -220,14 +220,18 @@ class BrowserSmoke(unittest.TestCase):
         self.assertEqual(self.puts, 0)
 
     def test_07_microphone_denial_does_not_submit_existing_text(self):
-        self.init_scripts.append("""window.SpeechRecognition = class {
-          start() { const end = this.onend; this.onstart?.(); queueMicrotask(() => { this.onerror?.({error:'not-allowed'}); end?.(); }); }
-          abort() {} stop() {}
-        };""")
+        self.init_scripts.append("""window.recognitionConstructed = 0;
+        window.SpeechRecognition = class {
+          constructor() { window.recognitionConstructed++; }
+        };
+        Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: {
+          getUserMedia: async () => { throw new DOMException('denied', 'NotAllowedError'); }
+        }});""")
         self.open()
         self.page.locator('#aiInput').fill('Не отправлять этот черновик')
         self.page.locator('#aiOrb').click()
-        expect(self.page.locator('#aiStatus')).to_have_text('Нет доступа к микрофону. Можно написать.')
+        expect(self.page.locator('#aiStatus')).to_have_text('Микрофон запрещён для этого сайта. Разреши его в настройках браузера.')
+        self.assertEqual(self.page.evaluate('window.recognitionConstructed'), 0)
         expect(self.page.locator('#aiInput')).to_have_value('Не отправлять этот черновик')
         self.assertEqual(self.puts, 0)
 
