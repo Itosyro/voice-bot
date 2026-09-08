@@ -28,7 +28,7 @@ if [[ -z "$TEST_ROOT" && ${EUID:-$(id -u)} -ne 0 ]]; then
   echo "Для stable-update нужен root." >&2
   exit 1
 fi
-for tool in curl python3 sha256sum cmp grep flock mktemp cp mv rm find sort xargs; do
+for tool in curl python3 sha256sum cmp grep flock mktemp cp mv rm find sort xargs date tr awk mkdir chmod cat; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $tool" >&2; exit 1; }
 done
 
@@ -79,7 +79,6 @@ grep -Fq '/ai-home-v2.js?v=20260905-3.1' "$INDEX" || { echo "Текущая гл
 tmp="$(mktemp -d /tmp/dvizh-stable-voice.XXXXXX)"
 backup_dir=""
 changed=0
-success=0
 
 protected_snapshot() {
   local output="$1"
@@ -95,7 +94,8 @@ policy_ok() {
 }
 
 http_exact() {
-  local label="$1" path="$2" expected="$3" body="$tmp/${label}.body" code
+  local label="$1" path="$2" expected="$3"
+  local body="$tmp/${label}.body" code
   code="$(curl --silent --show-error --max-time 8 -H 'Cache-Control: no-cache' \
     -o "$body" -w '%{http_code}' "$HTTP_BASE$path")" || return 1
   [[ "$code" == 200 ]] || { echo "HTTP $label: ожидался 200, получен $code" >&2; return 1; }
@@ -160,7 +160,6 @@ if [[ "$current_index_blob" == "$SOURCE_INDEX_BLOB" && "$current_js_blob" == "$S
   http_exact js "/ai-home-v2.js?v=20260905-3.1-voice-20260908&_stable_voice_verify=$(date +%s%N)" "$tmp/source/ai-home-v2.js"
   policy_ok
   sha256sum --check --status "$tmp/protected.before"
-  success=1
   trap - EXIT INT TERM HUP
   rm -rf -- "$tmp"
   echo "Stable voice уже установлен и повторно проверен: $VERSION"
@@ -208,7 +207,6 @@ policy_ok || { echo "После записи microphone=(self) prerequisite ис
 sha256sum --check --status "$tmp/protected.before" || { echo "Изменился защищённый static-файл вне index.html/ai-home-v2.js." >&2; exit 1; }
 
 changed=0
-success=1
 trap - EXIT INT TERM HUP
 rm -rf -- "$tmp"
 
