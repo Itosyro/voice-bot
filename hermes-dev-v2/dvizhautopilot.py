@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -15,16 +16,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "2026.09.08-hermes-autopilot.1"
+VERSION = "2026.09.08-hermes-autopilot.2"
 REPO_FULL_NAME = os.environ.get("DVIZH_DEV_REPO_FULL_NAME", "Itosyro/voice-bot").strip()
 BASE_BRANCH = os.environ.get("DVIZH_AUTOPILOT_BASE_BRANCH", "codex/hermes-autopilot-v2-2026-09-08").strip()
 HOME = Path.home()
 ROOT = Path(os.environ.get("DVIZH_DEV_ROOT", str(HOME / ".hermes" / "dev" / "dvizh"))).expanduser().resolve()
 REPO = ROOT / "repo"
 STATE = ROOT / "state" / "autopilot"
-KEY = Path(os.environ.get("DVIZH_AUTOPILOT_GITHUB_KEY", str(ROOT / "github" / "id_ed25519"))).expanduser().resolve()
 CTL = Path(os.environ.get("DVIZH_DEV_CTL", "/usr/local/bin/dvizhdevctl"))
 RELEASE = Path(os.environ.get("DVIZH_RELEASE_CTL", "/usr/local/sbin/dvizhrelease"))
+GIT_GATE = Path(os.environ.get("DVIZH_GIT_GATE_CTL", "/usr/local/sbin/dvizhgitpush"))
 MODES = {"inspect", "safe", "auto"}
 MAX_OUTPUT = 16000
 
@@ -101,28 +102,6 @@ def get_mode(job_id: str) -> str:
     return mode if mode in MODES else "safe"
 
 
-def ssh_command() -> str:
-    return f"ssh -i {KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
-
-
-def configure_git_remote() -> dict[str, Any]:
-    ctl("init")
-    if not REPO.is_dir():
-        raise AutoError(f"managed repo missing: {REPO}")
-    if not KEY.is_file():
-        raise AutoError(f"GitHub deploy key missing: {KEY}")
-    run(["git", "-C", str(REPO), "remote", "set-url", "origin", f"git@github.com:{REPO_FULL_NAME}.git"])
-    run(["git", "-C", str(REPO), "config", "core.sshCommand", ssh_command()])
-    probe = run(["git", "-C", str(REPO), "ls-remote", "origin", "HEAD"], check=False, timeout=30)
-    return {
-        "ok": probe.returncode == 0,
-        "remote": f"git@github.com:{REPO_FULL_NAME}.git",
-        "key": str(KEY),
-        "public_key": str(KEY) + ".pub",
-        "detail": (probe.stderr or probe.stdout).strip()[-2000:],
-    }
-
-
 def api_json(url: str, timeout: int = 20) -> Any:
     req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": f"DVIZH-Hermes-Autopilot/{VERSION}"})
     try:
@@ -132,6 +111,20 @@ def api_json(url: str, timeout: int = 20) -> Any:
         raise AutoError(f"GitHub API HTTP {exc.code}: {url}") from exc
     except Exception as exc:
         raise AutoError(f"GitHub API unavailable: {type(exc).__name__}") from exc
+
+
+def sudo_json(executable: Path, *args: str, timeout: int = 300) -> dict[str, Any]:
+    if not executable.is_file():
+        raise AutoError(f"root gate not installed: {executable}")
+    cp = run(["sudo", "-n", str(executable), *args], check=False, timeout=timeout)
+    text = cp.stdout.strip()
+    try:
+        payload = json.loads(text) if text else {}
+    except Exception:
+        payload = {"raw": text[-MAX_OUTPUT:]}
+    if cp.returncode != 0:
+        payload.update({"ok": False, "returncode": cp.returncode, "stderr": cp.stderr.strip()[-5000:]})
+    return payload
 
 
 def new_job(mode: str, problem: str) -> dict[str, Any]:
@@ -198,15 +191,11 @@ def run_profiles(job_id: str) -> dict[str, Any]:
     return {"ok": True, "profiles": profiles, "results": results, "paths": paths}
 
 
-def push(job_id: str) -> dict[str, Any]:
-    auth = configure_git_remote()
-    if not auth["ok"]:
-        raise AutoError("GitHub write deploy key is not authorized for the repository")
-    status = ctl("status", job_id)
-    wt = Path(str(status.get("worktree") or ""))
-    run(["git", "-C", str(wt), "remote", "set-url", "origin", f"git@github.com:{REPO_FULL_NAME}.git"])
-    run(["git", "-C", str(wt), "config", "core.sshCommand", ssh_command()])
-    return ctl("push", job_id, timeout=300)
+def guarded_push(job_id: str) -> dict[str, Any]:
+    result = sudo_json(GIT_GATE, "push", job_id, timeout=300)
+    if not result.get("ok"):
+        raise AutoError(str(result.get("error") or result.get("stderr") or "DVIZH-only push gate rejected the branch"))
+    return result
 
 
 def runs_for(job_id: str) -> dict[str, Any]:
@@ -235,24 +224,15 @@ def ci_failures(job_id: str) -> dict[str, Any]:
     details = []
     for row in rows[:8]:
         url = str(row.get("html_url") or "")
-        run_id = ""
-        m = __import__("re").search(r"/actions/runs/(\d+)", url)
-        if m:
-            run_id = m.group(1)
+        m = re.search(r"/actions/runs/(\d+)", url)
         jobs = []
-        if run_id:
+        if m:
             try:
-                payload = api_json(f"https://api.github.com/repos/{REPO_FULL_NAME}/actions/runs/{run_id}/jobs?per_page=100")
+                payload = api_json(f"https://api.github.com/repos/{REPO_FULL_NAME}/actions/runs/{m.group(1)}/jobs?per_page=100")
                 for j in (payload.get("jobs") or []) if isinstance(payload, dict) else []:
                     if not isinstance(j, dict):
                         continue
-                    jobs.append({
-                        "name": j.get("name"),
-                        "status": j.get("status"),
-                        "conclusion": j.get("conclusion"),
-                        "html_url": j.get("html_url"),
-                        "failed_steps": [s.get("name") for s in (j.get("steps") or []) if isinstance(s, dict) and s.get("conclusion") == "failure"],
-                    })
+                    jobs.append({"name": j.get("name"), "status": j.get("status"), "conclusion": j.get("conclusion"), "html_url": j.get("html_url"), "failed_steps": [s.get("name") for s in (j.get("steps") or []) if isinstance(s, dict) and s.get("conclusion") == "failure"]})
             except AutoError:
                 jobs = []
         details.append({"workflow": row, "jobs": jobs})
@@ -262,6 +242,13 @@ def ci_failures(job_id: str) -> dict[str, Any]:
 def git_blob(path: Path) -> str:
     data = path.read_bytes()
     return hashlib.sha1(f"blob {len(data)}\0".encode("ascii") + data).hexdigest()
+
+
+def remote_branch_sha(branch: str) -> str:
+    quoted = urllib.parse.quote(branch, safe="")
+    payload = api_json(f"https://api.github.com/repos/{REPO_FULL_NAME}/branches/{quoted}")
+    sha = str((((payload or {}).get("commit") or {}).get("sha")) or "") if isinstance(payload, dict) else ""
+    return sha
 
 
 def release_propose(job_id: str, manifest_rel: str) -> dict[str, Any]:
@@ -297,27 +284,14 @@ def release_propose(job_id: str, manifest_rel: str) -> dict[str, Any]:
     tracked = run(["git", "-C", str(wt), "ls-files", "--error-unmatch", str(rel)], check=False)
     if tracked.returncode != 0:
         raise AutoError("release manifest must be committed")
-    remote = run(["git", "-C", str(wt), "ls-remote", "origin", f"refs/heads/{branch}"], check=False, timeout=60)
-    remote_sha = (remote.stdout.split() or [""])[0]
-    if remote.returncode != 0 or remote_sha != head:
+    if remote_branch_sha(branch) != head:
         raise AutoError("current HEAD is not confirmed on origin")
     ci = runs_for(job_id)
     if not ci.get("green"):
         raise AutoError("CI must be fully green before release proposal")
     ensure_state()
     proposal_id = f"release-{job_id}-{head[:10]}"
-    proposal = {
-        "schema": 1,
-        "id": proposal_id,
-        "job_id": job_id,
-        "mode": mode,
-        "repo": REPO_FULL_NAME,
-        "branch": branch,
-        "commit": head,
-        "manifest": str(rel),
-        "manifest_blob": git_blob(manifest),
-        "created_at_utc": now_iso(),
-    }
+    proposal = {"schema": 1, "id": proposal_id, "job_id": job_id, "mode": mode, "repo": REPO_FULL_NAME, "branch": branch, "commit": head, "manifest": str(rel), "manifest_blob": git_blob(manifest), "created_at_utc": now_iso()}
     p = STATE / f"{proposal_id}.json"
     p.write_text(json.dumps(proposal, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.chmod(p, 0o600)
@@ -325,45 +299,27 @@ def release_propose(job_id: str, manifest_rel: str) -> dict[str, Any]:
 
 
 def release_call(action: str, proposal: str, approval: str | None = None) -> dict[str, Any]:
-    if not RELEASE.is_file():
-        raise AutoError(f"release gate not installed: {RELEASE}")
-    args = ["sudo", "-n", str(RELEASE), action, proposal]
+    args = [action, proposal]
     if approval:
         args.extend(["--approval", approval])
-    cp = run(args, check=False, timeout=300)
-    text = cp.stdout.strip()
-    try:
-        payload = json.loads(text) if text else {}
-    except Exception:
-        payload = {"raw": text[-MAX_OUTPUT:]}
-    if cp.returncode != 0:
-        payload.update({"ok": False, "returncode": cp.returncode, "stderr": cp.stderr.strip()[-5000:]})
-    return payload
+    return sudo_json(RELEASE, *args, timeout=300)
 
 
 def doctor() -> dict[str, Any]:
-    result: dict[str, Any] = {"version": VERSION, "base_branch": BASE_BRANCH, "repo": REPO_FULL_NAME}
-    try:
-        result["git"] = configure_git_remote()
-    except Exception as exc:
-        result["git"] = {"ok": False, "error": str(exc)}
+    result: dict[str, Any] = {"version": VERSION, "base_branch": BASE_BRANCH, "repo": REPO_FULL_NAME, "private_git_key_visible_to_hermes": False}
     try:
         api_json(f"https://api.github.com/repos/{REPO_FULL_NAME}")
         result["github_api"] = {"ok": True}
     except Exception as exc:
         result["github_api"] = {"ok": False, "error": str(exc)}
-    gate = run(["sudo", "-n", str(RELEASE), "doctor"], check=False, timeout=20) if RELEASE.is_file() else None
-    result["release_gate"] = {
-        "ok": bool(gate and gate.returncode == 0),
-        "stdout": gate.stdout.strip()[-3000:] if gate else "",
-        "stderr": gate.stderr.strip()[-3000:] if gate else "not installed",
-    }
-    result["ok"] = bool(result.get("git", {}).get("ok") and result.get("github_api", {}).get("ok") and result.get("release_gate", {}).get("ok"))
+    result["git_push_gate"] = sudo_json(GIT_GATE, "doctor", timeout=30) if GIT_GATE.is_file() else {"ok": False, "error": "not installed"}
+    result["release_gate"] = sudo_json(RELEASE, "doctor", timeout=30) if RELEASE.is_file() else {"ok": False, "error": "not installed"}
+    result["ok"] = bool(result["github_api"].get("ok") and result["git_push_gate"].get("ok") and result["release_gate"].get("ok"))
     return result
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Hermes DVIZH Autopilot v2")
+    parser = argparse.ArgumentParser(description="Hermes DVIZH Autopilot v2.1")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("version")
     sub.add_parser("doctor")
@@ -384,7 +340,7 @@ def main() -> int:
         elif args.cmd == "new": result = new_job(args.mode, args.problem)
         elif args.cmd == "mode": result = {"job_id": args.job_id, "mode": get_mode(args.job_id)}
         elif args.cmd == "test-auto": result = run_profiles(args.job_id)
-        elif args.cmd == "push": result = push(args.job_id)
+        elif args.cmd == "push": result = guarded_push(args.job_id)
         elif args.cmd == "wait-ci": result = wait_ci(args.job_id, max(30, min(args.timeout, 3600)))
         elif args.cmd == "ci-failures": result = ci_failures(args.job_id)
         elif args.cmd == "release-propose": result = release_propose(args.job_id, args.manifest)
