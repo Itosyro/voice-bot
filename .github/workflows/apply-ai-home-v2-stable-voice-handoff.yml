@@ -1,0 +1,85 @@
+name: Apply exact Hermes stable voice handoff
+
+on:
+  push:
+    branches:
+      - codex/ai-home-v2-stable-voice-2026-09-08
+    paths:
+      - '.github/workflows/apply-ai-home-v2-stable-voice-handoff.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify Hermes handoff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          EXPECTED_SHA='9ea5fae4e2715575c2ffa4f020cab672424a6ad9469622d9e55cf2eabf77eb76'
+          git merge-base --is-ancestor "$BASE" HEAD
+          : > /tmp/handoff.patch
+          for f in \
+            .handoff/voice-20260908/part-00.b64 \
+            .handoff/voice-20260908/part-01.b64 \
+            .handoff/voice-20260908/part-02.b64 \
+            .handoff/voice-20260908/part-03.b64 \
+            .handoff/voice-20260908/part-04.b64
+          do
+            base64 --decode "$f" >> /tmp/handoff.patch
+          done
+          test "$(wc -c < /tmp/handoff.patch | tr -d ' ')" = '34127'
+          printf '%s  %s\n' "$EXPECTED_SHA" /tmp/handoff.patch | sha256sum -c -
+          git apply --check /tmp/handoff.patch
+
+      - name: Apply exact patch and remove transfer scaffolding
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git apply --index /tmp/handoff.patch
+          git diff --cached --check
+          git rm -r .handoff/voice-20260908
+          git rm .github/workflows/apply-ai-home-v2-stable-voice-handoff.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(ai-home): prime microphone permission before stable voice recognition'
+
+      - name: Verify resulting branch is byte-exact Hermes diff
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE='ba8214911f5942fdbf36269e1e992eb7607b40f8'
+          EXPECTED_SHA='9ea5fae4e2715575c2ffa4f020cab672424a6ad9469622d9e55cf2eabf77eb76'
+          cat > /tmp/expected-paths <<'EOF'
+          ai-home-v2/ai-home-v2.js
+          ai-home-v2/index.html
+          docs/ai-home-v2-voice-handoff.md
+          tests/ai-home-v2/bootstrap.test.cjs
+          tests/ai-home-v2/browser_test.py
+          tests/ai-home-v2/client.test.cjs
+          tests/ai-home-v2/pinned-release.cjs
+          tests/ai-home-v2/promote-bootstrap.test.cjs
+          tests/ai-home-v2/promote-relative-path-fix.test.cjs
+          tests/ai-home-v2/voice-isolation.test.cjs
+          EOF
+          git diff --name-only "$BASE" HEAD | sort > /tmp/actual-paths
+          diff -u /tmp/expected-paths /tmp/actual-paths
+          git diff --binary --full-index "$BASE" HEAD -- . > /tmp/result.patch
+          test "$(wc -c < /tmp/result.patch | tr -d ' ')" = '34127'
+          printf '%s  %s\n' "$EXPECTED_SHA" /tmp/result.patch | sha256sum -c -
+          test ! -e .handoff/voice-20260908
+          test ! -e .github/workflows/apply-ai-home-v2-stable-voice-handoff.yml
+
+      - name: Push accepted Hermes source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git push origin HEAD:codex/ai-home-v2-stable-voice-2026-09-08
