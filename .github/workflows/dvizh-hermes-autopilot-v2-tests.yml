@@ -39,6 +39,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py
+          bash -n install-dvizh-hermes-autopilot.sh
           grep -Fq 'VERSION = "2026.09.08-hermes-autopilot.1"' hermes-dev-v2/dvizhautopilot.py
           grep -Fq 'VERSION = "2026.09.08-dvizh-release-gate.1"' hermes-dev-v2/dvizhrelease.py
           grep -q '^name: dvizh-dev$' hermes-dev-v2/skill/SKILL.md
@@ -46,8 +47,16 @@ jobs:
           grep -Fq 'SAFE_TARGETS' hermes-dev-v2/dvizhrelease.py
           grep -Fq 'DENY_PREFIXES' hermes-dev-v2/dvizhrelease.py
           grep -Fq 'consume_approval' hermes-dev-v2/dvizhrelease.py
+          grep -Fq 'PAYLOAD_REF="4424a8922c4cc8013ecb15bda501558808070490"' install-dvizh-hermes-autopilot.sh
+          grep -Fq 'NOPASSWD: /usr/local/sbin/dvizhrelease *' install-dvizh-hermes-autopilot.sh
+          ! grep -Fq 'NOPASSWD: ALL' install-dvizh-hermes-autopilot.sh
           ! grep -Eq 'shell\s*=\s*True|os\.system\(' hermes-dev-v2/*.py
           ! grep -Eq 'git[^\n]*push[^\n]*--force|reset[^\n]*--hard|clean[^\n]*-fd' hermes-dev-v2/*.py
+      - name: Verify immutable installer payload twice
+        run: |
+          set -Eeuo pipefail
+          DVIZH_HERMES_AUTOPILOT_PREPARE_ONLY=1 bash install-dvizh-hermes-autopilot.sh
+          DVIZH_HERMES_AUTOPILOT_PREPARE_ONLY=1 bash install-dvizh-hermes-autopilot.sh
       - name: Unit and rollback tests
         run: python3 -m unittest discover -s tests/hermes_autopilot -v
 
