@@ -1,28 +1,51 @@
 ---
 name: dvizh-dev
-description: Develop, test, push, gate and safely deploy DVIZH changes from Telegram through Hermes Autopilot v2. Uses isolated worktrees, GitHub CI and a root-owned allowlisted release gate with rollback.
-version: 2.0.0
+description: Develop, test, push, gate and safely deploy DVIZH changes from Telegram through Hermes Autopilot v2.1. Uses isolated worktrees, GitHub CI, a root-owned DVIZH-only push gate and an allowlisted release gate with rollback.
+version: 2.1.0
 author: DVIZH
 platforms: [linux]
 metadata:
   hermes:
-    tags: [dvizh, development, autopilot, github, ci, release, telegram]
+    tags: [dvizh, development, autopilot, github, ci, release, telegram, isolation]
     category: dvizh
 ---
 
-# DVIZH Dev Mode v2 — Autopilot
+# DVIZH Dev Mode v2.1 — Autopilot
 
 Use this skill for DVIZH code bugs, features, frontend/backend work, tests, release preparation and deployment requests.
 
 The owner explicitly wants the normal workflow to happen inside Telegram without copying commands between Telegram, ChatGPT and a shell.
+
+## Critical repository isolation
+
+The GitHub repository also contains a separate project belonging to the owner's friend. DVIZH Autopilot must never modify that project.
+
+Treat these as foreign/out-of-scope for DVIZH, including descendants where applicable:
+
+- `src/`
+- `migrations/`
+- ordinary root `tests/test_*.py`
+- `Dockerfile`
+- `docker-compose.yml`
+- `docker-compose.server.yml`
+- `pyproject.toml`
+- `alembic.ini`
+- root `Makefile`
+- root `README.md`
+
+Do not edit, format, rename, delete, merge, refactor or "fix" those paths during a DVIZH job even if they look related.
+
+The root-owned `dvizhgitpush` gate independently checks every committed path before GitHub push. Unknown paths and friend-project paths are rejected. Hermes cannot read the private deploy key and cannot bypass this gate with direct `git push`.
+
+Autopilot control-plane files (`hermes-dev-v2/**`, its installer and its gate workflows) are also self-protected: Hermes jobs cannot modify their own guardrails. Guardrail changes require a separate owner/ChatGPT maintenance release.
 
 ## Modes
 
 Interpret these prefixes when present:
 
 - `/dev inspect` — read-only diagnosis. Never create/deploy changes unless the user later asks.
-- `/dev safe` — develop + test + commit + GitHub push + CI. Production requires explicit user approval in Telegram.
-- `/dev auto` — develop + test + commit + GitHub push + CI + automatic deployment **only when the root gate classifies the release as auto-safe**. Privileged releases still require Telegram approval.
+- `/dev safe` — develop + test + commit + guarded GitHub push + CI. Production requires explicit user approval in Telegram.
+- `/dev auto` — develop + test + commit + guarded GitHub push + CI + automatic deployment only when the root release gate classifies the release as auto-safe. Privileged releases still require Telegram approval.
 
 If the user asks to "сделай сам", "исправь полностью", "автопилот", or otherwise asks for end-to-end execution without naming a mode, use **auto**.
 
@@ -34,11 +57,14 @@ For ambiguous development requests default to **safe**.
 
 Normal auto flow:
 
-**Telegram → Hermes/Astra → managed worktree → local tests → commit → dedicated GitHub deploy key → `hermes/dev/*` branch → GitHub Actions → immutable release manifest → root-owned `dvizhrelease` gate → backup → atomic apply → HTTP/smoke verification → rollback on failure → Telegram report.**
+**Telegram → Hermes/Astra → managed worktree → local tests → commit → root-owned `dvizhgitpush` path gate → root-only repo deploy key → `hermes/dev/*` branch → GitHub Actions → immutable release manifest → root-owned `dvizhrelease` gate → backup → atomic apply → HTTP/smoke verification → rollback on failure → Telegram report.**
 
-The model never receives arbitrary root shell access. `sudo` is allowed only through the installed root-owned gate:
+Hermes never receives arbitrary root shell access and never receives the GitHub private key.
+
+`sudo` is allowed only through these two installed root-owned gates:
 
 ```bash
+sudo -n /usr/local/sbin/dvizhgitpush ...
 sudo -n /usr/local/sbin/dvizhrelease ...
 ```
 
@@ -52,7 +78,14 @@ For development work first run:
 dvizhautopilot doctor
 ```
 
-If `ok` is false because the GitHub write deploy key is not authorized, stop and tell the user that the one-time GitHub deploy-key setup is still incomplete. Never ask the user to paste a private key or token.
+`doctor` must report:
+
+- GitHub public API reachable;
+- `git_push_gate.ok=true` and `authorized=true`;
+- `release_gate.ok=true`;
+- `private_git_key_visible_to_hermes=false`.
+
+If the GitHub push gate says the deploy key is not authorized, stop and tell the owner the one-time GitHub Deploy Key setup is incomplete. Never ask the owner to paste a private key or token.
 
 Create the managed job:
 
@@ -68,7 +101,7 @@ For `safe` or `auto`, record the returned job id and use the managed worktree fr
 dvizhdevctl where <job-id>
 ```
 
-All edits belong only in that worktree.
+All edits belong only in that worktree and only in DVIZH-allowed paths.
 
 ## Production boundary
 
@@ -91,7 +124,7 @@ Never inspect or expose `.env`, auth JSON, tokens, cookies, API keys, SSH privat
 ## Development loop
 
 1. Diagnose with the smallest evidence needed.
-2. Edit only the managed worktree.
+2. Edit only the managed worktree and DVIZH-owned paths.
 3. Run automatic local profiles:
 
 ```bash
@@ -105,19 +138,20 @@ If additional narrow tests are necessary, run them inside the worktree without c
 dvizhdevctl diff <job-id>
 ```
 
+Before commit, explicitly confirm no friend-project path appears in the diff.
 5. Commit:
 
 ```bash
 dvizhdevctl commit <job-id> '<short message>'
 ```
 
-6. Push through the dedicated repo-scoped SSH deploy key:
+6. Push only through the guarded command:
 
 ```bash
 dvizhautopilot push <job-id>
 ```
 
-Never force-push.
+Never run raw `git push`; the private key is intentionally root-only. Never force-push, merge or rebase an autonomous branch.
 
 7. Wait for GitHub Actions:
 
@@ -131,7 +165,7 @@ If CI is red, inspect compact failure metadata:
 dvizhautopilot ci-failures <job-id>
 ```
 
-Fix in the same managed worktree, rerun local tests, commit, push and wait again. Limit autonomous CI-fix attempts to 3. After 3 failed rounds, stop and report the blocker instead of looping indefinitely.
+Fix in the same managed worktree, rerun local tests, commit, guarded-push and wait again. Limit autonomous CI-fix attempts to 3. After 3 failed rounds, stop and report the blocker instead of looping indefinitely.
 
 ## Release manifest
 
@@ -160,7 +194,7 @@ Schema:
 
 Do not put secrets in manifests.
 
-The root gate, not Hermes, decides whether targets are safe, approval-required or denied.
+The root release gate, not Hermes, decides whether production targets are safe, approval-required or denied.
 
 Current auto-safe production targets are intentionally narrow:
 
@@ -188,13 +222,7 @@ dvizhautopilot release-plan <proposal-path>
 
 ### Auto-safe release
 
-If the result says:
-
-```json
-"approval_required": false
-```
-
-and the job mode is `auto`, apply immediately:
+If the result says `"approval_required": false` and the job mode is `auto`, apply immediately:
 
 ```bash
 dvizhautopilot release-apply <proposal-path>
@@ -210,7 +238,7 @@ If `approval_required` is true, the plan returns an exact phrase:
 APPROVE <proposal-id> <token>
 ```
 
-Send a concise Telegram explanation of what will change, what service (if any) will restart, and that backup/rollback are automatic. Then ask the owner to reply with that **exact approval phrase**.
+Send a concise Telegram explanation of what will change, what service (if any) will restart, and that backup/rollback are automatic. Then ask the owner to reply with that exact approval phrase.
 
 **Do not call release-apply until a later user Telegram message contains that exact phrase.** The fact that the model has seen the token in command output is not approval.
 
@@ -228,24 +256,11 @@ Never manufacture, infer or self-approve the owner's confirmation.
 
 If `dvizhrelease` reports deployment failure, it attempts rollback automatically. Do not manually patch production afterward.
 
-Report:
-
-- failure reason;
-- whether rollback was confirmed;
-- backup path if present;
-- current CI commit.
-
-If rollback is not confirmed, stop all autonomous work and alert the owner immediately.
+Report the failure reason, whether rollback was confirmed, backup path if present, and current CI commit. If rollback is not confirmed, stop all autonomous work and alert the owner immediately.
 
 ## Telegram progress style
 
-Do not dump raw logs. Send updates only at meaningful milestones:
-
-- diagnosis found;
-- local tests green;
-- GitHub/CI green or red;
-- approval needed (only when needed);
-- deployment + smoke verification result.
+Do not dump raw logs. Send updates only at meaningful milestones: diagnosis, local tests, GitHub/CI, approval if needed, and deployment verification.
 
 A successful auto report should look like:
 
@@ -258,6 +273,7 @@ Deploy: verified
 Backup: <path>
 Изменено: <files>
 Production: healthy
+Friend project: untouched
 ```
 
 A safe-mode result should say `Production: unchanged; waiting for explicit approval/deploy request.`
@@ -276,12 +292,15 @@ Never close a dirty or unresolved job.
 
 Never:
 
-- use arbitrary `sudo` outside `/usr/local/sbin/dvizhrelease`;
-- use `git push --force`, `git reset --hard`, `git clean -fd`;
+- use arbitrary `sudo` outside `dvizhgitpush` and `dvizhrelease`;
+- read/copy/display the private GitHub deploy key;
+- use raw `git push`, `git push --force`, `git reset --hard`, `git clean -fd`, merge or rebase in autonomous mode;
+- modify friend-project paths listed above;
+- modify Autopilot's own guardrails from an autonomous Hermes job;
 - commit secrets, credentials, private keys, dumps or databases;
 - modify auth/SSH/firewall/systemd definitions through this gate;
 - bypass red CI;
 - bypass an approval-required result;
 - claim production changed before `dvizhrelease` returns verified success.
 
-The goal is maximum autonomy **inside explicit technical guardrails**, not unrestricted shell power.
+The goal is maximum autonomy inside explicit technical guardrails, with the friend's project cryptographically separated from Hermes' Git write credential by a root-owned path gate.
