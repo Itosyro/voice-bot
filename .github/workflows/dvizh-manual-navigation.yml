@@ -1,0 +1,23 @@
+name: DVIZH Manual navigation regression tests
+
+on:
+  push:
+    branches: ['hermes/dev/**']
+    paths:
+      - 'minimal-ui-v1/**'
+      - '.github/workflows/dvizh-manual-navigation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  navigation-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test shortcut migration and immutable release scope
+        run: python3 -m unittest discover -s minimal-ui-v1/tests -v

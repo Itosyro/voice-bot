@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "name": "Restore Manual additional-section navigation",
+  "operations": [
+    {
+      "source": "minimal-ui-v1/release/manual.html",
+      "target": "/opt/dvizh/static/manual.html",
+      "http_path": "/manual.html"
+    }
+  ],
+  "restarts": []
+}

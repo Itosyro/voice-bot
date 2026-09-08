@@ -23,9 +23,9 @@ SETTINGS_PANEL = r'''        <!-- DVIZH_MINIMAL_UI_V1 -->
           <div class="minimal-ui-shortcuts" aria-label="Дополнительные разделы">
             <span>Дополнительные разделы</span>
             <div>
-              <button type="button" class="ghost" data-minimal-nav="proof">↗ Факты</button>
-              <button type="button" class="ghost" data-minimal-nav="training">🏋 Тренировки</button>
-              <button type="button" class="ghost" data-minimal-nav="social">📱 Соцсети</button>
+              <button type="button" class="ghost" data-nav="proof">↗ Факты</button>
+              <button type="button" class="ghost" data-nav="training">🏋 Тренировки</button>
+              <button type="button" class="ghost" data-nav="social">📱 Соцсети</button>
             </div>
           </div>
         </article>
@@ -315,7 +315,24 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 def patch_index(text: str) -> str:
     if MARKER_HTML in text:
-        return text
+        # Migrate only the shortcuts emitted by this patcher; retain all other HTML.
+        def migrate_panel(panel: re.Match[str]) -> str:
+            def migrate_shortcuts(shortcuts: re.Match[str]) -> str:
+                html = shortcuts.group(0)
+                for view in ('proof', 'training', 'social'):
+                    old = f'<button type="button" class="ghost" data-minimal-nav="{view}">'
+                    html = html.replace(old, old.replace('data-minimal-nav', 'data-nav'), 1)
+                return html
+
+            return re.sub(
+                r'<div class="minimal-ui-shortcuts" aria-label="Дополнительные разделы">.*?</div>',
+                migrate_shortcuts, panel.group(0), count=1, flags=re.DOTALL,
+            )
+
+        return re.sub(
+            r'<article class="panel minimal-ui-settings" id="minimalUiSettings">.*?</article>',
+            migrate_panel, text, count=1, flags=re.DOTALL,
+        )
     anchor = '      <section class="view" id="view-settings" data-view="settings">'
     return replace_once(text, anchor, anchor + '\n' + SETTINGS_PANEL.rstrip(), 'minimal settings panel')
 
