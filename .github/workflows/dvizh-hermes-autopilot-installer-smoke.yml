@@ -54,12 +54,13 @@ jobs:
           test "$before" = "$after"
           grep -Fq 'ONE-TIME GITHUB SETUP REQUIRED' /tmp/install1.txt
           grep -Fq 'Production-приложение не изменено' /tmp/install2.txt
-      - name: Confirm arbitrary passwordless sudo was not granted
+      - name: Confirm installed sudoers is exactly the narrow root gate
         run: |
           set -Eeuo pipefail
           user="$(id -un)"
-          if sudo -u "$user" sudo -n /bin/sh -c 'true' 2>/dev/null; then
-            echo 'unexpected arbitrary passwordless sudo' >&2
-            exit 1
-          fi
+          test "$(sudo stat -c '%U:%G:%a' /etc/sudoers.d/dvizh-hermes-autopilot)" = 'root:root:440'
+          expected="$user ALL=(root) NOPASSWD: /usr/local/sbin/dvizhrelease *"
+          actual="$(sudo grep -v '^#' /etc/sudoers.d/dvizh-hermes-autopilot | sed '/^[[:space:]]*$/d')"
+          test "$actual" = "$expected"
+          ! sudo grep -Fq 'NOPASSWD: ALL' /etc/sudoers.d/dvizh-hermes-autopilot
           sudo -u "$user" sudo -n /usr/local/sbin/dvizhrelease doctor >/dev/null
