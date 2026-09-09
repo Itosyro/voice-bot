@@ -1,0 +1,217 @@
+test_absent_target_rollback_succeeds_before_first_write (test_release_v22_review.ReviewTests.test_absent_target_rollback_succeeds_before_first_write) ... FAIL
+test_ancestor_rename_restores_pinned_object_and_never_confirms_canonical (test_release_v22_review.ReviewTests.test_ancestor_rename_restores_pinned_object_and_never_confirms_canonical) ... FAIL
+test_auto_missing_expired_wrong_digest_exact_phrase_and_replay (test_release_v22_review.ReviewTests.test_auto_missing_expired_wrong_digest_exact_phrase_and_replay) ... ok
+test_ci_red_missing_pending_wrong_commit_and_truncated_tree (test_release_v22_review.ReviewTests.test_ci_red_missing_pending_wrong_commit_and_truncated_tree) ... ok
+test_concurrent_claim_is_single_use_across_processes (test_release_v22_review.ReviewTests.test_concurrent_claim_is_single_use_across_processes) ... FAIL
+test_exact_class_always_approval (test_release_v22_review.ReviewTests.test_exact_class_always_approval) ... ok
+test_helpers_need_no_restart_bridge_requires_justification (test_release_v22_review.ReviewTests.test_helpers_need_no_restart_bridge_requires_justification) ... ok
+test_keyboard_interrupt_rolls_back_all_files (test_release_v22_review.ReviewTests.test_keyboard_interrupt_rolls_back_all_files) ... FAIL
+test_manifest_sha_and_independent_source_sha (test_release_v22_review.ReviewTests.test_manifest_sha_and_independent_source_sha) ... ok
+test_new_ai_home_parent_creation (test_release_v22_review.ReviewTests.test_new_ai_home_parent_creation) ... ERROR
+test_new_ai_home_symlink_parent_denied (test_release_v22_review.ReviewTests.test_new_ai_home_symlink_parent_denied) ... ok
+test_plan_and_second_apply_wait_for_entire_transaction (test_release_v22_review.ReviewTests.test_plan_and_second_apply_wait_for_entire_transaction) ... FAIL
+test_post_health_file_drift_rolls_back (test_release_v22_review.ReviewTests.test_post_health_file_drift_rolls_back) ... FAIL
+test_post_rollback_health_metadata_drift_is_critical (test_release_v22_review.ReviewTests.test_post_rollback_health_metadata_drift_is_critical) ... FAIL
+test_raw_paths_and_exact_target_denials (test_release_v22_review.ReviewTests.test_raw_paths_and_exact_target_denials) ... ok
+test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22_review.ReviewTests.test_reject_extra_fields_missing_fields_wrong_policy) ... ok
+test_return_outside_function_is_rejected_without_execution (test_release_v22_review.ReviewTests.test_return_outside_function_is_rejected_without_execution) ... FAIL
+test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal (test_release_v22_review.ReviewTests.test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal) ... 
+  test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal (test_release_v22_review.ReviewTests.test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal) (signal=<Signals.SIGTERM: 15>) ... FAIL
+  test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal (test_release_v22_review.ReviewTests.test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal) (signal=<Signals.SIGKILL: 9>) ... FAIL
+test_source_destination_and_proposal_symlinks_and_nonregular (test_release_v22_review.ReviewTests.test_source_destination_and_proposal_symlinks_and_nonregular) ... ok
+test_trusted_download_sha_and_git_regular_blob (test_release_v22_review.ReviewTests.test_trusted_download_sha_and_git_regular_blob) ... ok
+test_untrusted_privileged_ancestors_denied (test_release_v22_review.ReviewTests.test_untrusted_privileged_ancestors_denied) ... FAIL
+test_auto_missing_expired_wrong_digest_exact_phrase_and_replay (test_release_v22.TrustTests.test_auto_missing_expired_wrong_digest_exact_phrase_and_replay) ... ok
+test_ci_red_missing_pending_wrong_commit_and_truncated_tree (test_release_v22.TrustTests.test_ci_red_missing_pending_wrong_commit_and_truncated_tree) ... ok
+test_exact_class_always_approval (test_release_v22.TrustTests.test_exact_class_always_approval) ... ok
+test_helpers_need_no_restart_bridge_requires_justification (test_release_v22.TrustTests.test_helpers_need_no_restart_bridge_requires_justification) ... ok
+test_manifest_sha_and_independent_source_sha (test_release_v22.TrustTests.test_manifest_sha_and_independent_source_sha) ... ok
+test_raw_paths_and_exact_target_denials (test_release_v22.TrustTests.test_raw_paths_and_exact_target_denials) ... ok
+test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22.TrustTests.test_reject_extra_fields_missing_fields_wrong_policy) ... ok
+test_source_destination_and_proposal_symlinks_and_nonregular (test_release_v22.TrustTests.test_source_destination_and_proposal_symlinks_and_nonregular) ... ok
+test_trusted_download_sha_and_git_regular_blob (test_release_v22.TrustTests.test_trusted_download_sha_and_git_regular_blob) ... ok
+
+======================================================================
+ERROR: test_new_ai_home_parent_creation (test_release_v22_review.ReviewTests.test_new_ai_home_parent_creation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 172, in test_new_ai_home_parent_creation
+    self.assertTrue(self.deploy()['ok'])
+                    ^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 20, in deploy
+    return self.g.apply(str(self.proposal_path), planned['approval_phrase'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 656, in apply
+    consume_approval(proposal, digest, approval or "")
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 343, in consume_approval
+    raise GateError("approval token is invalid")
+dvizhrelease_test_140082029919872.GateError: approval token is invalid
+
+======================================================================
+FAIL: test_absent_target_rollback_succeeds_before_first_write (test_release_v22_review.ReviewTests.test_absent_target_rollback_succeeds_before_first_write)
+----------------------------------------------------------------------
+dvizhrelease_test_140082032163520.GateError: approval token is invalid
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 182, in test_absent_target_rollback_succeeds_before_first_write
+    with self.assertRaisesRegex(self.g.GateError, 'rollback confirmed'): self.deploy()
+AssertionError: "rollback confirmed" does not match "approval token is invalid"
+
+======================================================================
+FAIL: test_ancestor_rename_restores_pinned_object_and_never_confirms_canonical (test_release_v22_review.ReviewTests.test_ancestor_rename_restores_pinned_object_and_never_confirms_canonical)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 505, in apply_release
+    atomic_write(target, data, record)
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 428, in atomic_write
+    verify_file(path, hashlib.sha256(data).hexdigest(), metadata)
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 434, in verify_file
+    raise GateError(f"file SHA/owner/group/mode verification failed: {path}")
+dvizhrelease_test_140082031028320.GateError: file SHA/owner/group/mode verification failed: /tmp/tmp816tfq2n/fs/usr/local/libexec/dvizh-context
+
+The above exception was the direct cause of the following exception:
+
+dvizhrelease_test_140082031028320.GateError: release failed; rollback confirmed; backup=/tmp/tmp816tfq2n/backups/autopilot.inc0srn7; original=file SHA/owner/group/mode verification failed: /tmp/tmp816tfq2n/fs/usr/local/libexec/dvizh-context
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 151, in test_ancestor_rename_restores_pinned_object_and_never_confirms_canonical
+    with self.assertRaisesRegex(self.g.GateError, 'CRITICAL.*rollback unconfirmed'): self.deploy()
+AssertionError: "CRITICAL.*rollback unconfirmed" does not match "release failed; rollback confirmed; backup=/tmp/tmp816tfq2n/backups/autopilot.inc0srn7; original=file SHA/owner/group/mode verification failed: /tmp/tmp816tfq2n/fs/usr/local/libexec/dvizh-context"
+
+======================================================================
+FAIL: test_concurrent_claim_is_single_use_across_processes (test_release_v22_review.ReviewTests.test_concurrent_claim_is_single_use_across_processes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 50, in test_concurrent_claim_is_single_use_across_processes
+    self.assertEqual(sorted(results.get(timeout=1) for _ in children), ['claimed', 'denied'])
+AssertionError: Lists differ: ['claimed', 'claimed'] != ['claimed', 'denied']
+
+First differing element 1:
+'claimed'
+'denied'
+
+- ['claimed', 'claimed']
+?              ^^^ -
+
++ ['claimed', 'denied']
+?              ^^^
+
+
+======================================================================
+FAIL: test_keyboard_interrupt_rolls_back_all_files (test_release_v22_review.ReviewTests.test_keyboard_interrupt_rolls_back_all_files)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 91, in test_keyboard_interrupt_rolls_back_all_files
+    self.deploy()
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 20, in deploy
+    return self.g.apply(str(self.proposal_path), planned['approval_phrase'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 659, in apply
+    result = apply_release(proposal, raw, manifest, manifest_raw, plan)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 505, in apply_release
+    atomic_write(target, data, record)
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1189, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 87, in interrupt
+    if count == 2: raise KeyboardInterrupt('injected termination')
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt: injected termination
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 93, in test_keyboard_interrupt_rolls_back_all_files
+    self.assertIsInstance(exc, self.g.GateError)
+AssertionError: KeyboardInterrupt('injected termination') is not an instance of <class 'dvizhrelease_test_140082029833536.GateError'>
+
+======================================================================
+FAIL: test_plan_and_second_apply_wait_for_entire_transaction (test_release_v22_review.ReviewTests.test_plan_and_second_apply_wait_for_entire_transaction)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 74, in test_plan_and_second_apply_wait_for_entire_transaction
+    self.assertFalse(replanned.wait(0.2), 'plan replaced challenge during active apply')
+AssertionError: True is not false : plan replaced challenge during active apply
+
+======================================================================
+FAIL: test_post_health_file_drift_rolls_back (test_release_v22_review.ReviewTests.test_post_health_file_drift_rolls_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 201, in test_post_health_file_drift_rolls_back
+    with self.assertRaisesRegex(self.g.GateError, 'rollback confirmed'): self.deploy()
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_post_rollback_health_metadata_drift_is_critical (test_release_v22_review.ReviewTests.test_post_rollback_health_metadata_drift_is_critical)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 508, in apply_release
+    restart_service(service)
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1187, in _execute_mock_call
+    raise result
+dvizhrelease_test_140082028675136.GateError: restart failed
+
+The above exception was the direct cause of the following exception:
+
+dvizhrelease_test_140082028675136.GateError: release failed; rollback confirmed; backup=/tmp/tmpsistdk67/backups/autopilot.1e8ul39k; original=restart failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 212, in test_post_rollback_health_metadata_drift_is_critical
+    with self.assertRaisesRegex(self.g.GateError, 'CRITICAL.*rollback unconfirmed'): self.deploy()
+AssertionError: "CRITICAL.*rollback unconfirmed" does not match "release failed; rollback confirmed; backup=/tmp/tmpsistdk67/backups/autopilot.1e8ul39k; original=restart failed"
+
+======================================================================
+FAIL: test_return_outside_function_is_rejected_without_execution (test_release_v22_review.ReviewTests.test_return_outside_function_is_rejected_without_execution)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 163, in test_return_outside_function_is_rejected_without_execution
+    with self.assertRaisesRegex(self.g.GateError, 'syntax'): self.load()
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal (test_release_v22_review.ReviewTests.test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal) (signal=<Signals.SIGTERM: 15>)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 120, in test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal
+    self.assertEqual(process.exitcode, 0)
+AssertionError: -15 != 0
+
+======================================================================
+FAIL: test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal (test_release_v22_review.ReviewTests.test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal) (signal=<Signals.SIGKILL: 9>)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 124, in test_sigterm_rolls_back_and_sigkill_leaves_fail_closed_journal
+    with self.assertRaisesRegex(self.g.GateError, 'pending|interrupted'):
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_untrusted_privileged_ancestors_denied (test_release_v22_review.ReviewTests.test_untrusted_privileged_ancestors_denied)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 133, in test_untrusted_privileged_ancestors_denied
+    with self.assertRaisesRegex(self.g.GateError, 'ancestor|parent'): self.load()
+AssertionError: GateError not raised
+
+----------------------------------------------------------------------
+Ran 30 tests in 0.581s
+
+FAILED (failures=11, errors=1)

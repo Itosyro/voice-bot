@@ -1,0 +1,4 @@
+# Preserve verbatim RED test and boundary evidence.
+evidence/v2.2/06-review-red.txt -whitespace
+evidence/v2.2/08-final-review-red.txt -whitespace
+evidence/v2.2/final-boundary.txt -whitespace

@@ -242,11 +242,24 @@ Send a concise Telegram explanation of what will change, what service (if any) w
 
 **Do not call release-apply until a later user Telegram message contains that exact phrase.** The fact that the model has seen the token in command output is not approval.
 
-After the owner explicitly replies with the exact phrase, pass only the token to:
+After the owner explicitly replies with the exact phrase, v2.1 releases pass only the token to:
 
 ```bash
 dvizhautopilot release-apply <proposal-path> --approval <token>
 ```
+
+For `ai-integration-privileged` plans from an owner-delivered v2.2 gate, pass the
+**entire exact later owner phrase** as the single `--approval` argument instead:
+
+```bash
+dvizhautopilot release-apply <proposal-path> --approval 'APPROVE <proposal-id> <token>'
+```
+
+The controller forwards this argument without shell interpretation. Neither the
+model seeing the challenge nor the original development request authorizes apply.
+The gate verifies the phrase, digest, one-time challenge and TTL; the authenticated
+Telegram/controller boundary must establish that the later message is the owner's.
+A CLI phrase alone cannot independently prove who authored a Telegram message.
 
 Approval expires after 30 minutes and is bound to the exact proposal+manifest digest.
 
@@ -304,3 +317,14 @@ Never:
 - claim production changed before `dvizhrelease` returns verified success.
 
 The goal is maximum autonomy inside explicit technical guardrails, with the friend's project cryptographically separated from Hermes' Git write credential by a root-owned path gate.
+
+
+## Owner-delivered v2.2 privileged contract
+
+See [the owner maintenance contract](../OWNER-MAINTENANCE-v2.2.md) for the exact
+three runtime targets, immutable SHA and metadata requirements, fixed verification
+enums, bridge restart rules, and test evidence. This is a separate owner
+control-plane delivery. Managed jobs must still never edit or push this skill,
+`hermes-dev-v2/`, `tests/hermes_autopilot/`, the installer or the gate workflows.
+The standard release gate cannot install itself; the unchanged installer is pinned
+to v2.1 and does not deliver this local v2.2 implementation.

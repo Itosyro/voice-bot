@@ -1,0 +1,63 @@
+test_exact_class_always_approval (test_release_v22.ContractTests.test_exact_class_always_approval) ... ERROR
+test_helpers_need_no_restart_bridge_requires_justification (test_release_v22.ContractTests.test_helpers_need_no_restart_bridge_requires_justification) ... ERROR
+test_raw_paths_and_exact_target_denials (test_release_v22.ContractTests.test_raw_paths_and_exact_target_denials) ... ERROR
+test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22.ContractTests.test_reject_extra_fields_missing_fields_wrong_policy) ... ERROR
+
+======================================================================
+ERROR: test_exact_class_always_approval (test_release_v22.ContractTests.test_exact_class_always_approval)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 43, in test_exact_class_always_approval
+    result = self.plan()
+             ^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 40, in plan
+    return self.g.validate_manifest(self.proposal, self.manifest)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 202, in validate_manifest
+    raise GateError("operation contains unsupported keys")
+dvizhrelease_test_139968137894144.GateError: operation contains unsupported keys
+
+======================================================================
+ERROR: test_helpers_need_no_restart_bridge_requires_justification (test_release_v22.ContractTests.test_helpers_need_no_restart_bridge_requires_justification)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 51, in test_helpers_need_no_restart_bridge_requires_justification
+    self.assertTrue(self.plan()['approval_required'])
+                    ^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 40, in plan
+    return self.g.validate_manifest(self.proposal, self.manifest)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 202, in validate_manifest
+    raise GateError("operation contains unsupported keys")
+dvizhrelease_test_139968137897696.GateError: operation contains unsupported keys
+
+======================================================================
+ERROR: test_raw_paths_and_exact_target_denials (test_release_v22.ContractTests.test_raw_paths_and_exact_target_denials)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 72, in test_raw_paths_and_exact_target_denials
+    self.plan()
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 40, in plan
+    return self.g.validate_manifest(self.proposal, self.manifest)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 202, in validate_manifest
+    raise GateError("operation contains unsupported keys")
+dvizhrelease_test_139968136865696.GateError: operation contains unsupported keys
+
+======================================================================
+ERROR: test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22.ContractTests.test_reject_extra_fields_missing_fields_wrong_policy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 60, in test_reject_extra_fields_missing_fields_wrong_policy
+    self.plan()
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22.py", line 40, in plan
+    return self.g.validate_manifest(self.proposal, self.manifest)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 202, in validate_manifest
+    raise GateError("operation contains unsupported keys")
+dvizhrelease_test_139968135340832.GateError: operation contains unsupported keys
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.008s
+
+FAILED (errors=4)

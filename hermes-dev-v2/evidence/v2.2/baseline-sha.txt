@@ -1,0 +1,5 @@
+c075dc7755182648b0925426fc29c71c8fc6ec660ca073b8648467a8878f66f3  /usr/local/sbin/dvizhrelease
+c075dc7755182648b0925426fc29c71c8fc6ec660ca073b8648467a8878f66f3  hermes-dev-v2/dvizhrelease.py
+78f164de02c82e788bb0af1c4b4ec98ed351b879259d9f8222db53e8e4dcf13c  /usr/local/libexec/dvizh-context
+422af8e0126eb96a396a8a7fb5c495d8032f75b0089d2ba45fa47e440ddeeed0  /usr/local/libexec/dvizh-proposals
+abd61de006d67fd4ba725680250c1a048de5ae293a9716b493eca2481bbe0858  /opt/dvizh-ai-approval/proposal_bridge.py

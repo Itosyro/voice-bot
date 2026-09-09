@@ -1,0 +1,114 @@
+Focused reversion: disable parent creation (corrected bare-token v2.1 fixture); missing parent pins omitted.
+Command: python3 -m unittest discover -s tests/hermes_autopilot -p test_release_v22_review.py -k ai_home -k absent_target -v
+test_absent_target_rollback_succeeds_before_first_write (test_release_v22_review.ReviewTests.test_absent_target_rollback_succeeds_before_first_write) ... FAIL
+test_new_ai_home_parent_creation (test_release_v22_review.ReviewTests.test_new_ai_home_parent_creation) ... ERROR
+test_new_ai_home_rollback_removes_created_file (test_release_v22_review.ReviewTests.test_new_ai_home_rollback_removes_created_file) ... FAIL
+test_new_ai_home_symlink_parent_denied (test_release_v22_review.ReviewTests.test_new_ai_home_symlink_parent_denied) ... ok
+
+======================================================================
+ERROR: test_new_ai_home_parent_creation (test_release_v22_review.ReviewTests.test_new_ai_home_parent_creation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 671, in apply_release
+    atomic_write(target, data, record)
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 551, in atomic_write
+    parent = open_parent(path)
+             ^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 527, in open_parent
+    return walk_parent(path)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 493, in walk_parent
+    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'dvizh-ai-home'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 172, in test_new_ai_home_parent_creation
+    self.assertTrue(self.deploy()['ok'])
+                    ^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 20, in deploy
+    return self.g.apply(str(self.proposal_path), planned['approval_phrase'] if planned['risk'] == 'ai-integration-privileged' else planned['approval_token'])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 154, in call
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 860, in apply
+    result = apply_release(proposal, raw, manifest, manifest_raw, plan)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 154, in call
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 694, in apply_release
+    return rollback_release(sources, records, plan, backup_dir, failure, journal_errors)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 747, in rollback_release
+    raise GateError(f"CRITICAL: rollback unconfirmed; backup={backup_dir}; errors={errors}; original={failure}") from failure
+dvizhrelease_test_139935756611744.GateError: CRITICAL: rollback unconfirmed; backup=/tmp/tmp4wt7od1n/backups/autopilot.s86x66k7; errors=["[Errno 2] No such file or directory: 'dvizh-ai-home'", "PosixPath('/tmp/tmp4wt7od1n/fs/opt/dvizh-ai-home/new/nested/helper.py')"]; original=[Errno 2] No such file or directory: 'dvizh-ai-home'
+
+======================================================================
+FAIL: test_absent_target_rollback_succeeds_before_first_write (test_release_v22_review.ReviewTests.test_absent_target_rollback_succeeds_before_first_write)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 671, in apply_release
+    atomic_write(target, data, record)
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1189, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 179, in fail
+    if path == target: raise OSError('before creation')
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: before creation
+
+The above exception was the direct cause of the following exception:
+
+dvizhrelease_test_139935759216608.GateError: CRITICAL: rollback unconfirmed; backup=/tmp/tmpm837e0qa/backups/autopilot.l3wtjeeu; errors=["[Errno 2] No such file or directory: 'dvizh-ai-home'", "PosixPath('/tmp/tmpm837e0qa/fs/opt/dvizh-ai-home/new/nested/helper.py')"]; original=before creation
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 182, in test_absent_target_rollback_succeeds_before_first_write
+    with self.assertRaisesRegex(self.g.GateError, 'rollback confirmed'): self.deploy()
+AssertionError: "rollback confirmed" does not match "CRITICAL: rollback unconfirmed; backup=/tmp/tmpm837e0qa/backups/autopilot.l3wtjeeu; errors=["[Errno 2] No such file or directory: 'dvizh-ai-home'", "PosixPath('/tmp/tmpm837e0qa/fs/opt/dvizh-ai-home/new/nested/helper.py')"]; original=before creation"
+
+======================================================================
+FAIL: test_new_ai_home_rollback_removes_created_file (test_release_v22_review.ReviewTests.test_new_ai_home_rollback_removes_created_file)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 671, in apply_release
+    atomic_write(target, data, record)
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 551, in atomic_write
+    parent = open_parent(path)
+             ^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 527, in open_parent
+    return walk_parent(path)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 493, in walk_parent
+    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'dvizh-ai-home'
+
+The above exception was the direct cause of the following exception:
+
+dvizhrelease_test_139935758085728.GateError: CRITICAL: rollback unconfirmed; backup=/tmp/tmp4qnitctt/backups/autopilot.e0e38ins; errors=["[Errno 2] No such file or directory: 'dvizh-ai-home'", 'post apply health failed', "PosixPath('/tmp/tmp4qnitctt/fs/opt/dvizh-ai-home/new/nested/helper.py')"]; original=[Errno 2] No such file or directory: 'dvizh-ai-home'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 222, in test_new_ai_home_rollback_removes_created_file
+    with self.assertRaisesRegex(self.g.GateError, 'rollback confirmed'): self.deploy()
+AssertionError: "rollback confirmed" does not match "CRITICAL: rollback unconfirmed; backup=/tmp/tmp4qnitctt/backups/autopilot.e0e38ins; errors=["[Errno 2] No such file or directory: 'dvizh-ai-home'", 'post apply health failed', "PosixPath('/tmp/tmp4qnitctt/fs/opt/dvizh-ai-home/new/nested/helper.py')"]; original=[Errno 2] No such file or directory: 'dvizh-ai-home'"
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.081s
+
+FAILED (failures=2, errors=1)
+
+Exit: 1
