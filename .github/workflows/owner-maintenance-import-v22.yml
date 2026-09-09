@@ -1,0 +1,120 @@
+name: Owner maintenance v2.2 exact bundle import
+
+on:
+  push:
+    branches:
+      - 'owner/import-v22-bundle-2026-09-09'
+    paths:
+      - '.github/workflows/owner-maintenance-import-v22.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: owner-maintenance-v22-import
+  cancel-in-progress: false
+
+jobs:
+  verify-and-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct and verify exact Hermes bundle
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat .owner-maintenance/v22/bundle.b64.part* | base64 -d > /tmp/dvizh-owner-maintenance-v2.2.bundle
+          test "$(wc -c < /tmp/dvizh-owner-maintenance-v2.2.bundle)" = "46956"
+          git bundle verify /tmp/dvizh-owner-maintenance-v2.2.bundle
+          git fetch /tmp/dvizh-owner-maintenance-v2.2.bundle HEAD
+          TARGET="$(git rev-parse FETCH_HEAD)"
+          BASE="$(git rev-parse "${TARGET}^")"
+          test "$TARGET" = "da7395e436563774a29f7694b258bd85987bed2f"
+          test "$BASE" = "accb555b0da3b90eed9d1708ee68a286506d4feb"
+          git cat-file -e "${TARGET}^{commit}"
+          git cat-file -e "${BASE}^{commit}"
+          echo "TARGET=$TARGET" >> "$GITHUB_ENV"
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+
+      - name: Enforce owner-maintenance path isolation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git diff --name-only "$BASE" "$TARGET" > /tmp/changed
+          echo 'Changed paths:'
+          cat /tmp/changed
+          python3 - <<'PY'
+          from pathlib import Path
+          names=[x for x in Path('/tmp/changed').read_text().splitlines() if x]
+          exact={
+            '.github/workflows/dvizh-hermes-autopilot-v2-tests.yml',
+            '.github/workflows/dvizh-hermes-autopilot.yml',
+            'hermes-dev-v2/.gitattributes',
+            'hermes-dev-v2/OWNER-MAINTENANCE-v2.2.md',
+            'hermes-dev-v2/dvizhrelease.py',
+            'hermes-dev-v2/skill/SKILL.md',
+            'tests/hermes_autopilot/test_release_v22.py',
+            'tests/hermes_autopilot/test_release_v22_review.py',
+          }
+          def allowed(p):
+              return p in exact or p.startswith('hermes-dev-v2/evidence/v2.2/')
+          bad=[p for p in names if not allowed(p)]
+          if bad:
+              raise SystemExit('Unexpected owner-maintenance paths: '+repr(bad))
+          required={
+            'hermes-dev-v2/dvizhrelease.py',
+            'tests/hermes_autopilot/test_release_v22.py',
+            'tests/hermes_autopilot/test_release_v22_review.py',
+          }
+          missing=required-set(names)
+          if missing:
+              raise SystemExit('Missing required v2.2 paths: '+repr(sorted(missing)))
+          forbidden_prefixes=('src/','migrations/')
+          forbidden_exact={'Dockerfile','docker-compose.yml','docker-compose.server.yml','pyproject.toml','alembic.ini','Makefile','README.md'}
+          for p in names:
+              if p.startswith(forbidden_prefixes) or p in forbidden_exact:
+                  raise SystemExit('Friend-project path changed: '+p)
+          print(f'Owner-maintenance isolation OK: {len(names)} paths')
+          PY
+          test "$(git rev-parse "$BASE:hermes-dev-v2/dvizhautopilot.py")" = "1133a558b459dc5c1d4f76af066eb8132506e6be"
+          test "$(git rev-parse "$TARGET:hermes-dev-v2/dvizhautopilot.py")" = "1133a558b459dc5c1d4f76af066eb8132506e6be"
+          test "$(git rev-parse "$BASE:hermes-dev-v2/dvizhgitpush.py")" = "71a50de55f30858708b0c5d6e3e7946e3211ff31"
+          test "$(git rev-parse "$TARGET:hermes-dev-v2/dvizhgitpush.py")" = "71a50de55f30858708b0c5d6e3e7946e3211ff31"
+
+      - name: Run v2.2 maintenance tests from exact commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git worktree add --detach /tmp/dvizh-v22 "$TARGET"
+          cd /tmp/dvizh-v22
+          python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhgitpush.py hermes-dev-v2/dvizhrelease.py
+          python3 -m unittest discover -s tests/hermes_autopilot -v
+          grep -F "ai-integration-privileged" hermes-dev-v2/dvizhrelease.py
+          grep -F "/usr/local/libexec/dvizh-context" hermes-dev-v2/dvizhrelease.py
+          grep -F "/usr/local/libexec/dvizh-proposals" hermes-dev-v2/dvizhrelease.py
+          grep -F "/opt/dvizh-ai-approval/proposal_bridge.py" hermes-dev-v2/dvizhrelease.py
+          grep -F "2026.09.09-dvizh-release-gate.2.2" hermes-dev-v2/dvizhrelease.py
+
+      - name: Push exact verified commit to owner branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git push origin "$TARGET:refs/heads/owner/hermes-autopilot-v2.2-2026-09-09"
+
+      - name: Dispatch v2.2 CI on exact owner branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh workflow run dvizh-hermes-autopilot-v2-tests.yml --ref owner/hermes-autopilot-v2.2-2026-09-09
