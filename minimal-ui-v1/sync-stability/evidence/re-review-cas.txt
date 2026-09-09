@@ -1,0 +1,75 @@
+✔ poll applies remote without reload, including metadata and key order (9.302791ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.293592ms)
+✔ queued pull three-way preserves local and remote fields (1.355157ms)
+✔ pending GET serializes PUT and drains queued pulls (1.58721ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (1.944431ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (1.927095ms)
+✔ offline local reset never bypasses revision conflict (1.117767ms)
+✔ bootstrap GET cannot overwrite edits made before ready (1.485786ms)
+✔ offline upgrade without stored base retains local edits on first successful pull (1.490563ms)
+✔ remote reset supersedes offline edits, and acknowledged command is not resurrected (1.580249ms)
+✔ tombstone in accepted state suppresses an older concurrent entity edit (1.232781ms)
+✔ projection slots reconcile by stable code when ids are absent (1.415439ms)
+✔ first upgrade without a base keeps authoritative remote projections and pending local commands (1.294535ms)
+✔ actual app/boot DOM: blurred task draft reconciles with live remote memory (394.586586ms)
+✔ Jump profile command rebases untouched fields as well as optimistic memory (117.275199ms)
+✔ reopened editor uses its newly displayed base for the next remote update (129.246942ms)
+✔ remote application preserves DOM identity, focus/selection, scroll, details and both live timers (129.103945ms)
+✔ untouched rendered profile defaults cannot overwrite newly supplied remote fields (101.454865ms)
+✔ intentional task navigation exposes accepted remote data without background DOM replacement (144.712609ms)
+✔ blurred Training session draft survives remote projections and saves alongside remote sessions (78.623608ms)
+✔ repeated focused Jump submissions retain field-level DISPLAYED ancestors across partial renders (108.833795ms)
+✔ Social settings full render refreshes displayed ancestors even while focused (81.878167ms)
+✔ Week repeated submissions without refill preserve remote duration in state and commands (93.942251ms)
+✔ Social content repeated submissions without refill preserve remote notes in state and command (99.091827ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-unedited resubmit (90.863818ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-intentional reversion (77.852267ms)
+✔ release manifest pins exact baseline and only authorized app/sync/manual artifacts (2.287943ms)
+✔ release operations use generated files, exact static routes, and no restart (0.15807ms)
+✔ versioned entry resolves a distinct immutable sync cache key and retains no-cache app route (0.54676ms)
+✔ cache matrix: baseline app + baseline sync + pinned boot saves real forms (106.773257ms)
+✔ cache matrix: baseline app + release sync + pinned boot saves real forms (109.155965ms)
+✔ cache matrix: release app + baseline sync + pinned boot saves real forms (98.18421ms)
+✔ cache matrix: release app + release sync + pinned boot saves real forms (101.187088ms)
+✔ cache matrix remote acceptance: baseline app + baseline sync exposes legacy reload/memory limits (99.836629ms)
+✔ cache matrix remote acceptance: baseline app + release sync exposes legacy reload/memory limits (80.063883ms)
+✔ cache matrix remote acceptance: release app + baseline sync exposes legacy reload/memory limits (202.993706ms)
+✔ cache matrix remote acceptance: release app + release sync exposes legacy reload/memory limits (87.781549ms)
+✔ mandatory reverse cache: canonical height160 survives and quarantined age20 is retained (90.500116ms)
+✔ actual boot gates capability after loaded, retaining local startup write without bootstrap PUT (82.576718ms)
+✔ protective repeated polls/manual/online cannot upload; dirty form identity retained; archives survive update (189.29391ms)
+✔ failed draft persistence blocks navigation, displays recoverable copy and explicit Russian warning (93.097318ms)
+✔ quarantine survives another old-app boot without discarding earlier pending edits (60.880444ms)
+✔ quarantine quota failure retains pending edit in memory and warns without stale PUT (104.888817ms)
+✔ stored original age25 and every pre-boot snapshot survive old app bootstrap and recovery (72.123921ms)
+✔ startup clientId quota failure is visible and recoverable (all writes=false) (123.786513ms)
+✔ startup clientId quota failure is visible and recoverable (all writes=true) (107.934511ms)
+✖ cache fixture delayed earlier-tab bootstrap PUT explains height regression (CAS=false) (288.516106ms)
+✔ cache fixture delayed earlier-tab bootstrap PUT explains height regression (CAS=true) (288.364235ms)
+ℹ tests 48
+ℹ suites 0
+ℹ pass 47
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4471.158948
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:85:31
+✖ cache fixture delayed earlier-tab bootstrap PUT explains height regression (CAS=false) (288.516106ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  160 !== 156
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/protective.test.cjs:110:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 160,
+    expected: 156,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

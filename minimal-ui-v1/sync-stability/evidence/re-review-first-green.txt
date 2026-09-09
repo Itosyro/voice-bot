@@ -1,0 +1,92 @@
+✔ poll applies remote without reload, including metadata and key order (9.839155ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.252199ms)
+✔ queued pull three-way preserves local and remote fields (1.299072ms)
+✔ pending GET serializes PUT and drains queued pulls (1.874145ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (2.294022ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (2.094109ms)
+✔ offline local reset never bypasses revision conflict (1.26461ms)
+✔ bootstrap GET cannot overwrite edits made before ready (1.465915ms)
+✔ offline upgrade without stored base retains local edits on first successful pull (1.524224ms)
+✔ remote reset supersedes offline edits, and acknowledged command is not resurrected (1.719981ms)
+✔ tombstone in accepted state suppresses an older concurrent entity edit (1.323489ms)
+✔ projection slots reconcile by stable code when ids are absent (2.142282ms)
+✔ first upgrade without a base keeps authoritative remote projections and pending local commands (1.318752ms)
+✔ actual app/boot DOM: blurred task draft reconciles with live remote memory (402.75386ms)
+✔ Jump profile command rebases untouched fields as well as optimistic memory (124.952615ms)
+✔ reopened editor uses its newly displayed base for the next remote update (134.188735ms)
+✔ remote application preserves DOM identity, focus/selection, scroll, details and both live timers (101.485243ms)
+✔ untouched rendered profile defaults cannot overwrite newly supplied remote fields (82.491329ms)
+✔ intentional task navigation exposes accepted remote data without background DOM replacement (73.381692ms)
+✔ blurred Training session draft survives remote projections and saves alongside remote sessions (87.760118ms)
+✔ repeated focused Jump submissions retain field-level DISPLAYED ancestors across partial renders (98.93479ms)
+✔ Social settings full render refreshes displayed ancestors even while focused (89.597947ms)
+✔ Week repeated submissions without refill preserve remote duration in state and commands (98.067343ms)
+✔ Social content repeated submissions without refill preserve remote notes in state and command (217.288078ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-unedited resubmit (95.647179ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-intentional reversion (90.137186ms)
+✔ release manifest pins exact baseline and only authorized app/sync/manual artifacts (2.432742ms)
+✔ release operations use generated files, exact static routes, and no restart (0.175146ms)
+✔ versioned entry resolves a distinct immutable sync cache key and retains no-cache app route (0.504896ms)
+✔ cache matrix: baseline app + baseline sync + pinned boot saves real forms (127.226126ms)
+✔ cache matrix: baseline app + release sync + pinned boot saves real forms (123.812213ms)
+✔ cache matrix: release app + baseline sync + pinned boot saves real forms (110.539326ms)
+✔ cache matrix: release app + release sync + pinned boot saves real forms (106.639086ms)
+✔ cache matrix remote acceptance: baseline app + baseline sync exposes legacy reload/memory limits (91.856566ms)
+✔ cache matrix remote acceptance: baseline app + release sync exposes legacy reload/memory limits (87.310835ms)
+✔ cache matrix remote acceptance: release app + baseline sync exposes legacy reload/memory limits (74.80382ms)
+✔ cache matrix remote acceptance: release app + release sync exposes legacy reload/memory limits (87.331557ms)
+✔ mandatory reverse cache: canonical height160 survives and quarantined age20 is retained (78.396765ms)
+✔ actual boot gates capability after loaded, retaining local startup write without bootstrap PUT (76.272008ms)
+✔ protective repeated polls/manual/online cannot upload; dirty form identity retained; archives survive update (171.74213ms)
+✔ failed draft persistence blocks navigation, displays recoverable copy and explicit Russian warning (95.157316ms)
+✔ quarantine survives another old-app boot without discarding earlier pending edits (62.110352ms)
+✔ quarantine quota failure retains pending edit in memory and warns without stale PUT (134.999847ms)
+✔ stored original age25 and every pre-boot snapshot survive old app bootstrap and recovery (77.13639ms)
+✖ startup clientId quota failure is visible and recoverable (all writes=false) (41.08709ms)
+✖ startup clientId quota failure is visible and recoverable (all writes=true) (93.074064ms)
+ℹ Error: Test "startup clientId quota failure is visible and recoverable (all writes=false)" at minimal-ui-v1/sync-stability/tests/protective.test.cjs:72:37 generated asynchronous activity after the test ended. This activity created the error "TypeError: Cannot read properties of undefined (reading 'home')" and would have caused the test to fail, but instead triggered an unhandledRejection event.
+ℹ Error: Test "startup clientId quota failure is visible and recoverable (all writes=true)" at minimal-ui-v1/sync-stability/tests/protective.test.cjs:72:37 generated asynchronous activity after the test ended. This activity created the error "QuotaExceededError: Quota exceeded" and would have caused the test to fail, but instead triggered an unhandledRejection event.
+ℹ tests 46
+ℹ suites 0
+ℹ pass 44
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3948.805424
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:72:37
+✖ startup clientId quota failure is visible and recoverable (all writes=false) (41.08709ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/protective.test.cjs:78:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:72:37
+✖ startup clientId quota failure is visible and recoverable (all writes=true) (93.074064ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/protective.test.cjs:78:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

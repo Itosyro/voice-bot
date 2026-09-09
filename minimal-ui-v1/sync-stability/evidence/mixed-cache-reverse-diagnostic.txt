@@ -1,0 +1,15 @@
+After remote pull: {"boundary":"undefined","storedHeight":160,"displayedHeight":"156"}
+After old form submit: {"storedHeight":156,"commandHeight":156,"serverHeight":156,"errors":[]}
+AssertionError [ERR_ASSERTION]: BLOCKER: NEW sync + OLD app silently overwrites remote height; app-only guard cannot repair pinned old private memory
+
+156 !== 160
+
+    at /home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/reverse-cache-diagnostic.cjs:15:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 156,
+  expected: 160,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

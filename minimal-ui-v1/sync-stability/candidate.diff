@@ -1,0 +1,650 @@
+--- baseline/app.js
++++ release/app.js
+@@ -161,6 +161,103 @@
+   }
+ 
+   let state = loadState();
++  const jumpProfileFields = {"jumpAge":"age","jumpHeight":"heightCm","jumpCurrentWeight":"currentWeightKg","jumpWeightTarget":"weightTargetKg","jumpCurrentApproach":"currentApproachJumpCm","jumpTargetApproach":"targetApproachJumpCm","jumpStandingReach":"standingReachCm","jumpSquatWeight":"squatWeightKg","jumpSquatReps":"squatReps","jumpScoliosisGrade":"scoliosisGrade","jumpCobbAngle":"cobbAngleDeg","jumpPhase":"phase","jumpBlockWeek":"programWeek","jumpMedicalStatus":"medicalStatus","jumpPrimaryRole":"primaryRole","jumpSecondaryRole":"secondaryRole","jumpCurvePattern":"curvePattern","jumpSymptoms":"symptoms","jumpMedicalNotes":"medicalNotes","jumpVolleyballCoach":"volleyballCoach","jumpStrengthCoach":"strengthCoach","jumpCoachNotes":"coachNotes","jumpReviewer":"reviewedBy","jumpReviewerRole":"reviewedRole","jumpReviewNotes":"coachNotes"};
++  // Remote application is deliberately DOM-free. Existing user render/navigation
++  // actions expose refreshed data; no active node, timer or view is replaced.
++  const stateCopy = value => JSON.parse(JSON.stringify(value));
++  // Immutable legacy sync may run beside a revalidated app. In that case keep
++  // the original save/command path; legacy sync still owns its reload behavior.
++  const canReconcile = () => typeof window.DVIZH_SYNC?.reconcile === 'function';
++  let stateBase = stateCopy(state);
++  const formBases = new WeakMap();
++  let submitBase = null;
++  let submitRemote = null;
++  let consumedFields = [];
++  function updateStateObject(target, next) {
++    for (const key of Object.keys(target)) if (!(key in next)) delete target[key];
++    for (const [key, value] of Object.entries(next)) {
++      const old = target[key];
++      if (Array.isArray(value) && Array.isArray(old)) {
++        const byId = new Map(old.filter(row => row?.id != null).map(row => [String(row.id), row]));
++        target[key] = value.map(row => {
++          const existing = row?.id != null && byId.get(String(row.id));
++          if (existing) { updateStateObject(existing, row); return existing; }
++          return row;
++        });
++      } else if (value && old && typeof value === 'object' && typeof old === 'object' && !Array.isArray(value) && !Array.isArray(old)) {
++        updateStateObject(old, value);
++      } else target[key] = value;
++    }
++  }
++  window.DVIZH_MANUAL_STATE = Object.freeze({
++    snapshot: () => stateCopy(state),
++    applyRemote(next) {
++      if (!canReconcile()) return;
++      if (!next || next.version !== 1 || !Array.isArray(next.tasks)) return;
++      // Include untouched and blurred forms: focus is not a dirty-state signal.
++      for (const form of document.forms) if (!formBases.has(form)) formBases.set(form, stateCopy(state));
++      updateStateObject(state, window.DVIZH_SYNC.reconcile(stateBase, state, next));
++      stateBase = stateCopy(state);
++    }
++  });
++  document.addEventListener('submit', event => {
++    if (!canReconcile()) return;
++    const form = event.target;
++    submitBase = formBases.get(form) || null;
++    submitRemote = stateCopy(state);
++    consumedFields = [];
++    queueMicrotask(() => { submitBase = null; submitRemote = null; consumedFields = []; });
++  }, true);
++  // Update commands carry whole form payloads. Rebase their unchanged leaves too,
++  // otherwise a server bridge could undo the correctly reconciled local snapshot.
++  function rebaseCommand(domain, action, payload) {
++    if (!canReconcile()) return;
++    if (!submitBase || !submitRemote) return;
++    const oldHub = submitBase[domain] || {}, newHub = submitRemote[domain] || {};
++    let data, before, after;
++    if (action === 'profile_update') { data=payload.profile; before=oldHub.profile; after=newHub.profile; }
++    else if (action === 'exercise_update') { data=payload.exercise; before=oldHub.exercises?.find(x=>String(x.id)===String(payload.exerciseId)); after=newHub.exercises?.find(x=>String(x.id)===String(payload.exerciseId)); }
++    else if (action === 'content_update') { data=payload.content; before=oldHub.content?.find(x=>String(x.id)===String(payload.contentId)); after=newHub.content?.find(x=>String(x.id)===String(payload.contentId)); }
++    else if (domain === 'weeklySchedule' && action === 'update') { data=payload; before=oldHub.items?.find(x=>String(x.id)===String(payload.itemId)); after=newHub.items?.find(x=>String(x.id)===String(payload.itemId)); }
++    if (!data || !before || !after) return;
++    for (const key of Object.keys(data)) {
++      const field = domain === 'jumpLab' ? key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()) : key;
++      if (Object.hasOwn(before, field) && Object.hasOwn(after, field)) {
++        // Capture the submitted value before rebasing; only consumed edits
++        // advance their displayed ancestor after persistence succeeds.
++        if (JSON.stringify(data[key]) !== JSON.stringify(before[field])) {
++          consumedFields.push({before, field, value: stateCopy(data[key])});
++        }
++        data[key] = window.DVIZH_SYNC.reconcile(before[field], data[key], after[field]);
++      }
++    }
++  }
++
++  function rememberForm(id) {
++    if (!canReconcile()) return;
++    const form = document.getElementById(id);
++    if (!form) return;
++    const base = stateCopy(state);
++    // Record each rendered profile field, including defaults. Jump skips only
++    // the focused input: retain that field's DISPLAYED ancestor across saves
++    // while advancing siblings that were actually repainted. Social fills all fields.
++    const fields = id === 'jumpProfileForm' ? jumpProfileFields : id === 'socialSettingsForm' ? {
++      socialWeeklyGoal:'weeklyGoal', socialProfileCourage:'courageLevel', socialWindow1:'commentWindow1', socialWindow2:'commentWindow2'
++    } : null;
++    const profile = id === 'jumpProfileForm' ? base.jumpLab?.profile : base.socialHub?.profile;
++    if (fields && profile) for (const [inputId, field] of Object.entries(fields)) {
++      const input = document.getElementById(inputId);
++      if (!input || !form.contains(input)) continue;
++      if (id === 'jumpProfileForm' && input === document.activeElement) {
++        const previous = formBases.get(form)?.jumpLab?.profile;
++        if (previous && Object.hasOwn(previous, field)) profile[field] = previous[field];
++      } else {
++        profile[field] = input.type === 'number' || inputId === 'socialProfileCourage' ? (input.value === '' ? null : Number(input.value)) : input.value;
++      }
++    }
++    formBases.set(form, base);
++  }
++
+   let activeView = 'home';
+   let taskAreaFilter = 'Все';
+   let suggestionOffset = 0;
+@@ -180,7 +277,15 @@
+   };
+ 
+   function saveState() {
++    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
++    if (stored && canReconcile()) {
++      updateStateObject(state, window.DVIZH_SYNC.reconcile(submitBase || stateBase, state, stored));
++    }
++    submitBase = null;
+     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
++    for (const {before, field, value} of consumedFields) before[field] = value;
++    consumedFields = [];
++    stateBase = stateCopy(state);
+   }
+ 
+   function getTodayCheckin() {
+@@ -337,6 +442,9 @@
+     $$('[data-nav]').forEach(button => button.classList.toggle('is-active', button.dataset.nav === view));
+     $('#viewTitle').textContent = VIEW_COPY[state.tone][view];
+     window.scrollTo({ top: 0, behavior: 'smooth' });
++    if (view === 'home') { renderHeader(); renderCheckin(); renderSuggestion(); renderDailyPlan(); }
++    if (view === 'tasks') renderTasks();
++    if (view === 'settings') renderSettings();
+     if (view === 'focus') renderFocus();
+     if (view === 'proof') renderProof();
+     if (view === 'week') renderWeek();
+@@ -749,6 +857,7 @@
+   }
+ 
+   function weekEnqueue(action, payload = {}) {
++    rebaseCommand('weeklySchedule', action, payload);
+     const weekly = weekStateObject();
+     const command = { id: weekCommandId(), action, ...payload, createdAt: nowIso() };
+     weekly.webCommands = [...weekly.webCommands.slice(-19), command];
+@@ -871,6 +980,7 @@
+   }
+ 
+   function weekEditorOpen(itemId = '') {
++    rememberForm('weekEditorForm');
+     const panel = $('#weekEditorPanel');
+     const form = $('#weekEditorForm');
+     if (!panel || !form) return;
+@@ -1268,6 +1378,7 @@
+ 
+   function jumpCommandId() { return `web-jump-${Date.now()}-${Math.random().toString(36).slice(2,9)}`; }
+   function jumpEnqueue(action,payload={}) {
++    rebaseCommand('jumpLab', action, payload);
+     const hub=jumpHub(); const command={id:jumpCommandId(),action,...payload,createdAt:nowIso()};
+     hub.webCommands=[...hub.webCommands.slice(-29),command]; hub.webUpdatedAt=nowIso(); saveState(); return command;
+   }
+@@ -1328,6 +1439,7 @@
+ 
+   function jumpOpen(id,open=true) { const el=$(id); if (el) { el.hidden=!open; if (open) el.scrollIntoView({behavior:'smooth',block:'nearest'}); } }
+   function jumpFillExercise(row=null) {
++    rememberForm('jumpExerciseForm');
+     jumpValue('#jumpExerciseId',row?.id??''); jumpValue('#jumpExerciseDay',row?.dayCode||jumpCurrentDay()); jumpValue('#jumpExerciseTitle',row?.title||''); jumpValue('#jumpExerciseCategory',row?.category||'strength');
+     jumpValue('#jumpExerciseSets',row?.sets??3); jumpValue('#jumpExerciseReps',row?.reps||'6–8'); jumpValue('#jumpExerciseRpeMin',row?.rpeMin??5); jumpValue('#jumpExerciseRpeMax',row?.rpeMax??7); jumpValue('#jumpExerciseRest',row?.restSeconds??120); jumpValue('#jumpExerciseContacts',row?.impactContacts??0); jumpValue('#jumpExerciseOrder',row?.sortOrder??100);
+     jumpValue('#jumpExerciseLoad',row?.loadRule||''); jumpValue('#jumpExerciseStop',row?.stopRule||'Остановиться при боли или ухудшении техники.'); jumpValue('#jumpExerciseNotes',row?.notes||'');
+@@ -1401,6 +1513,7 @@
+ 
+   function socialCommandId() { return `web-social-${Date.now()}-${Math.random().toString(36).slice(2,9)}`; }
+   function socialEnqueue(action,payload={}) {
++    rebaseCommand('socialHub', action, payload);
+     const hub=socialHub();
+     const command={id:socialCommandId(),action,...payload,createdAt:nowIso()};
+     hub.webCommands=[...hub.webCommands.slice(-39),command];
+@@ -1448,6 +1561,7 @@
+   }
+ 
+   function socialFillForm(row=null) {
++    rememberForm('socialContentForm');
+     const hub=socialHub(), p=hub.profile;
+     $('#socialContentId').value=row ? row.id : '';
+     $('#socialContentFormTitle').textContent=row ? 'Редактировать материал' : 'Новый материал';
+@@ -1738,6 +1852,7 @@
+   }
+ 
+   function openTaskEditor(taskId = null) {
++    rememberForm('taskForm');
+     const task = taskId ? getTask(taskId) : null;
+     $('#taskId').value = task?.id || '';
+     $('#taskTitle').value = task?.title || '';
+@@ -2102,6 +2217,16 @@
+     }
+   }
+ 
++  const renderJumpWithState = renderJumpLab;
++  renderJumpLab = function () {
++    renderJumpWithState();
++    rememberForm('jumpProfileForm');
++  };
++  const renderSocialWithState = renderSocial;
++  renderSocial = function () {
++    renderSocialWithState();
++    rememberForm('socialSettingsForm');
++  };
+   init();
+ })();
+ 
+--- baseline/sync.js
++++ release/sync.js
+@@ -23,25 +23,185 @@
+   };
+   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+ 
+-  const clientId = nativeGet.call(localStorage, CLIENT_KEY) || uid();
+-  nativeSet.call(localStorage, CLIENT_KEY, clientId);
+-
+-  let meta = safeParse(nativeGet.call(localStorage, META_KEY)) || {};
++  let storageStartupError = false;
++  function startupRead(key) {
++    try { return nativeGet.call(localStorage, key); }
++    catch { storageStartupError = true; return null; }
++  }
++  const initialLocalSnapshot = safeParse(startupRead(STATE_KEY));
++  const clientId = startupRead(CLIENT_KEY) || uid();
++  try { nativeSet.call(localStorage, CLIENT_KEY, clientId); }
++  catch { storageStartupError = true; }
++
++  let meta = safeParse(startupRead(META_KEY)) || {};
+   meta = {
+     revision: Number(meta.revision) || 0,
+     lastSyncedAt: meta.lastSyncedAt || null,
+-    clientId
++    clientId,
++    baseState: meta.baseState || null
+   };
+ 
+   let ready = false;
+   let appLoaded = false;
+   let pushTimer = null;
+   let inFlight = false;
++  let pulling = false;
++  let pendingPull = false;
+   let queued = false;
+   let forceNext = false;
+   let pendingResetAt = null;
+   let pollTimer = null;
+-  let reloadAfterSync = false;
++  function applyRemote(state) {
++    window.DVIZH_MANUAL_STATE?.applyRemote(clone(state));
++  }
++
++  // Three-way JSON reconciliation. Local changed leaves win simultaneous edits;
++  // deletion of an existing record wins over edits. Identity arrays merge by id.
++  function canonical(value) {
++    if (Array.isArray(value)) return value.map(canonical);
++    if (value && typeof value === 'object') return Object.fromEntries(
++      Object.keys(value).sort().map(key => [key, canonical(value[key])]));
++    return value;
++  }
++  const same = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
++  function reconcile(base, local, remote, entity = false) {
++    const localReset = local?.__sync?.resetAt;
++    const remoteReset = remote?.__sync?.resetAt;
++    const baseReset = base?.__sync?.resetAt;
++    if (remoteReset && remoteReset !== baseReset && parseTime(remoteReset) >= parseTime(localReset)) return clone(remote);
++    if (localReset && localReset !== baseReset && parseTime(localReset) > parseTime(remoteReset)) return clone(local);
++    if (same(local, base)) return clone(remote);
++    if (same(remote, base) || same(local, remote)) return clone(local);
++    if (local === undefined || (entity && base !== undefined && remote === undefined)) return undefined;
++    const identified = (value, key) => Array.isArray(value) && value.every(row => row && typeof row === 'object' && row[key] != null)
++      && new Set(value.map(row => String(row[key]))).size === value.length;
++    const identity = ['id', 'commandId', 'code', 'exerciseKey'].find(key => identified(local, key) && identified(remote, key) && (base === undefined || identified(base, key)));
++    if (identity) {
++      const index = rows => new Map((rows || []).map(row => [String(row[identity]), row]));
++      const b=index(base), l=index(local), r=index(remote);
++      return [...new Set([...l.keys(), ...r.keys()])].map(id => reconcile(b.get(id),l.get(id),r.get(id), true)).filter(row => row !== undefined);
++    }
++    const record = value => value && typeof value === 'object' && !Array.isArray(value);
++    if (record(local) && record(remote) && (base === undefined || record(base))) {
++      const result = {};
++      for (const key of new Set([...Object.keys(base || {}), ...Object.keys(local), ...Object.keys(remote)])) {
++        const value = reconcile(base?.[key], local[key], remote[key]);
++        if (value !== undefined) Object.defineProperty(result,key,{value,enumerable:true,writable:true,configurable:true});
++      }
++      return result;
++    }
++    return clone(local);
++  }
++  // One-time upgrade: older clients did not retain a common ancestor. Keep the
++  // legacy core timestamp merge, but never use its settings winner for projections.
++  function upgradeMerge(localInput, remoteInput) {
++    const local = normalizeState(localInput), remote = normalizeState(remoteInput);
++    const merged = mergeStates(local, remote);
++    if (!local || !remote) return merged;
++    if (parseTime(local.__sync.resetAt) > parseTime(remote.__sync.updatedAt) || parseTime(remote.__sync.resetAt) > parseTime(local.__sync.updatedAt)) return merged;
++    const core = new Set(['version','createdAt','hasSeenIntro','tone','focusDuration','selectedFocusTaskId','tasks','sessions','proofs','checkins','plans','ladder','__sync']);
++    for (const key of Object.keys(remote)) if (!core.has(key)) merged[key] = clone(remote[key]);
++    for (const key of ['trainingHub','jumpLab','weeklySchedule','socialHub']) {
++      if (!local[key] && !remote[key]) continue;
++      const results = remote[key]?.commandResults || [];
++      const acknowledged = new Set(results.flatMap(row => [row.id, row.commandId]).filter(id => id != null).map(String));
++      const commands = reconcile([], local[key]?.webCommands || [], remote[key]?.webCommands || []).filter(row => !acknowledged.has(String(row.id)));
++      merged[key] ||= {};
++      if (commands.length || remote[key]?.webCommands) merged[key].webCommands = commands;
++    }
++    if (local.aiProposalCommands || remote.aiProposalCommands) merged.aiProposalCommands = reconcile([], local.aiProposalCommands || [], remote.aiProposalCommands || []);
++    return merged;
++  }
++
++  // Capability is decided only by boot's app-load signal. Until then uploads wait.
++  const PENDING_KEY = 'dvizh-sync-quarantine-v1';
++  const RECOVERY_KEY = 'dvizh-manual-recovery-v1';
++  const UPDATE_URL = '/manual.html?v=20260909-sync-stability-2';
++  let protective = false;
++  const previousQuarantine = safeParse(startupRead(PENDING_KEY));
++  let pendingLocal = previousQuarantine?.state || null;
++  const quarantineHistory = [...(previousQuarantine?.history || []), ...(pendingLocal ? [{state:clone(pendingLocal),baseState:previousQuarantine.baseState,revision:previousQuarantine.revision}] : [])];
++  const startupLocal = normalizeState(initialLocalSnapshot);
++  const startupSnapshots = [];
++  let recoveryError = storageStartupError ? 'Не удалось сохранить данные в хранилище. Защитный режим: отправка отключена. Не закрывайте страницу; скопируйте резервную копию ниже.' : '';
++  function quarantine(value) {
++    if (pendingLocal) quarantineHistory.push({state:clone(pendingLocal),baseState:clone(meta.baseState),revision:meta.revision});
++    pendingLocal = clone(value);
++    try {
++      const encoded = JSON.stringify({state: pendingLocal, baseState: meta.baseState, revision: meta.revision, history:quarantineHistory});
++      nativeSet.call(localStorage, PENDING_KEY, encoded);
++      if (nativeGet.call(localStorage, PENDING_KEY) !== encoded) throw Error('storage verification');
++    } catch { recoveryError = 'Не удалось сохранить локальные изменения. Не закрывайте страницу: скопируйте резервную копию ниже.'; }
++    showProtection();
++  }
++  function recoveryText() {
++    return JSON.stringify({pending: {state:pendingLocal,history:quarantineHistory},
++      previousRecovery:safeParse(startupRead(RECOVERY_KEY)),
++      forms: [...document.querySelectorAll('form')].map(form => ({id:form.id,
++        fields:[...form.querySelectorAll('input:not([type="password"]),textarea,select')].map(el => ({id:el.id,name:el.name,type:el.type,
++          value:el.value,checked:el.checked,selected:el.tagName==='SELECT'?[...el.selectedOptions].map(o=>o.value):undefined}))})),
++      editable:[...document.querySelectorAll('[contenteditable="true"]')].map(el=>({id:el.id,text:el.textContent})),
++      view:document.querySelector('.view.active')?.id || '', savedAt:isoNow()}, null, 2);
++  }
++  function showProtection() {
++    let panel = document.getElementById('syncUpdateRequired');
++    if (!panel) {
++      panel = document.createElement('aside');
++      panel.id = 'syncUpdateRequired';
++      panel.setAttribute('role','alert');
++      panel.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;z-index:100000;background:#fff;color:#111;padding:16px;border:2px solid #b45309;max-height:45vh;overflow:auto';
++      const message = document.createElement('p'); message.dataset.updateMessage = '';
++      const button = document.createElement('button'); button.type='button'; button.textContent='Обновить Manual';
++      button.dataset.manualUpdate = UPDATE_URL;
++      button.addEventListener('click', () => {
++        const backup = panel.querySelector('textarea');
++        try {
++          const text = recoveryText(); backup.value=text; backup.hidden=false;
++          if ([...document.querySelectorAll('input[type="file"]')].some(el=>el.files.length)) throw Error('files');
++          nativeSet.call(localStorage, RECOVERY_KEY, text);
++          if (nativeGet.call(localStorage, RECOVERY_KEY) !== text) throw Error('storage verification');
++          // No stale snapshot or command is replayed. Recovery is an explicit,
++          // read-only archive on the updated page for manual transfer/review.
++          if (!window.confirm('Черновики сохранены в резервной копии. Автоматическое заполнение форм и отправка отложенных изменений недоступны. После обновления откройте «Показать сохранённые черновики» и перенесите нужные значения вручную. Продолжить?')) return;
++          location.assign(UPDATE_URL);
++        } catch {
++          recoveryError='Восстановление не гарантировано (хранилище или вложения недоступны). Обновление отменено. Скопируйте резервную копию и сохраните вложения вручную; не закрывайте страницу.';
++          showProtection();
++        }
++      });
++      const backup=document.createElement('textarea'); backup.readOnly=true; backup.hidden=true; backup.setAttribute('aria-label','Резервная копия черновиков');
++      panel.append(message,button,backup); document.body.appendChild(panel);
++    }
++    panel.querySelector('[data-update-message]').textContent = recoveryError || 'Требуется обновление Manual. Защитный режим: изменения остаются на этом устройстве и не отправляются. Серверные данные защищены. Перед обновлением будет сохранена резервная копия форм для ручного восстановления.';
++    if(recoveryError) {const backup=panel.querySelector('textarea');backup.hidden=false;backup.value=recoveryText();}
++  }
++  function showRecovery() {
++    const archive=nativeGet.call(localStorage, RECOVERY_KEY);
++    const pending=nativeGet.call(localStorage, PENDING_KEY);
++    if(!archive && !pending) return;
++    const panel=document.createElement('aside');panel.id='syncDraftRecovery';
++    const label=document.createElement('p');label.textContent='Есть сохранённые черновики и отложенные изменения. Автовосстановление недоступно. Проверьте текущие данные и перенесите нужные значения вручную; резервная копия не отправляется на сервер.';
++    const button=document.createElement('button');button.type='button';button.textContent='Показать сохранённые черновики';
++    const text=document.createElement('textarea');text.readOnly=true;text.hidden=true;text.setAttribute('aria-label','Сохранённые черновики');text.value=JSON.stringify({forms:safeParse(archive),quarantined:safeParse(pending)},null,2);
++    button.addEventListener('click',()=>{text.hidden=false;text.focus();text.select();});
++    panel.append(label,button,text);document.body.prepend(panel);
++  }
++  function checkAppCapability() {
++    if (protective) return; // A late hook cannot silently resume quarantined writes.
++    if (storageStartupError || typeof window.DVIZH_MANUAL_STATE?.applyRemote !== 'function') {
++      protective = true;
++      clearTimeout(pushTimer);
++      if (startupLocal) quarantine(startupLocal);
++      for (const snapshot of startupSnapshots) quarantine(snapshot);
++      if (meta.baseState && !storageStartupError) nativeSet.call(localStorage, STATE_KEY, JSON.stringify(meta.baseState));
++      queued = false;
++      showProtection();
++    } else {
++
++      if (queued) queuePush();
++      showRecovery();
++    }
++  }
+ 
+   function persistMeta() {
+     nativeSet.call(localStorage, META_KEY, JSON.stringify(meta));
+@@ -101,6 +261,8 @@
+     for (const stepId of Object.keys(state.ladder)) {
+       sync.ladderUpdatedAt[stepId] ||= sync.settingsUpdatedAt;
+     }
++    state.tasks = state.tasks.filter(row => !sync.deletedTasks[row.id] || parseTime(row._syncUpdatedAt) > parseTime(sync.deletedTasks[row.id]));
++    state.proofs = state.proofs.filter(row => !sync.deletedProofs[row.id] || parseTime(row._syncUpdatedAt) > parseTime(sync.deletedProofs[row.id]));
+     state.__sync = sync;
+     return state;
+   }
+@@ -288,6 +450,7 @@
+   }
+ 
+   function setStatus(kind, text) {
++    if (protective) { kind = 'error'; text = 'Требуется обновление Manual. Изменения сохранены только локально.'; }
+     const apply = () => {
+       const textNode = document.getElementById('syncStatusText');
+       const settingsNode = document.getElementById('syncSettingsStatus');
+@@ -316,21 +479,23 @@
+   }
+ 
+   async function sendState(state, { force = false, retry = true } = {}) {
++    if (!appLoaded || protective) return;
+     const response = await fetch('/api/state', {
+       method: 'PUT',
+       credentials: 'same-origin',
+       cache: 'no-store',
+       headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({ state, baseRevision: meta.revision, force })
++      body: JSON.stringify({ state, baseRevision: meta.revision, force: false })
+     });
+     const body = await response.json().catch(() => ({}));
+     if (response.status === 409 && retry && body.state) {
+       const latestLocal = normalizeState(safeParse(nativeGet.call(localStorage, STATE_KEY))) || state;
+-      const merged = mergeStates(latestLocal, body.state);
++      const merged = meta.baseState ? reconcile(meta.baseState, latestLocal, normalizeState(body.state)) : upgradeMerge(latestLocal, body.state);
++      meta.baseState = normalizeState(body.state);
+       nativeSet.call(localStorage, STATE_KEY, JSON.stringify(merged));
+       meta.revision = Number(body.revision) || 0;
+       persistMeta();
+-      reloadAfterSync = appLoaded;
++      applyRemote(merged);
+       return sendState(merged, { force: false, retry: false });
+     }
+     if (!response.ok) {
+@@ -338,6 +503,7 @@
+       error.status = response.status;
+       throw error;
+     }
++    meta.baseState = clone(state);
+     meta.revision = Number(body.revision) || meta.revision;
+     meta.lastSyncedAt = body.updatedAt || isoNow();
+     persistMeta();
+@@ -346,16 +512,16 @@
+ 
+   function queuePush({ force = false } = {}) {
+     if (force) forceNext = true;
+-    if (!ready) return;
+     queued = true;
++    if (!ready || !appLoaded || protective) return;
+     clearTimeout(pushTimer);
+     pushTimer = setTimeout(() => pushLatest(), PUSH_DELAY_MS);
+     setStatus('syncing', 'Сохраняю изменения…');
+   }
+ 
+   async function pushLatest() {
+-    if (!ready) return;
+-    if (inFlight) {
++    if (!ready || !appLoaded || protective) return;
++    if (inFlight || pulling) {
+       queued = true;
+       return;
+     }
+@@ -369,11 +535,7 @@
+     try {
+       await sendState(state, { force });
+       setStatus('ok', 'Синхронизировано на телефоне и ноутбуке.');
+-      if (reloadAfterSync) {
+-        reloadAfterSync = false;
+-        window.setTimeout(() => location.reload(), 120);
+-        return;
+-      }
++
+     } catch (error) {
+       if (error.status === 401) setStatus('error', 'Нужно войти в exe.dev. Локальные данные сохранены.');
+       else setStatus('offline', 'Нет связи с сервером. Сохраню и отправлю позже.');
+@@ -381,6 +543,7 @@
+       queued = true;
+     } finally {
+       inFlight = false;
++      if (pendingPull) { pendingPull = false; void pullLatest(); }
+       if (queued && navigator.onLine) {
+         clearTimeout(pushTimer);
+         pushTimer = setTimeout(() => pushLatest(), 1600);
+@@ -388,15 +551,10 @@
+     }
+   }
+ 
+-  function manualJumpRenderState(state) {
+-    const copy = clone(state);
+-    const packet = copy?.jumpLab?.coachPacket;
+-    if (packet && typeof packet === 'object') delete packet.exportedAt;
+-    return copy;
+-  }
+-
+   async function pullLatest({ manual = false } = {}) {
+-    if (!ready || inFlight || document.visibilityState === 'hidden') return;
++    if (!ready || document.visibilityState === 'hidden') return;
++    if (inFlight || pulling) { pendingPull = true; return; }
++    pulling = true;
+     if (manual) setStatus('syncing', 'Проверяю сервер…');
+     try {
+       const remote = await requestState();
+@@ -409,9 +567,19 @@
+         if (manual) setStatus('ok', 'Всё уже синхронизировано.');
+         return;
+       }
++      if (storageStartupError) { showProtection(); return; }
++      if (protective) {
++        meta.baseState = normalizeState(remote.state);
++        meta.revision = remoteRevision;
++        meta.lastSyncedAt = remote.updatedAt || isoNow();
++        nativeSet.call(localStorage, STATE_KEY, JSON.stringify(meta.baseState));
++        persistMeta();
++        showProtection();
++        return;
++      }
+       const local = normalizeState(safeParse(nativeGet.call(localStorage, STATE_KEY)));
+-      const merged = queued ? mergeStates(local, remote.state) : normalizeState(remote.state);
+-      const manualJumpChanged = JSON.stringify(manualJumpRenderState(local)) !== JSON.stringify(manualJumpRenderState(merged));
++      const merged = meta.baseState ? reconcile(meta.baseState, local, normalizeState(remote.state)) : (queued ? upgradeMerge(local, remote.state) : normalizeState(remote.state));
++      meta.baseState = normalizeState(remote.state);
+       nativeSet.call(localStorage, STATE_KEY, JSON.stringify(merged));
+       meta.revision = remoteRevision;
+       meta.lastSyncedAt = remote.updatedAt || isoNow();
+@@ -419,12 +587,14 @@
+       setStatus('ok', 'Получены изменения с другого устройства.');
+       if (queued) {
+         queuePush();
+-        reloadAfterSync = appLoaded;
+-      } else if (appLoaded && manualJumpChanged) {
+-        window.setTimeout(() => location.reload(), 120);
+-      }
++      }
++      applyRemote(merged);
+     } catch (error) {
+       if (manual) setStatus(error.status === 401 ? 'error' : 'offline', error.status === 401 ? 'Нужно войти в exe.dev.' : 'Сервер сейчас недоступен.');
++    } finally {
++      pulling = false;
++      if (queued) queuePush();
++      if (pendingPull) { pendingPull = false; void pullLatest(); }
+     }
+   }
+ 
+@@ -432,6 +602,8 @@
+     if (this !== localStorage || key !== STATE_KEY) return nativeSet.call(this, key, value);
+     const next = safeParse(String(value));
+     const previous = safeParse(nativeGet.call(localStorage, STATE_KEY));
++    if (!appLoaded) startupSnapshots.push(clone(next));
++    if (protective || storageStartupError) { quarantine(next); return; }
+     const stamped = stampState(next, previous);
+     nativeSet.call(localStorage, STATE_KEY, JSON.stringify(stamped));
+     queuePush();
+@@ -439,6 +611,7 @@
+ 
+   Storage.prototype.removeItem = function patchedRemoveItem(key) {
+     if (this === localStorage && key === STATE_KEY) {
++      if (protective) { showProtection(); return; }
+       pendingResetAt = isoNow();
+       forceNext = true;
+       meta.revision = Number(meta.revision) || 0;
+@@ -448,12 +621,16 @@
+   };
+ 
+   async function initialSync() {
++    if (storageStartupError) { ready = true; protective = true; if (startupLocal) quarantine(startupLocal); else showProtection(); return; }
++    inFlight = true;
+     setStatus('syncing', 'Подключаю синхронизацию…');
+     const local = normalizeState(safeParse(nativeGet.call(localStorage, STATE_KEY)));
+     try {
+       const remote = await requestState();
+       if (remote.state) {
+         const remoteState = normalizeState(remote.state);
++        const previousBase = meta.baseState;
++        meta.baseState = clone(remoteState);
+         let chosen;
+         let needsUpload = false;
+         if (!local) {
+@@ -461,28 +638,34 @@
+         } else if (meta.revision === 0 && !meaningfulState(local)) {
+           chosen = remoteState;
+         } else {
+-          chosen = mergeStates(local, remoteState);
++          chosen = previousBase ? reconcile(previousBase, local, remoteState) : upgradeMerge(local, remoteState);
+           needsUpload = JSON.stringify(chosen) !== JSON.stringify(remoteState);
+         }
++        const latest = normalizeState(safeParse(nativeGet.call(localStorage, STATE_KEY)));
++        if (latest && !same(latest, local)) chosen = reconcile(local || undefined, latest, chosen);
++        needsUpload = !same(chosen, remoteState);
+         nativeSet.call(localStorage, STATE_KEY, JSON.stringify(chosen));
+         meta.revision = Number(remote.revision) || 0;
+         meta.lastSyncedAt = remote.updatedAt || isoNow();
+         persistMeta();
+         ready = true;
+-        if (needsUpload) await sendState(chosen);
++        if (needsUpload) queued = true;
+       } else {
+         meta.revision = 0;
+         persistMeta();
+         ready = true;
+-        if (local) await sendState(local, { force: true });
++        if (local) queued = true;
+       }
+       setStatus('ok', 'Синхронизировано на телефоне и ноутбуке.');
+     } catch (error) {
+       ready = true;
++      queued = Boolean(normalizeState(safeParse(nativeGet.call(localStorage, STATE_KEY))));
+       if (error.status === 401) setStatus('error', 'Открой через exe.dev и войди в аккаунт.');
+       else setStatus('offline', 'Сервер недоступен. Приложение работает локально.');
+     }
+ 
++    inFlight = false;
++    if (queued) queuePush();
+     pollTimer = window.setInterval(() => pullLatest(), POLL_MS);
+     window.addEventListener('online', () => { setStatus('syncing', 'Интернет вернулся. Синхронизирую…'); pushLatest().then(() => pullLatest()); });
+     window.addEventListener('offline', () => setStatus('offline', 'Нет интернета. Изменения сохранены локально.'));
+@@ -497,10 +680,13 @@
+   }
+ 
+   window.DVIZH_SYNC = {
++    reconcile,
+     pull: () => pullLatest({ manual: true }),
+     push: () => pushLatest(),
+     get revision() { return meta.revision; },
+-    markAppLoaded() { appLoaded = true; }
++    get protective() { return protective; },
++    get pendingLocal() { return clone(pendingLocal); },
++    markAppLoaded() { appLoaded = true; checkAppCapability(); }
+   };
+   window.DVIZH_SYNC_READY = initialSync();
+ })();
+--- baseline/manual.html
++++ release/manual.html
+@@ -1014,7 +1014,7 @@
+ 
+   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+ 
+-  <script src="sync.js"></script>
++  <script src="sync.js?v=20260909-sync-stability-2"></script>
+   <script src="boot.js"></script>
+ </body>
+ </html>

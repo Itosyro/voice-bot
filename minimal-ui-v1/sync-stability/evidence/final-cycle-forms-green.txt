@@ -1,0 +1,21 @@
+✔ actual app/boot DOM: blurred task draft reconciles with live remote memory (375.872436ms)
+✔ Jump profile command rebases untouched fields as well as optimistic memory (100.507792ms)
+✔ reopened editor uses its newly displayed base for the next remote update (101.620551ms)
+✔ remote application preserves DOM identity, focus/selection, scroll, details and both live timers (97.184929ms)
+✔ untouched rendered profile defaults cannot overwrite newly supplied remote fields (79.835958ms)
+✔ intentional task navigation exposes accepted remote data without background DOM replacement (89.137655ms)
+✔ blurred Training session draft survives remote projections and saves alongside remote sessions (123.392604ms)
+✔ repeated focused Jump submissions retain field-level DISPLAYED ancestors across partial renders (98.89884ms)
+✔ Social settings full render refreshes displayed ancestors even while focused (89.994576ms)
+✔ Week repeated submissions without refill preserve remote duration in state and commands (94.518211ms)
+✔ Social content repeated submissions without refill preserve remote notes in state and command (107.816444ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-unedited resubmit (98.339701ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-intentional reversion (86.374431ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1551.702634

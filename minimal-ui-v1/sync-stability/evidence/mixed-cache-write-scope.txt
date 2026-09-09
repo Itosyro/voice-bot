@@ -1,0 +1,25 @@
+PASS: unstaged changes and new files confined to minimal-ui-v1/sync-stability/**.
+PASS: release proposal, workflow, generated sync.js and manual.html identical to staged pre-cycle candidate.
+NOTE: pre-existing unstaged cache-browser.cjs edits were retained. No index mutation or commit.
+minimal-ui-v1/sync-stability/CANDIDATE-REPORT.md
+minimal-ui-v1/sync-stability/REPORT.md
+minimal-ui-v1/sync-stability/build.cjs
+minimal-ui-v1/sync-stability/candidate.diff
+minimal-ui-v1/sync-stability/release-manifest.json
+minimal-ui-v1/sync-stability/release/app.js
+minimal-ui-v1/sync-stability/src/app-boundary.js
+minimal-ui-v1/sync-stability/src/transform.cjs
+minimal-ui-v1/sync-stability/tests/browser.cjs
+minimal-ui-v1/sync-stability/tests/cache-browser.cjs
+minimal-ui-v1/sync-stability/tests/dom-harness.cjs
+minimal-ui-v1/sync-stability/tests/run.cjs
+minimal-ui-v1/sync-stability/evidence/mixed-cache-browser-dom.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-browser.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-build.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-green.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-node.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-pinned-reproduction.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-red.txt
+minimal-ui-v1/sync-stability/evidence/mixed-cache-reverse-diagnostic.txt
+minimal-ui-v1/sync-stability/tests/mixed-cache.test.cjs
+minimal-ui-v1/sync-stability/tests/reverse-cache-diagnostic.cjs

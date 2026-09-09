@@ -1,0 +1,39 @@
+name: DVIZH Manual sync stability candidate
+on:
+  pull_request:
+    paths:
+      - 'minimal-ui-v1/sync-stability/**'
+      - '.github/workflows/dvizh-sync-stability.yml'
+      - '.autopilot/release.json'
+  push:
+    paths:
+      - 'minimal-ui-v1/sync-stability/**'
+      - '.github/workflows/dvizh-sync-stability.yml'
+      - '.autopilot/release.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: minimal-ui-v1/sync-stability
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.8.1'
+      - name: Verify offline pinned reproduction and generated artifacts
+        run: |
+          node reproduce.cjs
+          node build.cjs --check
+          node tests/sync.test.cjs
+      - name: Install DOM and browser test dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Run actual application in Node VM with Manual DOM
+        run: npm test
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run actual Manual HTML, boot, app and sync in Chromium
+        run: npm run test:browser

@@ -1,0 +1,3 @@
+PASS actual Jump merge_projection: exportedAt-only changed=False => sync_once skips PUT
+PASS actual Jump merge_projection: exercise addition changed=True, stamps syncedAt, preserves input
+Only selected pure source functions executed; no production modules imported, no DB/API access.

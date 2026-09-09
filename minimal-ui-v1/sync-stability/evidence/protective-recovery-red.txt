@@ -1,0 +1,48 @@
+✔ actual boot gates capability after loaded, retaining local startup write without bootstrap PUT (370.471241ms)
+✖ protective repeated polls/manual/online cannot upload; dirty form identity retained; archives survive update (142.409869ms)
+✔ failed draft persistence blocks navigation, displays recoverable copy and explicit Russian warning (136.10619ms)
+✖ quarantine survives another old-app boot without discarding earlier pending edits (104.739671ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 810.979707
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:20:1
+✖ protective repeated polls/manual/online cannot upload; dirty form identity retained; archives survive update (142.409869ms)
+  AssertionError [ERR_ASSERTION]: only explicit confirmed update attempts navigation
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/protective.test.cjs:32:61)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:45:1
+✖ quarantine survives another old-app boot without discarding earlier pending edits (104.739671ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(h.w.localStorage.getItem(PENDING).includes('"age":20'))
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/protective.test.cjs:48:14)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

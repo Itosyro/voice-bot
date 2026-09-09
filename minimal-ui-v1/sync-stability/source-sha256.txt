@@ -1,0 +1,7 @@
+41ba544b37807380f4975ebed25f71352af587941d8d118e5a9ab028b3d232f3  /opt/dvizh/static/sync.js
+392b49d5e28438a7cf9ca8753d3f3bbcd307b77417e8f2c39b11cd28682f71ba  /opt/dvizh/static/app.js
+d8b2b47ac6f97885fe43b018d06f3f30e8b9057dbee72f3b232d964a9e8535b9  /opt/dvizh/static/manual.html
+1c766410e239a8092de001d6450da6fabcdd552a91f7de593abb0d626fbb0500  /opt/dvizh/static/boot.js
+7065b95ceac21bf528eeef9635a0b67141fac2e5135dc51e9aaf3c0c085fe86d  /opt/dvizh/static/sw.js
+8a01daac853e44ac67ad23c0cd72589b655a2d748aa334421402e8a34088ebe8  /opt/dvizh-jump/dvizh_jump/jump_web_bridge.py
+9b703a6105716f8a031dfa8a761d44cd6c8a7efbe24b2c2654aa9add163742ca  /opt/dvizh-jump/dvizh_jump/jump_store.py

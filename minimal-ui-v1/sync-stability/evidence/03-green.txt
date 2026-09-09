@@ -1,0 +1,12 @@
+✔ poll applies remote without reload, including metadata and key order (8.993162ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.384439ms)
+✔ queued pull three-way preserves local and remote fields (1.272051ms)
+✔ pending GET serializes PUT and drains queued pulls (1.433216ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19.770312

@@ -1,0 +1,40 @@
+✔ actual boot gates capability after loaded, retaining local startup write without bootstrap PUT (385.206666ms)
+✔ protective repeated polls/manual/online cannot upload; dirty form identity retained; archives survive update (304.982768ms)
+✔ failed draft persistence blocks navigation, displays recoverable copy and explicit Russian warning (130.261975ms)
+✔ quarantine survives another old-app boot without discarding earlier pending edits (73.992139ms)
+✔ quarantine quota failure retains pending edit in memory and warns without stale PUT (205.86583ms)
+✖ stored original age25 and every pre-boot snapshot survive old app bootstrap and recovery (68.929124ms)
+✖ startup clientId quota failure is visible and recoverable (all writes=false) (42.12165ms)
+✖ startup clientId quota failure is visible and recoverable (all writes=true) (38.159455ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 5
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1256.193728
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:57:1
+✖ stored original age25 and every pre-boot snapshot survive old app bootstrap and recovery (68.929124ms)
+  AssertionError [ERR_ASSERTION]: missing original/pending age 25: 27
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/protective.test.cjs:65:38)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:72:37
+✖ startup clientId quota failure is visible and recoverable (all writes=false) (42.12165ms)
+  DOMException {}
+
+test at minimal-ui-v1/sync-stability/tests/protective.test.cjs:72:37
+✖ startup clientId quota failure is visible and recoverable (all writes=true) (38.159455ms)
+  DOMException {}

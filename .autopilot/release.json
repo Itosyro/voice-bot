@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "operations": [
+    {
+      "source": "minimal-ui-v1/sync-stability/release/app.js",
+      "target": "/opt/dvizh/static/app.js",
+      "http_path": "/app.js"
+    },
+    {
+      "source": "minimal-ui-v1/sync-stability/release/sync.js",
+      "target": "/opt/dvizh/static/sync.js",
+      "http_path": "/sync.js"
+    },
+    {
+      "source": "minimal-ui-v1/sync-stability/release/manual.html",
+      "target": "/opt/dvizh/static/manual.html",
+      "http_path": "/manual.html"
+    }
+  ],
+  "restarts": []
+}

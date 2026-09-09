@@ -1,0 +1,12 @@
+Source /home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/baseline/sync.js sha256=41ba544b37807380f4975ebed25f71352af587941d8d118e5a9ab028b3d232f3
+PASS poll revision/envelope timestamp only: reloads=0 at=[]ms fakePUTs=0 remoteStored=true
+PASS poll coachPacket.exportedAt only: reloads=0 at=[]ms fakePUTs=0 remoteStored=true
+PASS poll __sync.updatedAt only: reloads=1 at=[8120]ms fakePUTs=0 remoteStored=true
+PASS poll entity _syncUpdatedAt only: reloads=1 at=[8120]ms fakePUTs=0 remoteStored=true
+PASS poll task key order only: reloads=1 at=[8120]ms fakePUTs=0 remoteStored=true
+PASS poll exportedAt + __sync.updatedAt: reloads=1 at=[8120]ms fakePUTs=0 remoteStored=true
+PASS poll real remote task change: reloads=1 at=[8120]ms fakePUTs=0 remoteStored=true
+PASS 409 identical state: reloads=1 at=[570]ms fakePUTs=2 revisions=10,11 mergedEditsPreserved=true
+PASS 409 real remote change: reloads=1 at=[570]ms fakePUTs=2 revisions=10,11 mergedEditsPreserved=true
+PASS queued pull identical state: reloads=1 at=[570]ms fakePUTs=1
+All assertions passed. Fetch was entirely fake; no production API requests.

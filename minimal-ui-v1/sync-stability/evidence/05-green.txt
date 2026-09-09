@@ -1,0 +1,10 @@
+✔ actual app/boot DOM: blurred task draft reconciles with live remote memory (405.743395ms)
+✔ Jump profile command rebases untouched fields as well as optimistic memory (103.343031ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 572.671117

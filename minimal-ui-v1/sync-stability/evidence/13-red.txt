@@ -1,0 +1,39 @@
+✔ poll applies remote without reload, including metadata and key order (11.500187ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.446123ms)
+✔ queued pull three-way preserves local and remote fields (1.790599ms)
+✔ pending GET serializes PUT and drains queued pulls (3.396305ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (7.420374ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (2.349537ms)
+✔ offline local reset never bypasses revision conflict (3.471099ms)
+✔ bootstrap GET cannot overwrite edits made before ready (2.860251ms)
+✔ offline upgrade without stored base retains local edits on first successful pull (1.315376ms)
+✔ remote reset supersedes offline edits, and acknowledged command is not resurrected (1.621662ms)
+✔ tombstone in accepted state suppresses an older concurrent entity edit (1.212ms)
+✖ projection slots reconcile by stable code when ids are absent (2.183084ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48.092321
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:100:1
+✖ projection slots reconcile by stable code when ids are absent (2.183084ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:105:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

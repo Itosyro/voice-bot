@@ -1,0 +1,53 @@
+✖ release manifest pins exact baseline and only authorized app/sync/manual artifacts (1.757958ms)
+✖ release operations use generated files, exact static routes, and no restart (0.161946ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6.446823
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/contracts.test.cjs:3:1
+✖ release manifest pins exact baseline and only authorized app/sync/manual artifacts (1.757958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'app.js',
+  -   'manual.html',
+      'sync.js'
+    ]
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/contracts.test.cjs:5:9)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Array],
+    expected: [Array],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at minimal-ui-v1/sync-stability/tests/contracts.test.cjs:17:1
+✖ release operations use generated files, exact static routes, and no restart (0.161946ms)
+  Error: ENOENT: no such file or directory, open '/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/.autopilot/release.json'
+      at Object.readFileSync (node:fs:621:20)
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/contracts.test.cjs:18:31)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/.autopilot/release.json'
+  }

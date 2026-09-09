@@ -1,0 +1,57 @@
+✔ poll applies remote without reload, including metadata and key order (10.145621ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.225458ms)
+✔ queued pull three-way preserves local and remote fields (1.351221ms)
+✔ pending GET serializes PUT and drains queued pulls (1.890069ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (2.675612ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (1.672579ms)
+✔ offline local reset never bypasses revision conflict (0.999507ms)
+✖ bootstrap GET cannot overwrite edits made before ready (1.527038ms)
+✖ offline upgrade without stored base retains local edits on first successful pull (1.048762ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 30.649574
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:74:1
+✖ bootstrap GET cannot overwrite edits made before ready (1.527038ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Synthetic task'
+  - 'Bootstrap edit'
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:76:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Synthetic task',
+    expected: 'Bootstrap edit',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:78:1
+✖ offline upgrade without stored base retains local edits on first successful pull (1.048762ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'Synthetic task'
+  - 'Offline edit'
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:82:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Synthetic task',
+    expected: 'Offline edit',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

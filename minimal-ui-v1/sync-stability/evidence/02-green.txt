@@ -1,0 +1,10 @@
+✔ poll applies remote without reload, including metadata and key order (8.789173ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.218908ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15.478136

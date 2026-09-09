@@ -1,0 +1,50 @@
+✔ poll applies remote without reload, including metadata and key order (10.61905ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.558144ms)
+✖ queued pull three-way preserves local and remote fields (2.125256ms)
+✖ pending GET serializes PUT and drains queued pulls (2.523321ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24.770772
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:27:1
+✖ queued pull three-way preserves local and remote fields (2.125256ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'Remote micro'
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:31:58)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'Remote micro',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:33:1
+✖ pending GET serializes PUT and drains queued pulls (2.523321ms)
+  AssertionError [ERR_ASSERTION]: no concurrent PUT against stale revision
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:40:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

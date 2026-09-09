@@ -1,0 +1,6 @@
+# Preserve pinned snapshot and additive generated artifact bytes.
+baseline/app.js -whitespace
+release/app.js -whitespace
+# Unified diff context lines and verbatim test output are evidence.
+candidate.diff -whitespace
+evidence/*.txt -whitespace

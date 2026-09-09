@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "status": "candidate-for-independent-review",
+  "baseline": {
+    "app.js": "392b49d5e28438a7cf9ca8753d3f3bbcd307b77417e8f2c39b11cd28682f71ba",
+    "sync.js": "41ba544b37807380f4975ebed25f71352af587941d8d118e5a9ab028b3d232f3",
+    "manual.html": "d8b2b47ac6f97885fe43b018d06f3f30e8b9057dbee72f3b232d964a9e8535b9",
+    "boot.js": "1c766410e239a8092de001d6450da6fabcdd552a91f7de593abb0d626fbb0500"
+  },
+  "artifacts": {
+    "app.js": "f67f68a98e5f8954a63fbf258bff3e678dbe759b6c61db0232576f1ea35cc25d",
+    "sync.js": "1232c68cacd02bb7a36f4765d479b2ef94810543e4a2fba78f7a42911749ebc6",
+    "manual.html": "2f76cf266d7c2713431082e26c8bfbdb0b351356f64fe9df88b30408f340e2e7"
+  },
+  "sources": {
+    "build.cjs": "77ff223e579315edc8d2d547d94f81ad3d17c4eb27804691665a891816348b3f",
+    "src/transform.cjs": "688c892bf8406a88f7447eb98d1909cba1658cd1e1e27c71d1db84a9b42b406b",
+    "src/reconcile.js": "01d8e5410baa04007b522e6c3d700522e3362afe1cf1dfe16265ad9d537eb5a3",
+    "src/app-boundary.js": "f0b682ec55b0deeaa82d611a15e6fe51d77e9d11e5b2cd56b7cda9abe5e30244",
+    "src/protective.js": "876df622224875ffde87298e547e40416e7c2b38362a53b0ee6d5ecf1e0c48c1"
+  },
+  "contracts": {
+    "bootTarget": "denied",
+    "manualHtml": "pinned baseline; only sync script query changed",
+    "manualEntry": "/manual.html?v=20260909-sync-stability-2",
+    "syncEntry": "/sync.js?v=20260909-sync-stability-2",
+    "cacheAssumptions": {
+      "manualHtml": "public, max-age=604800, immutable",
+      "syncJs": "public, max-age=604800, immutable",
+      "appJs": "no-cache",
+      "queryKeysDistinct": true
+    },
+    "design": "deployed Quiet Signal",
+    "pollMs": 8000,
+    "pushDebounceMs": 450,
+    "pollingLoopsAdded": 0,
+    "reloadCalls": 0,
+    "stateBoundary": "DVIZH_MANUAL_STATE.applyRemote",
+    "cacheCompatibility": {
+      "oldSyncNewApp": "original saves/commands; legacy reload behavior remains",
+      "newSyncNewApp": "full reconciliation boundary",
+      "newSyncOldApp": "protective after markAppLoaded: canonical server state separate from quarantined writes; no PUT; user-action versioned update with verified draft archive and explicit manual recovery"
+    },
+    "conflictPolicy": "three-way changed local leaf wins; identity deletion wins; newest reset wins",
+    "displayPolicy": "DOM-free remote acceptance; explicit navigation/user rendering exposes new data",
+    "api": "/api/state; revision CAS including reset; one immediate 409 retry then existing retry delay",
+    "targets": [
+      "app.js",
+      "sync.js",
+      "manual.html"
+    ],
+    "productionTouched": false
+  }
+}

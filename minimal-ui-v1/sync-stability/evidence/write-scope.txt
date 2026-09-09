@@ -1,0 +1,69 @@
+Candidate writes: only minimal-ui-v1/sync-stability/** and .github/workflows/dvizh-sync-stability.yml.
+No command in this run installed or wrote .autopilot/browser-tools.
+Unexpected concurrent/unattributed untracked files exist outside the allowlist; untouched, not included in candidate.
+Outside path groups: .autopilot/browser-tools
+Outside file count: 181
+Candidate paths:
+.github/workflows/dvizh-sync-stability.yml
+minimal-ui-v1/sync-stability/.gitignore
+minimal-ui-v1/sync-stability/REPORT.md
+minimal-ui-v1/sync-stability/baseline-pins.json
+minimal-ui-v1/sync-stability/baseline/app.js
+minimal-ui-v1/sync-stability/baseline/boot.js
+minimal-ui-v1/sync-stability/baseline/manual.html
+minimal-ui-v1/sync-stability/baseline/sync.js
+minimal-ui-v1/sync-stability/build.cjs
+minimal-ui-v1/sync-stability/candidate.diff
+minimal-ui-v1/sync-stability/check-producer.py
+minimal-ui-v1/sync-stability/evidence/01-green.txt
+minimal-ui-v1/sync-stability/evidence/01-red.txt
+minimal-ui-v1/sync-stability/evidence/02-green.txt
+minimal-ui-v1/sync-stability/evidence/02-red.txt
+minimal-ui-v1/sync-stability/evidence/03-green.txt
+minimal-ui-v1/sync-stability/evidence/03-red.txt
+minimal-ui-v1/sync-stability/evidence/04-green.txt
+minimal-ui-v1/sync-stability/evidence/04-red.txt
+minimal-ui-v1/sync-stability/evidence/05-green.txt
+minimal-ui-v1/sync-stability/evidence/05-red-command.txt
+minimal-ui-v1/sync-stability/evidence/05-red.txt
+minimal-ui-v1/sync-stability/evidence/06-green.txt
+minimal-ui-v1/sync-stability/evidence/06-red.txt
+minimal-ui-v1/sync-stability/evidence/07-green.txt
+minimal-ui-v1/sync-stability/evidence/07-red.txt
+minimal-ui-v1/sync-stability/evidence/08-green.txt
+minimal-ui-v1/sync-stability/evidence/08-red.txt
+minimal-ui-v1/sync-stability/evidence/09-green.txt
+minimal-ui-v1/sync-stability/evidence/09-red.txt
+minimal-ui-v1/sync-stability/evidence/10-green.txt
+minimal-ui-v1/sync-stability/evidence/10-red.txt
+minimal-ui-v1/sync-stability/evidence/11-green.txt
+minimal-ui-v1/sync-stability/evidence/11-red.txt
+minimal-ui-v1/sync-stability/evidence/12-green.txt
+minimal-ui-v1/sync-stability/evidence/12-red.txt
+minimal-ui-v1/sync-stability/evidence/13-green.txt
+minimal-ui-v1/sync-stability/evidence/13-red.txt
+minimal-ui-v1/sync-stability/evidence/14-green.txt
+minimal-ui-v1/sync-stability/evidence/14-red.txt
+minimal-ui-v1/sync-stability/evidence/browser-blocked.txt
+minimal-ui-v1/sync-stability/evidence/final-build.txt
+minimal-ui-v1/sync-stability/evidence/final-node.txt
+minimal-ui-v1/sync-stability/evidence/pinned-reproduction.txt
+minimal-ui-v1/sync-stability/evidence/production-readonly.txt
+minimal-ui-v1/sync-stability/node-output.txt
+minimal-ui-v1/sync-stability/package.json
+minimal-ui-v1/sync-stability/producer-output.txt
+minimal-ui-v1/sync-stability/release-manifest.json
+minimal-ui-v1/sync-stability/release/app.js
+minimal-ui-v1/sync-stability/release/sync.js
+minimal-ui-v1/sync-stability/reproduce.cjs
+minimal-ui-v1/sync-stability/source-sha256.txt
+minimal-ui-v1/sync-stability/src/app-boundary.js
+minimal-ui-v1/sync-stability/src/reconcile.js
+minimal-ui-v1/sync-stability/src/transform.cjs
+minimal-ui-v1/sync-stability/tests/browser.cjs
+minimal-ui-v1/sync-stability/tests/contracts.test.cjs
+minimal-ui-v1/sync-stability/tests/dom-harness.cjs
+minimal-ui-v1/sync-stability/tests/dom.test.cjs
+minimal-ui-v1/sync-stability/tests/harness.cjs
+minimal-ui-v1/sync-stability/tests/run.cjs
+minimal-ui-v1/sync-stability/tests/sync.test.cjs

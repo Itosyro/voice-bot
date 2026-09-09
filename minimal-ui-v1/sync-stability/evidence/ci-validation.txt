@@ -1,0 +1,1 @@
+PASS CI YAML parsed; contents: read; one candidate-only job. Workflow not executed here.

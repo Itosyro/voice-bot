@@ -1,0 +1,60 @@
+After remote pull: {"boundary":"undefined","storedHeight":160,"displayedHeight":"156"}
+After old form submit: {"storedHeight":156,"commandHeight":156,"serverHeight":156,"errors":[]}
+AssertionError [ERR_ASSERTION]: BLOCKER: NEW sync + OLD app silently overwrites remote height; app-only guard cannot repair pinned old private memory
+
+156 !== 160
+
+    at /home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/reverse-cache-diagnostic.cjs:15:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 156,
+  expected: 160,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+✔ poll applies remote without reload, including metadata and key order (124.586458ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.157625ms)
+✔ queued pull three-way preserves local and remote fields (1.263648ms)
+✔ pending GET serializes PUT and drains queued pulls (1.286924ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (1.755435ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (8.38001ms)
+✔ offline local reset never bypasses revision conflict (1.174122ms)
+✔ bootstrap GET cannot overwrite edits made before ready (1.29776ms)
+✔ offline upgrade without stored base retains local edits on first successful pull (1.591436ms)
+✔ remote reset supersedes offline edits, and acknowledged command is not resurrected (1.437862ms)
+✔ tombstone in accepted state suppresses an older concurrent entity edit (1.149204ms)
+✔ projection slots reconcile by stable code when ids are absent (1.278931ms)
+✔ first upgrade without a base keeps authoritative remote projections and pending local commands (1.084856ms)
+✔ actual app/boot DOM: blurred task draft reconciles with live remote memory (145.951375ms)
+✔ Jump profile command rebases untouched fields as well as optimistic memory (105.462832ms)
+✔ reopened editor uses its newly displayed base for the next remote update (108.476206ms)
+✔ remote application preserves DOM identity, focus/selection, scroll, details and both live timers (131.548655ms)
+✔ untouched rendered profile defaults cannot overwrite newly supplied remote fields (93.816315ms)
+✔ intentional task navigation exposes accepted remote data without background DOM replacement (88.847002ms)
+✔ blurred Training session draft survives remote projections and saves alongside remote sessions (95.588295ms)
+✔ repeated focused Jump submissions retain field-level DISPLAYED ancestors across partial renders (92.562292ms)
+✔ Social settings full render refreshes displayed ancestors even while focused (89.256273ms)
+✔ Week repeated submissions without refill preserve remote duration in state and commands (88.998722ms)
+✔ Social content repeated submissions without refill preserve remote notes in state and command (115.600579ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-unedited resubmit (87.038899ms)
+✔ consumed focused Jump ancestor: edit-submit-remote-intentional reversion (139.132355ms)
+✔ release manifest pins exact baseline and only authorized app/sync/manual artifacts (2.658125ms)
+✔ release operations use generated files, exact static routes, and no restart (4.260296ms)
+✔ versioned entry resolves a distinct immutable sync cache key and retains no-cache app route (0.606661ms)
+✔ cache matrix: baseline app + baseline sync + pinned boot saves real forms (167.476377ms)
+✔ cache matrix: baseline app + release sync + pinned boot saves real forms (110.985174ms)
+✔ cache matrix: release app + baseline sync + pinned boot saves real forms (107.789152ms)
+✔ cache matrix: release app + release sync + pinned boot saves real forms (112.631864ms)
+✔ cache matrix remote acceptance: baseline app + baseline sync exposes legacy reload/memory limits (83.127952ms)
+✔ cache matrix remote acceptance: baseline app + release sync exposes legacy reload/memory limits (89.526503ms)
+✔ cache matrix remote acceptance: release app + baseline sync exposes legacy reload/memory limits (76.351827ms)
+✔ cache matrix remote acceptance: release app + release sync exposes legacy reload/memory limits (98.08194ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3046.260767

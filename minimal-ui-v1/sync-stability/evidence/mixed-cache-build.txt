@@ -1,0 +1,2 @@
+Built app.js + sync.js + manual.html from pinned baseline
+PASS pinned reproducible build --check

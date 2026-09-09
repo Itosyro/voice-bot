@@ -1,0 +1,30 @@
+✖ actual app/boot DOM: blurred task draft reconciles with live remote memory (400.661942ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 449.434719
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/dom.test.cjs:2:1
+✖ actual app/boot DOM: blurred task draft reconciles with live remote memory (400.661942ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'Remote micro'
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/dom.test.cjs:10:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'Remote micro',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,57 @@
+TypeError: window.DVIZH_SYNC.reconcile is not a function
+    at rebaseCommand (app.js:225:39)
+    at jumpEnqueue (app.js:1374:5)
+    at Document.<anonymous> (app.js:1468:7)
+    at Document.callTheUserObjectsOperation (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLFormElementImpl._dispatch (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+    at HTMLFormElementImpl.dispatchEvent (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+    at Proxy.dispatchEvent (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/generated/idl/EventTarget.js:241:34)
+    at submit (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/mixed-cache.test.cjs:13:57)
+✔ cache matrix: baseline app + baseline sync + pinned boot saves real forms (430.403428ms)
+✔ cache matrix: baseline app + release sync + pinned boot saves real forms (141.749103ms)
+✖ cache matrix: release app + baseline sync + pinned boot saves real forms (96.59509ms)
+✔ cache matrix: release app + release sync + pinned boot saves real forms (127.86443ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 869.944023
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/mixed-cache.test.cjs:6:2
+✖ cache matrix: release app + baseline sync + pinned boot saves real forms (96.59509ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   TypeError: window.DVIZH_SYNC.reconcile is not a function
+  +       at rebaseCommand (app.js:225:39)
+  +       at jumpEnqueue (app.js:1374:5)
+  +       at Document.<anonymous> (app.js:1468:7)
+  +       at Document.callTheUserObjectsOperation (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+  +       at innerInvokeEventListeners (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+  +       at invokeEventListeners (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+  +       at HTMLFormElementImpl._dispatch (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+  +       at HTMLFormElementImpl.dispatchEvent (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:114:17)
+  +       at Proxy.dispatchEvent (/home/exedev/.hermes/hermes-agent/node_modules/jsdom/lib/generated/idl/EventTarget.js:241:34)
+  +       at submit (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/mixed-cache.test.cjs:13:57)
+  + ]
+  - []
+  
+      at submit (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/mixed-cache.test.cjs:13:148)
+      at async TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/mixed-cache.test.cjs:15:4)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [Array],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

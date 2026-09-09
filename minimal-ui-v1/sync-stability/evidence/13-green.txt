@@ -1,0 +1,20 @@
+✔ poll applies remote without reload, including metadata and key order (12.204285ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.359141ms)
+✔ queued pull three-way preserves local and remote fields (3.92579ms)
+✔ pending GET serializes PUT and drains queued pulls (3.589318ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (4.368962ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (3.200779ms)
+✔ offline local reset never bypasses revision conflict (1.66649ms)
+✔ bootstrap GET cannot overwrite edits made before ready (3.22854ms)
+✔ offline upgrade without stored base retains local edits on first successful pull (2.131005ms)
+✔ remote reset supersedes offline edits, and acknowledged command is not resurrected (2.213871ms)
+✔ tombstone in accepted state suppresses an older concurrent entity edit (1.364381ms)
+✔ projection slots reconcile by stable code when ids are absent (1.368688ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 50.097044

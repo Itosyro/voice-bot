@@ -1,0 +1,31 @@
+✔ poll applies remote without reload, including metadata and key order (8.744946ms)
+✖ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.603813ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17.324109
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:15:1
+✖ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.603813ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'Remote micro'
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:23:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'Remote micro',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

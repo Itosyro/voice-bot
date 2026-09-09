@@ -1,0 +1,35 @@
+✔ poll applies remote without reload, including metadata and key order (10.706568ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.221131ms)
+✔ queued pull three-way preserves local and remote fields (1.369568ms)
+✔ pending GET serializes PUT and drains queued pulls (4.364263ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (2.262224ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (1.935838ms)
+✔ offline local reset never bypasses revision conflict (1.206441ms)
+✔ bootstrap GET cannot overwrite edits made before ready (1.379393ms)
+✔ offline upgrade without stored base retains local edits on first successful pull (1.427427ms)
+✔ remote reset supersedes offline edits, and acknowledged command is not resurrected (1.615001ms)
+✔ tombstone in accepted state suppresses an older concurrent entity edit (1.261965ms)
+✔ projection slots reconcile by stable code when ids are absent (1.591054ms)
+✔ first upgrade without a base keeps authoritative remote projections and pending local commands (1.20628ms)
+✔ actual app/boot DOM: blurred task draft reconciles with live remote memory (388.836189ms)
+✔ Jump profile command rebases untouched fields as well as optimistic memory (106.008179ms)
+✔ reopened editor uses its newly displayed base for the next remote update (100.298273ms)
+✔ remote application preserves DOM identity, focus/selection, scroll, details and both live timers (102.581579ms)
+✔ untouched rendered profile defaults cannot overwrite newly supplied remote fields (77.010411ms)
+✔ intentional task navigation exposes accepted remote data without background DOM replacement (154.597788ms)
+✔ blurred Training session draft survives remote projections and saves alongside remote sessions (78.273789ms)
+✔ repeated focused Jump submissions retain field-level DISPLAYED ancestors across partial renders (110.678466ms)
+✔ Social settings full render refreshes displayed ancestors even while focused (89.852121ms)
+✔ Week repeated submissions without refill preserve remote duration in state and commands (88.222517ms)
+✔ Social content repeated submissions without refill preserve remote notes in state and command (99.159355ms)
+✔ release manifest pins exact baseline and only authorized app/sync/manual artifacts (2.39853ms)
+✔ release operations use generated files, exact static routes, and no restart (0.174055ms)
+✔ versioned entry resolves a distinct immutable sync cache key and retains no-cache app route (0.486178ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1810.845848

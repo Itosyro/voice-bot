@@ -1,0 +1,16 @@
+✔ cache matrix: baseline app + baseline sync + pinned boot saves real forms (389.078299ms)
+✔ cache matrix: baseline app + release sync + pinned boot saves real forms (132.109904ms)
+✔ cache matrix: release app + baseline sync + pinned boot saves real forms (123.822005ms)
+✔ cache matrix: release app + release sync + pinned boot saves real forms (113.875439ms)
+✔ cache matrix remote acceptance: baseline app + baseline sync exposes legacy reload/memory limits (80.114136ms)
+✔ cache matrix remote acceptance: baseline app + release sync exposes legacy reload/memory limits (139.164994ms)
+✔ cache matrix remote acceptance: release app + baseline sync exposes legacy reload/memory limits (77.555513ms)
+✔ cache matrix remote acceptance: release app + release sync exposes legacy reload/memory limits (81.523105ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1150.803097

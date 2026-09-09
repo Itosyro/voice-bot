@@ -1,0 +1,34 @@
+✔ poll applies remote without reload, including metadata and key order (16.248845ms)
+✔ three-way 409 keeps local field, remote sibling and additions; retry has accepted revision (2.118145ms)
+✔ queued pull three-way preserves local and remote fields (1.464133ms)
+✔ pending GET serializes PUT and drains queued pulls (1.96281ms)
+✔ edit while PUT is pending remains queued; pull requests coalesce and retry uses latest edit (3.686646ms)
+✔ second 409 is bounded then queued retry reconciles newer remote deletion and command ack (1.733741ms)
+✖ offline local reset never bypasses revision conflict (1.562431ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36.737356
+
+✖ failing tests:
+
+test at minimal-ui-v1/sync-stability/tests/sync.test.cjs:66:1
+✖ offline local reset never bypasses revision conflict (1.562431ms)
+  AssertionError [ERR_ASSERTION]: reset must still participate in revision CAS
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/home/exedev/.hermes/dev/dvizh/worktrees/20260909-075606-09c267/minimal-ui-v1/sync-stability/tests/sync.test.cjs:71:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
