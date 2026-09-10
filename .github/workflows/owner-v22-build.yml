@@ -1,0 +1,225 @@
+name: Owner build DVIZH Autopilot v2.2
+
+on:
+  push:
+    branches:
+      - 'owner/v22-delivery-staging-2026-09-10'
+    paths:
+      - '.owner-maintenance/v22/**'
+      - '.github/workflows/owner-v22-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: owner-v22-build
+  cancel-in-progress: true
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reconstruct exact Hermes v2.2 payloads
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/v22/hermes-dev-v2 /tmp/v22/tests/hermes_autopilot
+          base64 -d .owner-maintenance/v22/dvizhrelease.py.gz.b64 | gzip -d > /tmp/v22/hermes-dev-v2/dvizhrelease.py
+          base64 -d .owner-maintenance/v22/test_release_v22.py.gz.b64 | gzip -d > /tmp/v22/tests/hermes_autopilot/test_release_v22.py
+          base64 -d .owner-maintenance/v22/test_release_v22_review.py.gz.b64 | gzip -d > /tmp/v22/tests/hermes_autopilot/test_release_v22_review.py
+          test "$(git hash-object /tmp/v22/hermes-dev-v2/dvizhrelease.py)" = cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844
+          test "$(git hash-object /tmp/v22/tests/hermes_autopilot/test_release_v22.py)" = 4ad5964070489f296ae083f8e6cfbb168d0abb01
+          test "$(git hash-object /tmp/v22/tests/hermes_autopilot/test_release_v22_review.py)" = 15a22f8ac072a89e65b9bffab92aed82f8366d71
+          grep -Fq 'VERSION = "2026.09.09-dvizh-release-gate.2.2"' /tmp/v22/hermes-dev-v2/dvizhrelease.py
+          echo 'Exact Hermes payload blobs verified.'
+
+      - name: Prepare clean owner tree from trusted base
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE=accb555b0da3b90eed9d1708ee68a286506d4feb
+          test "$(git rev-parse "$BASE")" = "$BASE"
+          git checkout --detach "$BASE"
+          cp /tmp/v22/hermes-dev-v2/dvizhrelease.py hermes-dev-v2/dvizhrelease.py
+          cp /tmp/v22/tests/hermes_autopilot/test_release_v22.py tests/hermes_autopilot/test_release_v22.py
+          cp /tmp/v22/tests/hermes_autopilot/test_release_v22_review.py tests/hermes_autopilot/test_release_v22_review.py
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('.github/workflows/dvizh-hermes-autopilot-v2-tests.yml')
+          s = p.read_text()
+          old = 'VERSION = "2026.09.08-dvizh-release-gate.1"'
+          new = 'VERSION = "2026.09.09-dvizh-release-gate.2.2"'
+          if s.count(old) != 1:
+              raise SystemExit('unexpected v2 test workflow version marker')
+          p.write_text(s.replace(old, new))
+
+          p = Path('.github/workflows/dvizh-hermes-autopilot.yml')
+          s = p.read_text()
+          start_marker = "          import json\n          from pathlib import Path\n          p=Path('.autopilot/release.json')"
+          start = s.index(start_marker, s.index('Validate committed release manifest'))
+          end = s.index('          PY', start)
+          replacement = '''          import importlib.util, json\n          from pathlib import Path\n          p=Path('.autopilot/release.json')\n          d=json.loads(p.read_text(encoding='utf-8'))\n          spec=importlib.util.spec_from_file_location('dvizhrelease_ci', Path('hermes-dev-v2/dvizhrelease.py'))\n          gate=importlib.util.module_from_spec(spec); spec.loader.exec_module(gate)\n          proposal={\n            'schema': 1, 'id': 'ci-manifest', 'job_id': 'ci', 'mode': 'auto',\n            'repo': gate.REPO, 'branch': 'hermes/dev/ci', 'commit': '0' * 40,\n            'manifest': '.autopilot/release.json',\n          }\n          gate.validate_manifest(proposal, d)\n          print('release manifest policy valid')\n'''
+          s = s[:start] + replacement + s[end:]
+          p.write_text(s)
+
+          p = Path('hermes-dev-v2/skill/SKILL.md')
+          s = p.read_text()
+          s = s.replace('Autopilot v2.1.', 'Autopilot v2.2.', 1)
+          s = s.replace('version: 2.1.0', 'version: 2.2.0', 1)
+          s = s.replace('# DVIZH Dev Mode v2.1 — Autopilot', '# DVIZH Dev Mode v2.2 — Autopilot', 1)
+          anchor = 'Manual/shared frontend, backend and selected AI bridge targets are approval-required. Auth, DB storage, SSH/firewall, `/etc`, systemd definitions and arbitrary filesystem targets are denied by this gate version.\n'
+          addition = '''\nOwner-delivered v2.2 adds an `ai-integration-privileged` class. It is never auto-safe and is limited to the exact targets:\n\n- `/usr/local/libexec/dvizh-context`\n- `/usr/local/libexec/dvizh-proposals`\n- `/opt/dvizh-ai-approval/proposal_bridge.py`\n\nFor this class, the root gate always requires the exact later owner approval phrase; no other `/usr/local` or `/opt/dvizh-ai-approval` path becomes writable.\n'''
+          if anchor not in s:
+              raise SystemExit('skill production-boundary anchor missing')
+          s = s.replace(anchor, anchor + addition, 1)
+          anchor2 = 'After the owner explicitly replies with the exact phrase, pass only the token to:\n\n```bash\ndvizhautopilot release-apply <proposal-path> --approval <token>\n```\n'
+          repl2 = '''After the owner explicitly replies with the exact phrase:\n\n- for ordinary approval-required releases, pass the returned token as before;\n- for `ai-integration-privileged`, pass the **entire exact owner phrase** as one quoted `--approval` argument. Do not reconstruct or shorten it.\n\n```bash\ndvizhautopilot release-apply <proposal-path> --approval '<exact approval value required by the gate>'\n```\n'''
+          if anchor2 not in s:
+              raise SystemExit('skill approval anchor missing')
+          s = s.replace(anchor2, repl2, 1)
+          p.write_text(s)
+          PY
+
+      - name: Run exact v2.2 security and regression suite
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile hermes-dev-v2/dvizhrelease.py hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhgitpush.py
+          python3 -m unittest discover -s tests/hermes_autopilot -v
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          release=Path('hermes-dev-v2/dvizhrelease.py').read_text()
+          for marker in [
+            'ai-integration-privileged',
+            '/usr/local/libexec/dvizh-context',
+            '/usr/local/libexec/dvizh-proposals',
+            '/opt/dvizh-ai-approval/proposal_bridge.py',
+            '2026.09.09-dvizh-release-gate.2.2',
+          ]:
+              if marker not in release: raise SystemExit(f'missing gate marker: {marker}')
+          push=Path('hermes-dev-v2/dvizhgitpush.py').read_text()
+          for marker in ['FRIEND_PROJECT_MARKERS','CONTROL_PLANE_DENY','"src/"','"migrations/"']:
+              if marker not in push: raise SystemExit(f'isolation marker missing: {marker}')
+          PY
+
+      - name: Generate owner installer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          GATE_SHA256="$(sha256sum hermes-dev-v2/dvizhrelease.py | awk '{print $1}')"
+          SKILL_SHA256="$(sha256sum hermes-dev-v2/skill/SKILL.md | awk '{print $1}')"
+          cat > install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh <<EOF
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          VERSION='2026.09.10-dvizh-owner-maintenance-v2.2.1'
+          REPO='Itosyro/voice-bot'
+          REF="\${DVIZH_V22_REF:-}"
+          TARGET_USER="\${DVIZH_OWNER_USER:-exedev}"
+          EXPECTED_GATE_SHA256='$GATE_SHA256'
+          EXPECTED_SKILL_SHA256='$SKILL_SHA256'
+          [[ \${EUID:-\$(id -u)} -eq 0 ]] || { echo 'Run through sudo/root.' >&2; exit 2; }
+          [[ "\$REF" =~ ^[0-9a-f]{40}$ ]] || { echo 'DVIZH_V22_REF must be the exact 40-char owner commit.' >&2; exit 2; }
+          id "\$TARGET_USER" >/dev/null 2>&1 || { echo "Missing target user: \$TARGET_USER" >&2; exit 2; }
+          GATE=/usr/local/sbin/dvizhrelease
+          SKILL="/home/\$TARGET_USER/.hermes/skills/dvizh/dvizh-dev/SKILL.md"
+          if [[ -f "\$GATE" ]]; then
+            grep -Eq '2026\.09\.(08-dvizh-release-gate\.1|09-dvizh-release-gate\.2\.2)' "\$GATE" || { echo 'Unexpected installed release gate; refusing overwrite.' >&2; exit 3; }
+          else
+            echo 'Existing dvizhrelease missing; refusing maintenance install.' >&2; exit 3
+          fi
+          TMP="\$(mktemp -d)"; trap 'rm -rf "\$TMP"' EXIT
+          BASE="https://raw.githubusercontent.com/\$REPO/\$REF"
+          curl -fsSL "\$BASE/hermes-dev-v2/dvizhrelease.py" -o "\$TMP/dvizhrelease"
+          curl -fsSL "\$BASE/hermes-dev-v2/skill/SKILL.md" -o "\$TMP/SKILL.md"
+          [[ "\$(sha256sum "\$TMP/dvizhrelease" | awk '{print \$1}')" == "\$EXPECTED_GATE_SHA256" ]] || { echo 'Gate SHA256 mismatch.' >&2; exit 4; }
+          [[ "\$(sha256sum "\$TMP/SKILL.md" | awk '{print \$1}')" == "\$EXPECTED_SKILL_SHA256" ]] || { echo 'Skill SHA256 mismatch.' >&2; exit 4; }
+          python3 -m py_compile "\$TMP/dvizhrelease"
+          grep -Fq 'VERSION = "2026.09.09-dvizh-release-gate.2.2"' "\$TMP/dvizhrelease"
+          BACKUP="/var/lib/dvizh/backups/autopilot-owner-v2.2.\$(date -u +%Y%m%d-%H%M%S).\$(od -An -N4 -tx1 /dev/urandom | tr -d ' \\n')"
+          mkdir -p "\$BACKUP"
+          cp -a "\$GATE" "\$BACKUP/dvizhrelease"
+          [[ -f "\$SKILL" ]] && cp -a "\$SKILL" "\$BACKUP/SKILL.md" || true
+          rollback() {
+            echo 'Verification failed; restoring owner-maintenance backup.' >&2
+            cp -a "\$BACKUP/dvizhrelease" "\$GATE"
+            if [[ -f "\$BACKUP/SKILL.md" ]]; then
+              mkdir -p "\$(dirname "\$SKILL")"
+              cp -a "\$BACKUP/SKILL.md" "\$SKILL"
+            fi
+          }
+          install -o root -g root -m 0755 "\$TMP/dvizhrelease" "\$GATE.new"
+          mv -f "\$GATE.new" "\$GATE"
+          mkdir -p "\$(dirname "\$SKILL")"
+          install -o "\$TARGET_USER" -g "\$(id -gn "\$TARGET_USER")" -m 0644 "\$TMP/SKILL.md" "\$SKILL.new"
+          mv -f "\$SKILL.new" "\$SKILL"
+          if ! grep -Fq 'VERSION = "2026.09.09-dvizh-release-gate.2.2"' "\$GATE"; then rollback; exit 5; fi
+          if ! sudo -u "\$TARGET_USER" -H /usr/local/bin/dvizhautopilot doctor >"\$TMP/doctor.json"; then rollback; cat "\$TMP/doctor.json" >&2 || true; exit 5; fi
+          if ! grep -Fq '2026.09.09-dvizh-release-gate.2.2' "\$TMP/doctor.json"; then rollback; cat "\$TMP/doctor.json" >&2; exit 5; fi
+          echo "Installed: \$VERSION"
+          echo "Backup: \$BACKUP"
+          cat "\$TMP/doctor.json"
+          EOF
+          sed -i 's/^          //' install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+          chmod 0755 install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+          bash -n install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+
+      - name: Enforce final owner diff isolation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE=accb555b0da3b90eed9d1708ee68a286506d4feb
+          python3 - <<'PY'
+          import subprocess
+          allowed={
+            'hermes-dev-v2/dvizhrelease.py',
+            'hermes-dev-v2/skill/SKILL.md',
+            'tests/hermes_autopilot/test_release_v22.py',
+            'tests/hermes_autopilot/test_release_v22_review.py',
+            '.github/workflows/dvizh-hermes-autopilot.yml',
+            '.github/workflows/dvizh-hermes-autopilot-v2-tests.yml',
+            'install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh',
+          }
+          names=set(filter(None, subprocess.check_output(['git','diff','--name-only','accb555b0da3b90eed9d1708ee68a286506d4feb','--','.']).decode().splitlines()))
+          names.add('install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh')
+          extra=names-allowed
+          if extra: raise SystemExit(f'owner diff escaped allowlist: {sorted(extra)}')
+          friend={'src/','migrations/','Dockerfile','docker-compose.yml','docker-compose.server.yml','pyproject.toml','alembic.ini','Makefile','README.md'}
+          if any(n in friend or n.startswith(('src/','migrations/')) for n in names): raise SystemExit('friend project path touched')
+          print('Owner diff isolated to v2.2 control plane.')
+          PY
+
+      - name: Publish clean owner branch
+        shell: bash
+        env:
+          FINAL_BRANCH: owner/hermes-autopilot-v2.2-2026-09-09
+        run: |
+          set -Eeuo pipefail
+          git add hermes-dev-v2/dvizhrelease.py hermes-dev-v2/skill/SKILL.md \
+            tests/hermes_autopilot/test_release_v22.py tests/hermes_autopilot/test_release_v22_review.py \
+            .github/workflows/dvizh-hermes-autopilot.yml .github/workflows/dvizh-hermes-autopilot-v2-tests.yml \
+            install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+          git config user.name 'DVIZH Owner Maintenance'
+          git config user.email 'owner-maintenance@users.noreply.github.com'
+          git commit -m 'Owner-deliver Hermes Autopilot release gate v2.2'
+          git branch -f "$FINAL_BRANCH" HEAD
+          git push origin "HEAD:refs/heads/$FINAL_BRANCH"
+          echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Report
+        run: |
+          echo "Published owner v2.2 commit: $FINAL_SHA"
+          echo "Hermes release gate blob: $(git hash-object hermes-dev-v2/dvizhrelease.py)"
+          echo "Friend project: untouched"
