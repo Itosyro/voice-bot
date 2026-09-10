@@ -35,6 +35,7 @@ jobs:
           set -Eeuo pipefail
           cat .owner-maintenance/v22/bundle.b64.part* | base64 -d > /tmp/dvizh-owner-maintenance-v2.2.bundle
           test "$(wc -c < /tmp/dvizh-owner-maintenance-v2.2.bundle)" = "46956"
+          test "$(sha256sum /tmp/dvizh-owner-maintenance-v2.2.bundle | awk '{print $1}')" = "aa6c7c0b74f3aefd44fdab68d881de52c9fd9091731649b470469c715153c4ea"
           git bundle verify /tmp/dvizh-owner-maintenance-v2.2.bundle
           git fetch /tmp/dvizh-owner-maintenance-v2.2.bundle HEAD
           TARGET="$(git rev-parse FETCH_HEAD)"
@@ -118,3 +119,5 @@ jobs:
         run: |
           set -Eeuo pipefail
           gh workflow run dvizh-hermes-autopilot-v2-tests.yml --ref owner/hermes-autopilot-v2.2-2026-09-09
+
+# retrigger after exact bundle repair
