@@ -1,0 +1,58 @@
+{
+  "static/app.js": {
+    "source": "/opt/dvizh/static/app.js",
+    "sha256": "f67f68a98e5f8954a63fbf258bff3e678dbe759b6c61db0232576f1ea35cc25d"
+  },
+  "static/sync.js": {
+    "source": "/opt/dvizh/static/sync.js",
+    "sha256": "1232c68cacd02bb7a36f4765d479b2ef94810543e4a2fba78f7a42911749ebc6"
+  },
+  "static/manual.html": {
+    "source": "/opt/dvizh/static/manual.html",
+    "sha256": "2f76cf266d7c2713431082e26c8bfbdb0b351356f64fe9df88b30408f340e2e7"
+  },
+  "static/styles.css": {
+    "source": "/opt/dvizh/static/styles.css",
+    "sha256": "4fc9de09753daffb3dcacba770684b7f6a152c23a9956fb85a797beba068c8c5"
+  },
+  "static/boot.js": {
+    "source": "/opt/dvizh/static/boot.js",
+    "sha256": "1c766410e239a8092de001d6450da6fabcdd552a91f7de593abb0d626fbb0500"
+  },
+  "static/index.html": {
+    "source": "/opt/dvizh/static/index.html",
+    "sha256": "973bd18e8086cad28d889a10768e94d8b85ca086c4a0cbac4887ef6a9f8f2ebc"
+  },
+  "static/ai-home-v2.js": {
+    "source": "/opt/dvizh/static/ai-home-v2.js",
+    "sha256": "3ae439ba11611bd5ec5ea0c61e81245e9032fba36396c4ffeeaebc871c5fb186"
+  },
+  "static/ai-home-v2.css": {
+    "source": "/opt/dvizh/static/ai-home-v2.css",
+    "sha256": "a43b073c4788e1ba93240fb46bc726b1e07edfdbe653183e0a115a01ffdb42fb"
+  },
+  "static/sw.js": {
+    "source": "/opt/dvizh/static/sw.js",
+    "sha256": "7065b95ceac21bf528eeef9635a0b67141fac2e5135dc51e9aaf3c0c085fe86d"
+  },
+  "helpers/context.py": {
+    "source": "/usr/local/libexec/dvizh-context",
+    "sha256": "78f164de02c82e788bb0af1c4b4ec98ed351b879259d9f8222db53e8e4dcf13c"
+  },
+  "helpers/proposals.py": {
+    "source": "/usr/local/libexec/dvizh-proposals",
+    "sha256": "422af8e0126eb96a396a8a7fb5c495d8032f75b0089d2ba45fa47e440ddeeed0"
+  },
+  "helpers/proposal_bridge.py": {
+    "source": "/opt/dvizh-ai-approval/proposal_bridge.py",
+    "sha256": "abd61de006d67fd4ba725680250c1a048de5ae293a9716b493eca2481bbe0858"
+  },
+  "helpers/ai_home_bridge.py": {
+    "source": "/opt/dvizh-ai-home/ai_home_bridge.py",
+    "sha256": "683ee6526e2f018385aa85d03e83f3f1813e81d670bb06ddcb774d79ad8174f5"
+  },
+  "helpers/server.py": {
+    "source": "/opt/dvizh/server.py",
+    "sha256": "ac30e07d5abc77a09830218e6cf7d290e46f6d1b719789a7fb7db7fba2854899"
+  }
+}

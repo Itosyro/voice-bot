@@ -1,0 +1,3 @@
+# Preserve pinned production bytes and generated baseline-derived bundle.
+baseline/static/app.js -whitespace
+dist/app.js -whitespace

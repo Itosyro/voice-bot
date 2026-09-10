@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "name": "health-recovery-v1-ai-integration",
+  "operations": [
+    {
+      "source": "hermes-control-v1/dvizh_proposal_bridge.py",
+      "target": "/opt/dvizh-ai-approval/proposal_bridge.py",
+      "sha256": "2986e92c6fc6e3fdedf80c0e05a1b4ee19409000516d939737167424200633f7",
+      "release_class": "ai-integration-privileged",
+      "required_owner": "root:root",
+      "required_mode": "0755",
+      "verification": "python-syntax-service"
+    },
+    {
+      "source": "hermes-control-v1/dvizh_context.py",
+      "target": "/usr/local/libexec/dvizh-context",
+      "sha256": "9ffd1682a649c9f46dcdc27d63366d88756a2a68280c5f14937689987b010648",
+      "release_class": "ai-integration-privileged",
+      "required_owner": "root:root",
+      "required_mode": "0755",
+      "verification": "python-syntax"
+    },
+    {
+      "source": "hermes-control-v1/dvizh_proposals.py",
+      "target": "/usr/local/libexec/dvizh-proposals",
+      "sha256": "f663ee0a68c37427ab85783f4c65b442ad6e859d3ec73cfcb1132c1c26b4c862",
+      "release_class": "ai-integration-privileged",
+      "required_owner": "root:root",
+      "required_mode": "0755",
+      "verification": "python-syntax"
+    }
+  ],
+  "restarts": [
+    "dvizh-ai-approval.service"
+  ],
+  "restart_reason": "Load additive typed health actions in the existing authenticated approval bridge; preserve legacy handlers and CAS."
+}

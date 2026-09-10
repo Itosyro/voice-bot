@@ -1,0 +1,40 @@
+{
+  "modified": [
+    ".autopilot/health-recovery-privileged.json",
+    "ai-home-v2/ai_home_bridge.py",
+    "hermes-control-v1/__pycache__/dvizh_context.cpython-311.pyc",
+    "hermes-control-v1/__pycache__/dvizh_proposals.cpython-311.pyc",
+    "hermes-control-v1/dvizh_context.py",
+    "hermes-control-v1/dvizh_proposal_bridge.py",
+    "hermes-control-v1/dvizh_proposals.py",
+    "minimal-ui-v1/health-recovery-v1/ACCEPTANCE.md",
+    "minimal-ui-v1/health-recovery-v1/AI-PROMPT.txt",
+    "minimal-ui-v1/health-recovery-v1/RELEASE-BLOCKERS.md",
+    "minimal-ui-v1/health-recovery-v1/TEST-COMMANDS.md",
+    "minimal-ui-v1/health-recovery-v1/dist/app.js",
+    "minimal-ui-v1/health-recovery-v1/domain.js",
+    "minimal-ui-v1/health-recovery-v1/domain.py"
+  ],
+  "added": [
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-before-hashes.json",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-changed-files.json",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-full-green.log",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-green.log",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-inference.log",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-preserved-evidence.json",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-red.log",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-review.log",
+    "minimal-ui-v1/health-recovery-v1/tests/cycle1-test-auto-green.log",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-evidence.json",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-final-snapshot.json",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-inspection.json",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-report.md",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-review-snapshot.json",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-review.json",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-review.py",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative-snapshot.json",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-alternative.py",
+    "minimal-ui-v1/health-recovery-v1/tests/semantic-live-round3-manifest.json",
+    "minimal-ui-v1/health-recovery-v1/tests/test_cycle1.py"
+  ]
+}

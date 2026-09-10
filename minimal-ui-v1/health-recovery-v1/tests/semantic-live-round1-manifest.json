@@ -1,0 +1,62 @@
+[
+  {
+    "original": "semantic-live-alternative-evidence.json",
+    "copy": "semantic-live-round1-alternative-evidence.json",
+    "sha256": "c5e52a0d865315765a18f4d16963d71bf398100b0b9b2147b972af9028ba57f9",
+    "bytes": 1237994
+  },
+  {
+    "original": "semantic-live-alternative-final-snapshot.json",
+    "copy": "semantic-live-round1-alternative-final-snapshot.json",
+    "sha256": "30c66f3ab3b86824c1a34693e45f7331dd79aa5750c3b13b1434b46f70bb34a1",
+    "bytes": 167034
+  },
+  {
+    "original": "semantic-live-alternative-report.md",
+    "copy": "semantic-live-round1-alternative-report.md",
+    "sha256": "34da7d8da4f0daec7230d85de81793f8e069e1eb4d77fd7272c04467f09d09e9",
+    "bytes": 8792
+  },
+  {
+    "original": "semantic-live-alternative-review-snapshot.json",
+    "copy": "semantic-live-round1-alternative-review-snapshot.json",
+    "sha256": "7a87fb98208e3c97beb47d7600278538e07854d1476d9858809507ea132ff981",
+    "bytes": 167034
+  },
+  {
+    "original": "semantic-live-alternative-review.json",
+    "copy": "semantic-live-round1-alternative-review.json",
+    "sha256": "930753587542bcb1b4e51549b27c3f4fc49ae0c979c6490890b8728cc011574d",
+    "bytes": 31382
+  },
+  {
+    "original": "semantic-live-alternative-review.py",
+    "copy": "semantic-live-round1-alternative-review.py",
+    "sha256": "45914836fb97f9d5d361fe1d024d37d01cc5821f9df19abba2b0d45967a56396",
+    "bytes": 4346
+  },
+  {
+    "original": "semantic-live-alternative-snapshot.json",
+    "copy": "semantic-live-round1-alternative-snapshot.json",
+    "sha256": "30c66f3ab3b86824c1a34693e45f7331dd79aa5750c3b13b1434b46f70bb34a1",
+    "bytes": 167034
+  },
+  {
+    "original": "semantic-live-alternative.py",
+    "copy": "semantic-live-round1-alternative.py",
+    "sha256": "ab0dd6200af8f76bca374d5d2bb5f22c12eb3d9af461aedd0c6af09e2659e9a0",
+    "bytes": 22965
+  },
+  {
+    "original": "semantic-live-evidence.json",
+    "copy": "semantic-live-round1-evidence.json",
+    "sha256": "364e8cf09461fe967def1adf4f6569def35c29c37ded0aeb6b5f1f270af352ce",
+    "bytes": 9713
+  },
+  {
+    "original": "semantic-live-report.md",
+    "copy": "semantic-live-round1-report.md",
+    "sha256": "3ae3da35f0bf607ff9b14dc9fa449f10284daf88e95cad0c0ff715dc8e5b7b6b",
+    "bytes": 3614
+  }
+]

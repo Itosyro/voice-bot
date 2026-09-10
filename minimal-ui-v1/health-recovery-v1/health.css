@@ -1,0 +1,23 @@
+/* Health Recovery follows Quiet Signal: compact monochrome lines and native forms. */
+html:root .health-lines { color:#eee; margin:20px 0; max-width:680px; }
+html:root .health-lines details { border-top:1px solid #555; padding:12px 0; }
+html:root .health-lines summary { cursor:pointer; min-height:44px; padding:10px 0; font-weight:600; }
+html:root .health-lines label { display:block; margin:10px 0; color:#ccc; }
+html:root .health-lines input:not([type=checkbox]), html:root .health-lines select, html:root .health-lines textarea { width:100%; min-width:0; background:#151515; color:#eee; border:1px solid #666; border-radius:3px; padding:10px; min-height:44px; }
+html:root .health-lines input[type=checkbox] { width:22px; height:22px; vertical-align:middle; }
+html:root .health-lines button, html:root .health-more button, html:root #healthOpen, html:root #healthToday button { min-height:44px; background:#202020; color:#eee; border:1px solid #777; border-radius:3px; padding:8px 12px; margin:4px 4px 4px 0; }
+html:root .health-lines p { color:#bbb; font-size:14px; margin:8px 0; overflow-wrap:anywhere; }
+html:root .health-lines h3 { font-size:17px; margin:12px 0; }
+html:root .health-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+html:root #healthWeekdays { display:flex; flex-wrap:wrap; gap:12px; border:0; padding:0; }
+html:root [data-intake-row], html:root .health-history-row { padding:10px 0; border-bottom:1px solid #444; overflow-wrap:anywhere; }
+html:root #healthToday { padding:12px 0; border-top:1px solid #555; border-bottom:1px solid #555; margin-bottom:16px; color:#ddd; }
+html:root .health-more { position:relative; color:#eee; }
+html:root .health-more > summary { cursor:pointer; min-height:44px; padding:12px 6px; }
+html:root .health-more > nav { position:absolute; right:0; top:48px; width:210px; padding:8px; background:#111; border:1px solid #666; max-height:70vh; overflow:auto; z-index:70; }
+html:root .health-more > nav button { display:block; width:100%; text-align:left; }
+html:root .mobile-nav { display:none !important; }
+@media(max-width:760px){html:root .main-content { padding-bottom:24px; } html:root .qs-mode-header { gap:6px; } html:root .qs-modes a { min-width:52px;padding:0 8px; } html:root .health-lines { margin:12px 0; }}
+
+html:root .health-lines [data-health-capability] { border:0; padding:0; margin:0; min-width:0; }
+html:root #healthRatings { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }

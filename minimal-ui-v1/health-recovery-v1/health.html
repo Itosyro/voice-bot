@@ -1,0 +1,43 @@
+  <p id="healthCapability" role="status">Обнови Manual, чтобы открыть формы здоровья. Старые данные сохранены.</p>
+<section id="healthRecovery" class="health-lines" aria-labelledby="healthTitle" hidden>
+  <h2 id="healthTitle">Здоровье и восстановление</h2>
+  <p>Сон, добавки и самочувствие. Без автоматических изменений плана или доз.</p>
+  <label>Часовой пояс (IANA) <input id="healthTimezone" placeholder="Europe/Moscow" aria-label="Часовой пояс здоровья"></label>
+  <p id="healthError" role="alert"></p>
+  <div id="healthSummary" aria-live="polite"></div>
+  <details open><summary>Сон</summary>
+    <form id="healthSleepForm"><fieldset disabled data-health-capability>
+      <label>День пробуждения <input type="date" name="day" required></label>
+      <div class="health-pair"><label>Начало <input type="time" name="start"></label><label>Конец <input type="time" name="end"></label></div>
+      <label>Или длительность, минут <input type="number" name="durationMinutes" min="1" max="1440" step="1"></label>
+      <label>Качество <select name="quality"><option value="">Не указано</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+      <label>Заметка <textarea name="note" maxlength="1000"></textarea></label>
+      <p>При переходе через полночь начало относится к предыдущему дню. Длительность по часам; при смене часов укажи фактические минуты.</p>
+      <button type="submit">Сохранить сон</button>
+    </fieldset></form>
+  </details>
+  <details open><summary>Самочувствие · 1–5</summary>
+    <form id="healthCheckinForm"><fieldset disabled data-health-capability>
+      <label>День <input type="date" name="day" required></label>
+      <div id="healthRatings"></div>
+      <label>Заметка <textarea name="note" maxlength="1000"></textarea></label>
+      <p>Можно заполнить часть. 1 — минимум, 5 — максимум. Для стресса и болезненности мышц высокая оценка означает больше напряжения.</p>
+      <button type="submit">Сохранить самочувствие</button>
+    </fieldset></form>
+  </details>
+  <details open><summary>Добавки сегодня</summary><div id="healthIntakes"></div></details>
+  <details><summary>Расписания добавок</summary><div id="healthSchedules"></div>
+    <button type="button" id="healthNewSchedule">Добавить расписание</button>
+    <form id="healthScheduleForm"><fieldset disabled data-health-capability>
+      <input type="hidden" name="id">
+      <label>Название <input name="name" maxlength="240" required></label>
+      <label>Твоя доза, свободный текст <input name="dose" maxlength="240" required placeholder="Как ты указал — без подбора дозы"></label>
+      <div id="healthSlots"></div><button type="button" data-add-slot>Добавить время</button>
+      <fieldset id="healthWeekdays"><legend>Дни недели</legend></fieldset>
+      <label><input type="checkbox" name="enabled" checked> Включено</label>
+      <label>Заметка <textarea name="note" maxlength="1000"></textarea></label>
+      <button type="submit">Сохранить расписание</button>
+    </fieldset></form>
+  </details>
+  <details><summary>История</summary><div id="healthHistory"></div></details>
+</section>

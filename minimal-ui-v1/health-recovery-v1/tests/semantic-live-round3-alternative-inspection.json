@@ -1,0 +1,31 @@
+{
+  "raw_evidence_sha256": "aec54b43e1ccd83782decbea56dec4bffcaab6bd94d4b7ef5f749a329c717332",
+  "method": "Independent offline inspection of all 13 final responses and 8 payloads; no additional inference or raw edits. Existing separate-review clarification rule retained; note-only assertion unchanged.",
+  "scenario_findings": {
+    "sleep_times": "PASS",
+    "sleep_duration": "PASS",
+    "sleep_quality": "PASS",
+    "sleep_week": "PASS",
+    "magnesium_taken": "PASS",
+    "vitamind_taken": "PASS",
+    "omega_skip": "PASS",
+    "multiple_slot_ambiguity": "PASS",
+    "evening_schedule": "PASS",
+    "checkin_explicit_notes": "PASS",
+    "checkin_feels_great": "PASS",
+    "readiness_reasons": "PASS",
+    "today_summary": "PASS"
+  },
+  "feels_great_exact_keys": [
+    "day",
+    "timezone",
+    "note"
+  ],
+  "feels_great_payload": {
+    "day": "2026-09-10",
+    "timezone": "Europe/Moscow",
+    "note": "Ранее: прогулка у реки. feels great"
+  },
+  "clarification_finding": "Asks dose, exact time, weekdays without unsupplied numeric examples; no proposal. Raw required_context remains false.",
+  "limitations": "Synthetic dispatcher; not production Hermes execution or production acceptance."
+}

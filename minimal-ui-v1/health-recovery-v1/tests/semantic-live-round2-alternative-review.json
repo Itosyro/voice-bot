@@ -1,0 +1,742 @@
+{
+  "started_at": "2026-09-10T12:36:56.180463+00:00",
+  "status": "COMPLETE",
+  "model": "gpt-5.5",
+  "endpoint": "https://llm.int.exe.xyz/v1/responses",
+  "boundary": "Real model tool selection; only bounded synthetic Python dispatch. No production agent or tool execution.",
+  "budget": {
+    "max_scenarios": 13,
+    "max_steps_per_scenario": 4,
+    "max_tool_calls_per_scenario": 6,
+    "max_seconds_per_scenario": 90,
+    "retries": 0
+  },
+  "source_hashes": {
+    "bridge": "892ad1827767dd2ca143db4423d7d17927c70de6a2ed44ecdabc9ebc28906d61",
+    "domain": "fed4117631cf9fc03b93b5ac669cb301fbfa926e8810f6249abc938d5f63091c",
+    "prompt": "7bf098c6280b658a748cdac5d7c0b3279add02b8c5823f7c6588c969df96913f",
+    "terminal": "8b224829613459a530d31a94c7070b166c8711f79cbd7a09cc4f7f86eee6ea1d",
+    "dvizhctl": "9bae30e5329a6fa046de3b87a2b20beaeb9a16494ea53996c5c2937fd279e27b",
+    "context": "0bf2fa64401dde40068aac8047c1b8a29714ae4b235ee030af2ebfb629f27a68",
+    "proposals": "e38e97c71db8d5560f17b4d6421a0b4487dfb7a3c79a25382010a4dd64cc16df"
+  },
+  "terminal_schema": {
+    "name": "terminal",
+    "description": "Execute shell commands. The host OS, shell, and terminal backend are stated in your environment section — write commands for THAT platform. Filesystem, current working directory, and exported environment variables persist between calls.\n\nDo NOT use cat/head/tail (use read_file), grep/rg/find/ls (use search_files), sed/awk (use patch), or echo/heredoc file creation (use write_file). Reserve terminal for: builds, installs, git, processes, scripts, network, package managers — anything that needs a shell. Output is auto-truncated with the full text saved to a file — never pipe through tail/head to shorten it.\nEnvironment state persists: activate a virtualenv or export variables once per session, not before every command.\n\nForeground (default): returns INSTANTLY when the command finishes, even with a high timeout — set timeout generously for long builds.\nBackground: set background=true (returns a session_id); add notify=true for bounded tasks, leave silent only for servers/daemons that never exit. After starting a server, verify readiness with a health check in a separate call (no blind sleep loops); manage with process(action=\"poll\"/\"wait\").\nWorking directory: use 'workdir' for per-command cwd; when a command changes the session cwd (cd, pushd), trust the result's \"cwd\" field instead of prefixing every command with 'cd'.\nPTY: pty=true + background=true for interactive CLIs (they hang without a terminal); drive them with process(action=\"write\"/\"submit\"). Local backend only.\n",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The shell command to execute"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "Run in the background, returning a session_id. Pair with notify=true for anything with a defined end (tests, builds, deploys) — without it the process runs silently. Only servers/watchers/daemons that never exit should stay silent. Short commands: prefer foreground with a generous timeout.",
+          "default": false
+        },
+        "timeout": {
+          "type": "integer",
+          "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+          "minimum": 1
+        },
+        "workdir": {
+          "type": "string",
+          "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+        },
+        "pty": {
+          "type": "boolean",
+          "description": "With background=true: run in a pseudo-terminal for interactive CLI tools (Codex, Claude Code, Python REPL). Local backend only. Default: false.",
+          "default": false
+        },
+        "notify": {
+          "description": "With background=true: notify=true fires exactly one notification when the process exits (the right choice for nearly every bounded task — builds, tests, deploys). notify=['pattern', ...] instead notifies when a line matches a pattern — ONLY for one-shot readiness signals on processes that never exit (e.g. ['Application startup complete']); rate-limited and auto-disabled if it over-fires. Omit for silent daemons.",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  "preflight": [
+    {
+      "id": "unknown_tool",
+      "passed": true
+    },
+    {
+      "id": "shell",
+      "passed": true
+    },
+    {
+      "id": "chain",
+      "passed": true
+    },
+    {
+      "id": "pipe",
+      "passed": true
+    },
+    {
+      "id": "approve",
+      "passed": true
+    },
+    {
+      "id": "apply",
+      "passed": true
+    },
+    {
+      "id": "file",
+      "passed": true
+    },
+    {
+      "id": "background",
+      "passed": true
+    },
+    {
+      "id": "workdir",
+      "passed": true
+    },
+    {
+      "id": "unknown_view",
+      "passed": true
+    },
+    {
+      "id": "bad_rating",
+      "passed": true
+    },
+    {
+      "id": "missing_slot",
+      "passed": true
+    },
+    {
+      "id": "negative_tests_no_pending_or_saved_mutation",
+      "passed": true
+    },
+    {
+      "id": "valid_offline_proposal_pending_only",
+      "passed": true
+    }
+  ],
+  "counts": {
+    "model_requests": 33,
+    "model_responses": 33,
+    "production_tool_calls": 0,
+    "production_agent_api_calls": 0,
+    "pass": 12,
+    "fail": 1,
+    "error": 0,
+    "not_run": 0,
+    "synthetic_model_proposals": 8,
+    "synthetic_model_tool_calls": 20
+  },
+  "scenarios": [
+    {
+      "id": "sleep_times",
+      "synthetic_user_input": "Спал с 23:30 до 07:00.",
+      "required_assertions": "health context; health_sleep start/end; 450-minute overnight interpretation; no invented quality",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_sleep",
+          "summary": "Записать сон 23:30–07:00 за день пробуждения 2026-09-10",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "start": "23:30",
+            "end": "07:00"
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Сон посчитал: 23:30–07:00 = 7 ч 30 мин, день пробуждения — 2026-09-10, часовой пояс Europe/Moscow.\n\nСоздал предложение на запись сна.  \nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 7.112,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "clock_values_overnight": true,
+        "no_invented_quality_or_duration": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "sleep_times"
+    },
+    {
+      "id": "sleep_duration",
+      "synthetic_user_input": "Спал 7 часов.",
+      "required_assertions": "health context; health_sleep durationMinutes=420; no invented times or quality",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_sleep",
+          "summary": "Записать сон 7 часов за 2026-09-10",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "durationMinutes": 420
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Записал как предложение:\n\n- Сон: 7 часов\n- День: 2026-09-10\n- Часовой пояс: Europe/Moscow\n\nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 7.631,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "duration_only": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "sleep_duration"
+    },
+    {
+      "id": "sleep_quality",
+      "synthetic_user_input": "Качество сна 4.",
+      "required_assertions": "synthetic existing sleep day; health_sleep quality=4; preserve sleep values",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_sleep",
+          "summary": "Обновить качество сна за 2026-09-10: 4/5",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "quality": 4
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Предложил обновить качество сна за сегодня:\n\n- день: 2026-09-10\n- часовой пояс: Europe/Moscow\n- качество сна: 4/5\n\nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 8.546,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "quality_preserves_sleep": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "sleep_quality"
+    },
+    {
+      "id": "sleep_week",
+      "synthetic_user_input": "Сон за неделю?",
+      "required_assertions": "week context; recorded-day denominator; query-only",
+      "status": "PASS",
+      "pending": [],
+      "final_text": "За последние 7 дней записано **3 дня сна** из 7:\n\n- **05.09** — 6:00  \n- **08.09** — 7:00  \n- **10.09** — 8:00  \n\nСреднее по записанным дням: **7:00**.\n\nВажно: пропуски не считаю как нули — данных просто нет за остальные дни.",
+      "finish": "completed",
+      "elapsed_seconds": 5.097,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "recorded_day_denominator": true,
+        "mean_420_minutes": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [],
+      "original_status": "FAIL",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "sleep_week"
+    },
+    {
+      "id": "magnesium_taken",
+      "synthetic_user_input": "Принял магний.",
+      "required_assertions": "health context; unique enabled synthetic magnesium slot; typed taken proposal",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_supplement_mark",
+          "summary": "Отметить магний как принятый за сегодня",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "scheduleId": "mg_fixture_73",
+            "slotId": "mg_evening_19",
+            "status": "taken"
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Создал предложение отметить магний как принятый:\n\n- День: 2026-09-10\n- Магний: слот 21:13\n- Статус: принят\n\nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 8.536,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "exact_current_slot_status": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "magnesium_taken"
+    },
+    {
+      "id": "vitamind_taken",
+      "synthetic_user_input": "Принял витамин D.",
+      "required_assertions": "health context; correct synthetic vitamin D schedule/slot; typed taken proposal",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_supplement_mark",
+          "summary": "Отметить витамин D принятым за 2026-09-10",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "scheduleId": "vd_fixture_29",
+            "slotId": "vd_noon_83",
+            "status": "taken"
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Создал предложение: отметить Витамин D принятым сегодня.\n\nЗначения:\n- день: 2026-09-10\n- слот: Витамин D, 12:17\n- статус: taken\n\nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 8.711,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "exact_current_slot_status": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "vitamind_taken"
+    },
+    {
+      "id": "omega_skip",
+      "synthetic_user_input": "Омегу сегодня пропустил.",
+      "required_assertions": "health context; correct synthetic omega schedule/slot; typed skipped proposal",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_supplement_mark",
+          "summary": "Отметить Омегу за сегодня как пропущенную",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "scheduleId": "om_fixture_61",
+            "slotId": "om_lunch_47",
+            "status": "skipped"
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Создал предложение: отметить Омегу сегодня как **пропущенную**.\n\nДетали:\n- день: 2026-09-10\n- Омега: слот 13:19\n- статус: skipped\n\nПодтверди предложение в **Manual → Сейчас → Предложения ИИ**.",
+      "finish": "completed",
+      "elapsed_seconds": 6.563,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "exact_current_slot_status": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "omega_skip"
+    },
+    {
+      "id": "multiple_slot_ambiguity",
+      "synthetic_user_input": "Принял магний.",
+      "required_assertions": "synthetic magnesium with two slots; clarification; no proposal",
+      "status": "PASS",
+      "pending": [],
+      "final_text": "У тебя сегодня два слота магния: 08:23 и 21:13.  \nКакой отметить как принятый?",
+      "finish": "completed",
+      "elapsed_seconds": 3.517,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "asks_clarification": true,
+        "slot_ambiguity": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "multiple_slot_ambiguity"
+    },
+    {
+      "id": "evening_schedule",
+      "synthetic_user_input": "Добавь магний вечером.",
+      "required_assertions": "clarify dose, exact time and weekdays; no fabricated values or proposal",
+      "status": "PASS",
+      "pending": [],
+      "final_text": "Ок, добавим — но нужны точные данные, без них предложение создать нельзя.\n\nКакая у тебя доза, в какие дни недели принимать и в какое точное время напоминать вечером?",
+      "finish": "completed",
+      "elapsed_seconds": 3.736,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "asks_clarification": true,
+        "dose_time_weekdays_question": true,
+        "no_unsupplied_dose_time_examples": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [],
+      "original_status": "FAIL",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "evening_schedule"
+    },
+    {
+      "id": "checkin_explicit_notes",
+      "synthetic_user_input": "energy 2, stress 4, sore legs",
+      "required_assertions": "health context; health_checkin energy=2 stress=4 note; no inferred soreness",
+      "status": "PASS",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_checkin",
+          "summary": "Обновить чек-ин за 2026-09-10: энергия 2, стресс 4, заметка про ноги",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "energy": 2,
+            "stress": 4,
+            "note": "Ранее: прогулка у реки. Болят ноги."
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Создал предложение на чек-ин за сегодня:\n\n- энергия: 2/5\n- стресс: 4/5\n- заметка: «Ранее: прогулка у реки. Болят ноги.»\n\nSoreness числом не ставил — “sore legs” записал как заметку.\n\nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 7.815,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "note_preserved": true,
+        "no_inferred_ratings": true,
+        "new_note": true,
+        "explicit_ratings": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "checkin_explicit_notes"
+    },
+    {
+      "id": "checkin_feels_great",
+      "synthetic_user_input": "feels great",
+      "required_assertions": "health context; health_checkin note; no inferred wellbeing score; preserve existing note",
+      "status": "FAIL",
+      "pending": [
+        {
+          "id": "synthetic-proposal-1",
+          "action": "health_checkin",
+          "summary": "Добавить заметку самочувствия за сегодня: feels great",
+          "payload": {
+            "day": "2026-09-10",
+            "timezone": "Europe/Moscow",
+            "energy": 3,
+            "note": "Ранее: прогулка у реки. feels great"
+          },
+          "status": "pending",
+          "synthetic": true
+        }
+      ],
+      "final_text": "Отлично 💪\n\nСоздал предложение добавить в сегодняшний чек-ин заметку:\n- день: 2026-09-10\n- заметка: «Ранее: прогулка у реки. feels great»\n- energy оставил как было: 3/5\n\nПодтверди предложение в Manual → Сейчас → Предложения ИИ.",
+      "finish": "completed",
+      "elapsed_seconds": 7.553,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_day_timezone": true,
+        "confirmation_language": true,
+        "typed_action": true,
+        "note_preserved": true,
+        "no_inferred_ratings": false,
+        "new_note": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [
+        {
+          "id": "synthetic-proposal-1",
+          "passed": true
+        }
+      ],
+      "original_status": "FAIL",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "checkin_feels_great"
+    },
+    {
+      "id": "readiness_reasons",
+      "synthetic_user_input": "Почему такая готовность сегодня?",
+      "required_assertions": "health context; readiness level/factors, missing/stale data and reference scales; query-only",
+      "status": "PASS",
+      "pending": [],
+      "final_text": "Сегодня готовность стоит **insufficient_data — недостаточно данных**, не потому что «всё плохо», а потому что системе не хватает свежих вводных.\n\nПочему так:\n\n- **Сон устарел**: последняя запись сна — за **2026-09-08**, 7 часов. За сегодня сна нет.\n- **Мало истории сна**: за 7 дней записано только **2 дня**, среднее — **6 ч 30 мин**.\n- **Нет чек-ина за сегодня**: не заполнены энергия, настроение, стресс, крепатура/боль, общее самочувствие.\n- **Тренировочная готовность есть**: сегодня в Training Hub — **2 из 3**, это отдельная шкала.\n- **Jump Lab устарел**: последняя готовность Jump — **2026-09-07**, **1 из 3**.\n\nВажно: самочувствие — шкала **1–5**, тренировочные данные — отдельная шкала **0–3**; напрямую их не сравниваю.\n\nПрактически: чтобы готовность стала понятнее, достаточно записать сегодня **сон** и короткий чек-ин: энергия / настроение / стресс / болезненность / самочувствие.",
+      "finish": "completed",
+      "elapsed_seconds": 6.763,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "insufficient_and_stale": true,
+        "reference_scales": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "readiness_reasons"
+    },
+    {
+      "id": "today_summary",
+      "synthetic_user_input": "Краткий итог на сегодня?",
+      "required_assertions": "today context; grounded brief summary; query-only",
+      "status": "PASS",
+      "pending": [],
+      "final_text": "Краткий итог на сегодня, 10.09:\n\n- Задача: синтетическая прогулка 17 минут — ещё в ожидании.\n- Сон: 8 часов сегодня. Среднее за записанные дни недели: 7 часов, записано 3 дня.\n- Самочувствие: энергия 3/5, заметка — прогулка у реки.\n- Готовность: normal. Данных не хватает по настроению, стрессу, крепатуре и общему самочувствию.\n- Тренировки: readiness 2/3 актуальная. Jump Lab: readiness 1/3, но данные устарели от 07.09. Самочувствие — шкала 1–5, тренировочные данные — отдельная шкала 0–3; напрямую их не сравниваю.\n- Остались добавки: Витамин D 12:17, Омега 13:19, Магний 21:13 — все пока pending.\n\nПрактично: закрой прогулку без героизма, добавки отметь по факту, тренировку держи в умеренном режиме.",
+      "finish": "completed",
+      "elapsed_seconds": 6.082,
+      "assertions": {
+        "saved_state_unchanged": true,
+        "pending_only": true,
+        "no_tool_errors": true,
+        "completed_response": true,
+        "required_context": true,
+        "proposal_count": true,
+        "current_synthetic_task": true
+      },
+      "saved_state_unchanged": true,
+      "final_payload_revalidation": [],
+      "original_status": "PASS",
+      "messages_match_final_bridge": true,
+      "raw_evidence_scenario_id": "today_summary"
+    }
+  ],
+  "final_source_hashes": {
+    "bridge": "892ad1827767dd2ca143db4423d7d17927c70de6a2ed44ecdabc9ebc28906d61",
+    "domain": "fed4117631cf9fc03b93b5ac669cb301fbfa926e8810f6249abc938d5f63091c",
+    "prompt": "7bf098c6280b658a748cdac5d7c0b3279add02b8c5823f7c6588c969df96913f",
+    "terminal": "8b224829613459a530d31a94c7070b166c8711f79cbd7a09cc4f7f86eee6ea1d",
+    "dvizhctl": "9bae30e5329a6fa046de3b87a2b20beaeb9a16494ea53996c5c2937fd279e27b",
+    "context": "0bf2fa64401dde40068aac8047c1b8a29714ae4b235ee030af2ebfb629f27a68",
+    "proposals": "e38e97c71db8d5560f17b4d6421a0b4487dfb7a3c79a25382010a4dd64cc16df"
+  },
+  "source_drift": {
+    "bridge": false,
+    "domain": false,
+    "prompt": false,
+    "terminal": false,
+    "dvizhctl": false,
+    "context": false,
+    "proposals": false
+  },
+  "finished_at": "2026-09-10T12:38:24.291546+00:00",
+  "raw_evidence_sha256": "cd398c899f64f417d68b8c2b0dda68f4a01b814ac8be3b2d56256b3eb3f9de13",
+  "evaluation_corrections": [
+    {
+      "scenario": "sleep_week",
+      "reason": "Accept the same 420-minute mean in equivalent 7:00 / ночь notation when present. No model retry or output alteration."
+    },
+    {
+      "scenario": "evening_schedule",
+      "reason": "Use the established review logic: remove the context prerequisite absent from the prior matrix and check for unsupplied numeric dose/time examples. Inspect returned wording independently; do not infer the previous result."
+    }
+  ],
+  "reviewed_at": "2026-09-10T12:38:44.655291+00:00",
+  "review_source_hashes": {
+    "bridge": "892ad1827767dd2ca143db4423d7d17927c70de6a2ed44ecdabc9ebc28906d61",
+    "domain": "fed4117631cf9fc03b93b5ac669cb301fbfa926e8810f6249abc938d5f63091c",
+    "prompt": "7bf098c6280b658a748cdac5d7c0b3279add02b8c5823f7c6588c969df96913f",
+    "terminal": "8b224829613459a530d31a94c7070b166c8711f79cbd7a09cc4f7f86eee6ea1d",
+    "dvizhctl": "9bae30e5329a6fa046de3b87a2b20beaeb9a16494ea53996c5c2937fd279e27b",
+    "context": "0bf2fa64401dde40068aac8047c1b8a29714ae4b235ee030af2ebfb629f27a68",
+    "proposals": "e38e97c71db8d5560f17b4d6421a0b4487dfb7a3c79a25382010a4dd64cc16df"
+  },
+  "review_source_drift": {
+    "bridge": false,
+    "domain": false,
+    "prompt": false,
+    "terminal": false,
+    "dvizhctl": false,
+    "context": false,
+    "proposals": false
+  },
+  "final_prompt_embedded_exactly": true,
+  "review_revalidation": [
+    {
+      "scenario": "sleep_times",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "sleep_duration",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "sleep_quality",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "magnesium_taken",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "vitamind_taken",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "omega_skip",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "checkin_explicit_notes",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    },
+    {
+      "scenario": "checkin_feels_great",
+      "proposal_id": "synthetic-proposal-1",
+      "passed": true
+    }
+  ],
+  "usage_totals": {
+    "input_tokens": 116093,
+    "output_tokens": 2678,
+    "total_tokens": 118771
+  }
+}

@@ -1,0 +1,50 @@
+name: DVIZH Health Recovery v1 acceptance
+on:
+  pull_request:
+    paths:
+      - 'minimal-ui-v1/health-recovery-v1/**'
+      - 'hermes-control-v1/dvizh_context.py'
+      - 'hermes-control-v1/dvizh_proposals.py'
+      - 'hermes-control-v1/dvizh_proposal_bridge.py'
+      - 'ai-home-v2/ai_home_bridge.py'
+      - '.autopilot/health-recovery-*.json'
+      - '.github/workflows/dvizh-health-recovery.yml'
+  push:
+    paths:
+      - 'minimal-ui-v1/health-recovery-v1/**'
+      - 'hermes-control-v1/dvizh_context.py'
+      - 'hermes-control-v1/dvizh_proposals.py'
+      - 'hermes-control-v1/dvizh_proposal_bridge.py'
+      - 'ai-home-v2/ai_home_bridge.py'
+      - '.autopilot/health-recovery-*.json'
+      - '.github/workflows/dvizh-health-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/dvizh-health-browser" --no-audit --no-fund playwright@1.63.0
+          "$RUNNER_TEMP/dvizh-health-browser/node_modules/.bin/playwright" install chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/dvizh-health-browser/node_modules/playwright" >> "$GITHUB_ENV"
+          node -e 'console.log("CHROMIUM_PATH="+require(process.argv[1]).chromium.executablePath())' "$RUNNER_TEMP/dvizh-health-browser/node_modules/playwright" >> "$GITHUB_ENV"
+      - name: Full local acceptance (temporary API and fake identities only)
+        run: bash minimal-ui-v1/health-recovery-v1/tests/run.sh
+      - name: Verify generated release bytes committed by orchestrator
+        run: git diff --exit-code -- hermes-control-v1/dvizh_context.py hermes-control-v1/dvizh_proposals.py hermes-control-v1/dvizh_proposal_bridge.py ai-home-v2/ai_home_bridge.py minimal-ui-v1/health-recovery-v1/dist .autopilot/health-recovery-privileged.json .autopilot/health-recovery-frontend.json .autopilot/health-recovery-ai-home.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: health-recovery-browser-evidence
+          path: minimal-ui-v1/health-recovery-v1/tests/*.png

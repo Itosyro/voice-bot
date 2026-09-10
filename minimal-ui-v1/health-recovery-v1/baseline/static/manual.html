@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0b0f" />
+  <meta name="description" content="ДВИЖ — энергозависимый планировщик без стыда, стриков и перегруза." />
+  <title>ДВИЖ — один следующий шаг</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css?v=dvizh-pre-ai-recovery-v1" />
+<style id="quiet-signal-manual-v2">
+/* Additive Manual presentation. No script, network resources or generated data. */
+html:root .qs-mode-header {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: calc(76px + env(safe-area-inset-top));
+  padding: calc(10px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  background: #0b0e11; color: #e5e9ec; border-bottom: 1px solid #283138;
+}
+html:root .qs-brand { font-weight: 750; letter-spacing: .06em; }
+html:root .qs-brand small { display: block; color: #9ba7af; font-size: 9px; }
+html:root .qs-modes { display: flex; padding: 4px; border: 1px solid #283138; border-radius: 28px; background: #131a20; }
+html:root .qs-modes a {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 68px; min-height: 44px; padding: 0 14px;
+  border-radius: 24px; color: #9ba7af; text-decoration: none; font-size: 14px;
+}
+html:root .qs-modes a[aria-current="page"] { background: #c8ddd9; color: #101917; }
+html:root .qs-modes a:focus-visible { outline: 2px solid #9de0bd; outline-offset: 3px; }
+html:root .qs-modes a:hover { color: #e5e9ec; background: #283138; }
+html:root .sidebar { top: calc(76px + env(safe-area-inset-top)); }
+html:root { scroll-padding-top: calc(92px + env(safe-area-inset-top)); }
+
+/* Pin the palette in both existing minimal-mode states and both copy tones.
+   These later html:root rules match or exceed the live important selectors. */
+html:root, html:root body {
+  color-scheme: dark !important;
+  --bg: #0b0e11 !important; --bg-soft: #10161b !important;
+  --panel: #12191e !important; --panel-2: #171e24 !important;
+  --text: #e5e9ec !important; --muted: #9ba7af !important; --faint: #8d9ba5 !important;
+  --line: #283138 !important; --line-strong: #39464f !important;
+  --lime: #9de0bd !important; --lime-ink: #10251b !important; --accent: #9de0bd !important;
+  --orange: #d9b884 !important; --violet: #b4a9d8 !important;
+  --blue: #8cc8dc !important; --red: #e6a3ac !important; --green: #9de0bd !important;
+  --radius: 18px !important; --shadow: none !important;
+  background: var(--bg) !important; color: var(--text) !important;
+}
+html:root .sidebar { background: var(--bg); overflow-y: auto; }
+html:root .panel,
+html:root .checkin-card,
+html:root .next-step-card,
+html:root .rescue-card,
+html:root .focus-card,
+html:root .modal,
+html:root .stat-card {
+  background: var(--panel) !important; color: var(--text) !important;
+  border: 1px solid var(--line) !important; border-radius: 18px !important;
+  box-shadow: none !important; padding: 20px !important;
+}
+html:root .toast { background: var(--panel-2); color: var(--text); border: 1px solid var(--line-strong); box-shadow: none; }
+html:root input,
+html:root textarea,
+html:root select {
+  background-color: var(--panel-2) !important; color: var(--text) !important;
+  border-color: var(--line-strong) !important; border-radius: 12px !important;
+  accent-color: var(--lime); font: inherit;
+}
+html:root input::placeholder, html:root textarea::placeholder { color: var(--faint); }
+html:root button { min-height: 44px !important; box-shadow: none !important; text-shadow: none !important; }
+html:root .icon-button, html:root .task-check, html:root .task-card-actions button,
+html:root .plan-actions button { min-width: 44px; }
+html:root .button-primary, html:root button.primary {
+  background: var(--lime) !important; color: var(--lime-ink) !important;
+  border: 1px solid transparent; border-radius: 12px !important; padding: 10px 16px;
+}
+html:root .button-primary:hover:not(:disabled), html:root button.primary:hover:not(:disabled) { background: #bcefd2 !important; }
+html:root .button-ghost, html:root button.ghost, html:root .button-dark {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line-strong);
+  border-radius: 12px !important; padding: 10px 12px;
+}
+html:root .button-danger, html:root .ghost.danger { color: #e6a3ac; border-color: #69434a; }
+html:root .segmented button.is-active, html:root .filter-chip.is-active,
+html:root .tone-picker button.is-active { background: #c8ddd9; color: #101917; }
+html:root :is(button,a,input,select,textarea):focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; }
+html:root .topbar h1, html:root .section-heading.page-heading h2 {
+  font-size: clamp(24px, 3.5vw, 34px) !important; font-weight: 500;
+  line-height: 1.18 !important; letter-spacing: -.025em !important;
+}
+html:root .section-heading.page-heading .eyebrow,
+html:root #view-week .week-overview-head>p { display: block; }
+html:root .section-heading { gap: 14px; flex-wrap: wrap; }
+html:root .rescue-card .eyebrow, html:root .rescue-card p { color: var(--muted); }
+html:root .rescue-card h2 { color: var(--text); }
+html:root .energy-badge-dot, html:root .live-pill i { box-shadow: none !important; }
+html:root .task-card { border-radius: 14px; box-shadow: none; padding: 16px; }
+html:root .task-card-actions { flex-wrap: wrap; }
+
+/* Preserve the original route switch and initial closed Details state. */
+html:root .minimal-ui-shortcuts { display: grid; }
+html:root [hidden] { display: none !important; }
+
+/* Existing, labeled real-data graphics: never set counts, ratios or values.
+   updateTimerUI owns --progress; renderProof owns has-proof and day contents. */
+html:root #timerRing {
+  background: conic-gradient(var(--lime) var(--progress), #29353c 0);
+  box-shadow: none;
+}
+html:root .day-proof { background: var(--panel); border-radius: 12px; }
+html:root .day-proof.has-proof { background: #192a24; border-color: #517c68; }
+html:root .day-proof.has-proof strong { color: var(--lime); }
+html:root .training-metrics, html:root .social-metrics, html:root .jump-metrics { gap: 10px; }
+html:root .training-metrics b { color: var(--blue); font-variant-numeric: tabular-nums; }
+html:root .social-metrics b { color: var(--orange); font-variant-numeric: tabular-nums; }
+html:root .jump-metrics b { color: var(--violet); font-variant-numeric: tabular-nums; }
+/* The six live social columns keep their actual stage names, counts and cards. */
+html:root .social-column { border-top: 3px solid #d9b884 !important; background: var(--panel) !important; }
+html:root .social-column:nth-child(2), html:root .social-column:nth-child(3) { border-top-color: #8cc8dc !important; }
+html:root .social-column:nth-child(4) { border-top-color: #b4a9d8 !important; }
+html:root .social-column:nth-child(5), html:root .social-column:nth-child(6) { border-top-color: #9de0bd !important; }
+html:root #view-proof .page-heading, html:root #view-tasks .page-heading { border-bottom: 1px solid #517c68; padding-bottom: 16px; }
+html:root #view-training .page-heading { border-bottom: 1px solid #4d6d80; padding-bottom: 16px; }
+html:root #view-social .page-heading { border-bottom: 1px solid #796949; padding-bottom: 16px; }
+/* Keep existing safety states distinguishable after panel border overrides. */
+html:root .training-readiness-card[data-status="green"], html:root .jump-safety-card[data-reviewed="yes"] { border-color: #517c68 !important; }
+html:root .training-readiness-card[data-status="yellow"], html:root .jump-safety-card[data-reviewed="no"] { border-color: #a88b55 !important; }
+html:root .training-readiness-card[data-status="red"] { border-color: #b5707c !important; }
+
+@media (max-width: 760px) {
+  html:root .main-content { padding-bottom: calc(142px + env(safe-area-inset-bottom)); }
+  html:root .panel, html:root .checkin-card, html:root .next-step-card,
+  html:root .rescue-card, html:root .focus-card, html:root .modal { padding: 16px !important; }
+  html:root .mobile-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important; padding: 6px !important; border-radius: 18px !important;
+    background: #12191e; border-color: var(--line); box-shadow: none !important;
+    left: max(10px, env(safe-area-inset-left)); right: max(10px, env(safe-area-inset-right));
+    bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  html:root .mobile-nav [data-nav] { display: grid !important; min-height: 44px !important; }
+  html:root .mobile-nav [data-nav] small { font-size: 10px !important; }
+  html:root .mobile-nav [data-nav] span { font-size: 16px !important; }
+  html:root .mobile-nav [data-nav].is-active { color: var(--lime); background: #20332a; }
+  html:root .task-card { gap: 8px; }
+  html:root .task-card-actions { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:root { scroll-behavior: auto; }
+  html:root *, html:root *::before, html:root *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}
+</style>
+</head>
+<body>
+  <!-- Quiet Signal v2: ordinary links deliberately outside live data-nav routing. -->
+  <header class="qs-mode-header">
+    <span class="qs-brand">ДВИЖ <small>QUIET SIGNAL</small></span>
+    <nav class="qs-modes" aria-label="Режим работы">
+      <a href="/">ИИ</a>
+      <a href="/manual.html" aria-current="page">Ручной</a>
+    </nav>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Навигация">
+      <button class="brand" data-nav="home" aria-label="На главную">
+        <span class="brand-mark">Д</span>
+        <span class="brand-copy"><strong>ДВИЖ</strong><small>один шаг, не вся жизнь</small></span>
+      </button>
+
+      <nav class="nav-list">
+        <button class="nav-item is-active" data-nav="home"><span>⌁</span><b>Сейчас</b></button>
+        <button class="nav-item" data-nav="tasks"><span>□</span><b>Задачи</b></button>
+        <button class="nav-item" data-nav="focus"><span>◉</span><b>Фокус</b></button>
+        <button class="nav-item" data-nav="proof"><span>↗</span><b>Доказательства</b></button>
+        <button class="nav-item" data-nav="week"><span>▦</span><b>Неделя</b></button>
+        <button class="nav-item" data-nav="training"><span>🏋</span><b>Тренировки</b></button>
+        <button class="nav-item" data-nav="social"><span>📱</span><b>Соцсети</b></button>
+        <button class="nav-item" data-nav="settings"><span>···</span><b>Настройки</b></button>
+      </nav>
+
+      <div class="sidebar-note" title="Статус синхронизации">
+        <span class="status-dot is-syncing" id="syncStatusDot"></span>
+        <p id="syncStatusText">Подключаю синхронизацию…</p>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="todayLabel">СЕГОДНЯ</p>
+          <h1 id="viewTitle">Не спасай всю жизнь. Сделай один ход.</h1>
+        </div>
+        <button class="energy-badge" id="energyBadge" data-action="jump-checkin" aria-label="Перейти к отметке энергии">
+          <span class="energy-badge-dot"></span>
+          <span id="energyBadgeText">режим не выбран</span>
+        </button>
+      </header>
+
+      <section class="view is-active" id="view-home" data-view="home">
+        <article class="checkin-card" id="checkinCard">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">ЧЕК-ИН · 20 СЕКУНД</p>
+              <h2>С чем ты сегодня работаешь?</h2>
+            </div>
+            <button class="text-button" data-action="reset-checkin">Сбросить</button>
+          </div>
+
+          <div class="checkin-grid">
+            <div class="checkin-row">
+              <div class="checkin-label"><span>⚡</span><div><b>Энергия</b><small>не настроение, а реальный заряд</small></div></div>
+              <div class="segmented" data-checkin="energy" role="group" aria-label="Уровень энергии">
+                <button data-value="0">Лежу</button>
+                <button data-value="1">5 минут</button>
+                <button data-value="2">Норм</button>
+                <button data-value="3">Много</button>
+              </div>
+            </div>
+            <div class="checkin-row">
+              <div class="checkin-label"><span>◌</span><div><b>Тело</b><small>насколько ломит или болит</small></div></div>
+              <div class="segmented" data-checkin="pain" role="group" aria-label="Состояние тела">
+                <button data-value="0">Ок</button>
+                <button data-value="1">Ноет</button>
+                <button data-value="2">Ломит</button>
+                <button data-value="3">Стоп</button>
+              </div>
+            </div>
+            <div class="checkin-row">
+              <div class="checkin-label"><span>△</span><div><b>Напряг</b><small>страх, тревога, сопротивление</small></div></div>
+              <div class="segmented" data-checkin="fear" role="group" aria-label="Уровень внутреннего сопротивления">
+                <button data-value="0">Тихо</button>
+                <button data-value="1">Есть</button>
+                <button data-value="2">Сильно</button>
+                <button data-value="3">Шторм</button>
+              </div>
+            </div>
+          </div>
+          <div class="body-note" id="bodyNote" hidden></div>
+        </article>
+
+        <article class="next-step-card" id="nextStepCard">
+          <div class="next-step-topline">
+            <span class="live-pill"><i></i> ЛУЧШИЙ ХОД СЕЙЧАС</span>
+            <button class="icon-button" data-action="shuffle-suggestion" aria-label="Показать другой шаг">↻</button>
+          </div>
+          <div id="nextStepContent"></div>
+        </article>
+
+        <div class="home-grid">
+          <article class="panel daily-plan-panel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">ПЛАН БЕЗ ПЕРЕГРУЗА</p>
+                <h2>Только три слота на сегодня</h2>
+              </div>
+              <button class="text-button" data-action="regenerate-plan">Пересобрать</button>
+            </div>
+            <div class="plan-list" id="dailyPlan"></div>
+          </article>
+
+          <article class="rescue-card">
+            <div class="rescue-orbit">∞</div>
+            <p class="eyebrow">ЗАЛИП?</p>
+            <h2>Не ругай себя.<br />Прерви петлю за 90 секунд.</h2>
+            <p>Телефон вниз → выдох → один микрошаг.</p>
+            <button class="button button-dark full" data-action="open-rescue">Я поймал думскролл</button>
+          </article>
+        </div>
+
+        <article class="panel brain-dump-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">ВЫГРУЗИТЬ ИЗ ГОЛОВЫ</p>
+              <h2>Запиши как есть. Разбирать будем потом.</h2>
+            </div>
+          </div>
+          <form class="quick-add" id="quickAddForm">
+            <input id="quickAddInput" autocomplete="off" maxlength="140" placeholder="Например: узнать цену печати меню…" />
+            <button class="button button-primary" type="submit">Сбросить сюда</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="view" id="view-tasks" data-view="tasks">
+        <div class="section-heading page-heading">
+          <div>
+            <p class="eyebrow">СВАЛКА ЗАДАЧ, НО УПРАВЛЯЕМАЯ</p>
+            <h2>Не держи всё в оперативке</h2>
+          </div>
+          <button class="button button-primary" data-action="new-task">+ Новая задача</button>
+        </div>
+
+        <div class="task-toolbar">
+          <div class="filter-scroll" id="areaFilters"></div>
+          <select id="taskSort" aria-label="Сортировка задач">
+            <option value="fit">По подходящести сейчас</option>
+            <option value="priority">По важности</option>
+            <option value="energy">Сначала лёгкие</option>
+            <option value="recent">Сначала новые</option>
+          </select>
+        </div>
+
+        <div class="tasks-layout">
+          <div class="task-list" id="taskList"></div>
+          <aside class="task-rules panel">
+            <p class="eyebrow">ПРАВИЛА ДВИЖА</p>
+            <h3>Как не утонуть</h3>
+            <ol>
+              <li><b>Задача должна начинаться глаголом.</b><span>Не «ПДД», а «решить 10 вопросов».</span></li>
+              <li><b>У каждой задачи есть микрошаг.</b><span>То, что реально сделать даже на 5% заряда.</span></li>
+              <li><b>Частично — тоже считается.</b><span>Мы тренируем возвращение, а не идеальность.</span></li>
+            </ol>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-focus" data-view="focus">
+        <div class="focus-layout">
+          <article class="focus-card">
+            <div class="focus-header">
+              <div>
+                <p class="eyebrow">ОДИН РАУНД</p>
+                <h2 id="focusTaskTitle">Выбери задачу и начни</h2>
+                <p id="focusMicroStep">Никакого марафона. Только один ограниченный кусок.</p>
+              </div>
+              <button class="icon-button" data-action="choose-focus-task" aria-label="Выбрать задачу">⌄</button>
+            </div>
+
+            <div class="timer-wrap">
+              <div class="timer-ring" id="timerRing">
+                <div class="timer-center">
+                  <span id="timerDisplay">08:00</span>
+                  <small id="timerStatus">готов</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="duration-picker" id="durationPicker" aria-label="Длительность фокуса">
+              <button data-minutes="5">5</button>
+              <button data-minutes="8" class="is-active">8</button>
+              <button data-minutes="15">15</button>
+              <button data-minutes="25">25</button>
+              <span>мин</span>
+            </div>
+
+            <div class="focus-actions">
+              <button class="button button-primary big" data-action="toggle-timer" id="timerMainButton">Начать раунд</button>
+              <button class="button button-ghost" data-action="stop-timer" id="timerStopButton" disabled>Стоп</button>
+            </div>
+
+            <label class="phone-ritual"><input type="checkbox" id="phoneRitual" /><span></span>Телефон экраном вниз / режим «Не беспокоить»</label>
+          </article>
+
+          <aside class="focus-side">
+            <article class="panel">
+              <p class="eyebrow">НЕ НАДО ЗАКАНЧИВАТЬ</p>
+              <h3>Надо только появиться</h3>
+              <p>После таймера можно честно выбрать: готово, сделал часть или ещё один раунд. Все три варианта засчитываются.</p>
+            </article>
+            <article class="panel selected-task-panel" id="selectedTaskPanel"></article>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-proof" data-view="proof">
+        <div class="section-heading page-heading">
+          <div>
+            <p class="eyebrow">НЕ СТРИК. ДОКАЗАТЕЛЬСТВА.</p>
+            <h2>Ты уже не стоишь на месте</h2>
+          </div>
+          <button class="button button-ghost" data-action="add-proof">+ Записать победу</button>
+        </div>
+
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <article class="panel week-panel">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">ПОСЛЕДНИЕ 7 ДНЕЙ</p>
+              <h2>Сколько раз ты возвращался</h2>
+            </div>
+            <span class="soft-label">нулевой день не обнуляет тебя</span>
+          </div>
+          <div class="week-strip" id="weekStrip"></div>
+        </article>
+
+        <div class="proof-grid">
+          <article class="panel">
+            <div class="section-heading compact">
+              <div><p class="eyebrow">ЛЕНТА ФАКТОВ</p><h2>Что реально было сделано</h2></div>
+            </div>
+            <div class="proof-list" id="proofList"></div>
+          </article>
+          <article class="panel fear-ladder-panel">
+            <p class="eyebrow">ЛЕСТНИЦА СМЕЛОСТИ · СОЦСЕТИ</p>
+            <h2>Хейт не побеждают одним прыжком</h2>
+            <div class="fear-ladder" id="fearLadder"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- DVIZH_WEEK_VIEW_V1 -->
+      <section class="view" id="view-week" data-view="week">
+        <div class="section-heading page-heading">
+          <div>
+            <p class="eyebrow">НЕДЕЛЯ · БЛИЖАЙШИЕ 7 ДНЕЙ</p>
+            <h2>Где жизнь, где дела, где восстановление</h2>
+          </div>
+          <span class="soft-label" id="weekSyncStatus">синхронизация с Telegram</span>
+        </div>
+
+        <article class="panel week-overview-panel">
+          <div class="week-overview-head">
+            <div>
+              <p class="eyebrow">ЕДИНОЕ РАСПИСАНИЕ</p>
+              <h3>Telegram и веб показывают одни и те же блоки</h3>
+            </div>
+            <p>Создавай события в Telegram. На сайте можно видеть неделю и отмечать отдельный блок выполненным или пропущенным.</p>
+          </div>
+          <!-- DVIZH_WEEK_EDITOR_V1 -->
+        <div class="week-editor-bar">
+          <button type="button" class="primary small" id="weekEditorNew">＋ Событие</button>
+          <span id="weekEditorQueueStatus">Изменения с сайта уходят в Telegram и напоминания автоматически.</span>
+        </div>
+
+        <section class="week-editor-panel" id="weekEditorPanel" hidden>
+          <form id="weekEditorForm" autocomplete="off">
+            <input type="hidden" id="weekEditorItemId" value="">
+            <div class="week-editor-head">
+              <div>
+                <p class="eyebrow">РЕДАКТОР РАСПИСАНИЯ</p>
+                <h3 id="weekEditorTitle">Новое событие</h3>
+              </div>
+              <button type="button" class="ghost small" id="weekEditorCancel">Закрыть</button>
+            </div>
+            <div class="week-editor-grid">
+              <label class="week-field week-field-wide"><span>Название</span><input id="weekEditorName" maxlength="120" required placeholder="Например: Верх тела"></label>
+              <label class="week-field"><span>Тип</span><select id="weekEditorKind">
+                <option value="work">💼 Работа</option><option value="rest">🛋 Отдых</option><option value="friend">🤝 Встреча</option>
+                <option value="errand">📍 Дела</option><option value="documents">📄 Документы</option><option value="health">🩺 Здоровье</option>
+                <option value="gym">🏋️ Зал</option><option value="volleyball">🏐 Волейбол</option><option value="social">📱 Соцсети</option><option value="other">• Разное</option>
+              </select></label>
+              <label class="week-field"><span>Повтор</span><select id="weekEditorRecurrence"><option value="once">Один раз</option><option value="weekly">Каждую неделю</option></select></label>
+              <label class="week-field" id="weekEditorDateField"><span>Дата</span><input id="weekEditorDate" type="date"></label>
+              <div class="week-field week-field-wide" id="weekEditorWeekdaysField" hidden><span>Дни недели</span><div class="week-days-picker">
+                <label><input type="checkbox" data-weekday="0">ПН</label><label><input type="checkbox" data-weekday="1">ВТ</label>
+                <label><input type="checkbox" data-weekday="2">СР</label><label><input type="checkbox" data-weekday="3">ЧТ</label>
+                <label><input type="checkbox" data-weekday="4">ПТ</label><label><input type="checkbox" data-weekday="5">СБ</label>
+                <label><input type="checkbox" data-weekday="6">ВС</label>
+              </div></div>
+              <label class="week-field"><span>Начало</span><input id="weekEditorTime" type="time" required value="18:00"></label>
+              <label class="week-field"><span>Длительность, мин</span><input id="weekEditorDuration" type="number" min="5" max="720" step="5" required value="60"></label>
+              <label class="week-field"><span>Напомнить</span><select id="weekEditorReminder">
+                <option value="0">в момент начала</option><option value="10">за 10 минут</option><option value="30" selected>за 30 минут</option>
+                <option value="60">за 1 час</option><option value="120">за 2 часа</option>
+              </select></label>
+            </div>
+            <div class="week-editor-actions"><button type="submit" class="primary">Сохранить</button><span>Обычно Telegram подхватывает изменение за 5–20 секунд.</span></div>
+          </form>
+        </section>
+
+        <div class="week-schedule-grid" id="weekScheduleGrid"></div>
+        <section class="week-rules-panel">
+          <div class="week-rules-head"><div><p class="eyebrow">ПРАВИЛА РАСПИСАНИЯ</p><h3>Повторы и разовые события</h3></div><small>Здесь можно редактировать, выключать или удалять правило целиком.</small></div>
+          <div class="week-rules-list" id="weekScheduleRules"></div>
+        </section>
+
+        </article>
+      </section>
+
+      <!-- DVIZH_TRAINING_VIEW_V1 -->
+      <section class="view" id="view-training" data-view="training">
+        <div class="section-heading page-heading training-heading">
+          <div>
+            <p class="eyebrow">ТРЕНИРОВКИ · ВОССТАНОВЛЕНИЕ · ВОЛЕЙБОЛ</p>
+            <h2>Не угадывай, сколько сегодня вывозишь</h2>
+          </div>
+          <span class="soft-label" id="trainingSyncStatus">синхронизация</span>
+        </div>
+
+        <div class="training-layout">
+          <article class="panel training-readiness-card" id="trainingReadinessCard">
+            <div class="training-card-head">
+              <div><p class="eyebrow">ГОТОВНОСТЬ СЕГОДНЯ</p><h3 id="trainingReadinessTitle">Ещё не проверена</h3></div>
+              <strong class="training-score" id="trainingReadinessScore">—</strong>
+            </div>
+            <p id="trainingStrengthAdvice">Одна минута на сон, энергию, боль и забитость — затем ДВИЖ даст предел нагрузки.</p>
+            <p id="trainingVolleyballAdvice"></p>
+            <div id="trainingReasons" class="training-reasons"></div>
+            <div class="training-actions">
+              <button class="primary" type="button" data-training-action="open-readiness">🧠 Пройти готовность</button>
+              <button class="ghost" type="button" data-training-action="open-session">📝 Записать тренировку</button>
+            </div>
+          </article>
+
+          <article class="panel training-load-card">
+            <p class="eyebrow">НАГРУЗКА</p>
+            <div class="training-metrics">
+              <div><b id="trainingLoad7d">0</b><span>AU за 7 дней</span></div>
+              <div><b id="trainingBaseline">—</b><span>среднее/нед</span></div>
+              <div><b id="trainingLower36">0</b><span>ноги за 36 ч</span></div>
+            </div>
+            <small>AU = минуты × RPE. Это простой ориентир нагрузки, а не диагноз и не медицинский допуск.</small>
+          </article>
+        </div>
+
+        <section class="panel training-form-panel" id="trainingReadinessFormPanel" hidden>
+          <form id="trainingReadinessForm">
+            <div class="training-form-head"><div><p class="eyebrow">МИНУТНЫЙ ЧЕК</p><h3>Что реально с телом сегодня</h3></div><button type="button" class="ghost small" data-training-action="close-readiness">Закрыть</button></div>
+            <div class="training-form-grid">
+              <label><span>Сон, часов</span><input id="trainingSleepHours" type="number" min="0" max="16" step="0.5" value="7.5" required></label>
+              <label><span>Качество сна</span><select id="trainingSleepQuality"><option value="0">провал</option><option value="1">плохо</option><option value="2" selected>нормально</option><option value="3">хорошо</option></select></label>
+              <label><span>Энергия</span><select id="trainingEnergy"><option value="0">0 · лежу</option><option value="1">1 · мало</option><option value="2" selected>2 · норм</option><option value="3">3 · много</option></select></label>
+              <label><span>Забитость мышц</span><select id="trainingSoreness"><option value="0" selected>0 · свежий</option><option value="1">1 · слегка</option><option value="2">2 · заметно</option><option value="3">3 · сильно</option></select></label>
+              <label><span>Боль, меняющая движение</span><select id="trainingPain"><option value="0" selected>0 · нет</option><option value="1">1 · слабая</option><option value="2">2 · заметная</option><option value="3">3 · сильная</option></select></label>
+              <label><span>Стресс</span><select id="trainingStress"><option value="0">0 · тихо</option><option value="1">1 · немного</option><option value="2" selected>2 · высоко</option><option value="3">3 · шторм</option></select></label>
+              <label class="training-wide"><span>Самочувствие</span><select id="trainingIllness"><option value="none" selected>здоров</option><option value="mild">лёгкая простуда без температуры</option><option value="systemic">температура / ломота / выраженная слабость</option></select></label>
+              <label class="training-danger training-wide"><input id="trainingRedFlag" type="checkbox"><span>Есть боль/давление в груди, обморок или необычная сильная одышка</span></label>
+            </div>
+            <div class="training-form-actions"><button type="submit" class="primary">Рассчитать готовность</button><small>При опасном симптоме приложение не разрешает тренировку и советует медицинскую помощь.</small></div>
+          </form>
+        </section>
+
+        <section class="panel training-form-panel" id="trainingSessionFormPanel" hidden>
+          <form id="trainingSessionForm">
+            <div class="training-form-head"><div><p class="eyebrow">ЖУРНАЛ НАГРУЗКИ</p><h3>Записать тренировку</h3></div><button type="button" class="ghost small" data-training-action="close-session">Закрыть</button></div>
+            <div class="training-form-grid">
+              <label><span>Тип</span><select id="trainingActivity"><option value="upper_a">Верх A</option><option value="lower_a">Низ A</option><option value="upper_b">Верх B</option><option value="lower_b">Низ B</option><option value="volleyball">🏐 Волейбол</option><option value="recovery">Восстановление</option><option value="other">Другое</option></select></label>
+              <label><span>Минуты</span><input id="trainingDuration" type="number" min="1" max="720" step="5" value="75" required></label>
+              <label><span>RPE 0–10</span><input id="trainingRpe" type="number" min="0" max="10" step="1" value="6" required></label>
+              <label><span>Результат</span><select id="trainingResult"><option value="done" selected>сделал</option><option value="partial">часть</option><option value="skipped">пропустил</option></select></label>
+              <label><span>Боль после 0–3</span><select id="trainingPainAfter"><option value="0" selected>0 · нет</option><option value="1">1 · слабая</option><option value="2">2 · заметная</option><option value="3">3 · сильная</option></select></label>
+              <label><span>Прыжки, примерно</span><input id="trainingJumps" type="number" min="0" max="2000" step="5" placeholder="только для волейбола"></label>
+            </div>
+            <div class="training-form-actions"><button type="submit" class="primary">Сохранить нагрузку</button><small>После записи выполненный спортивный блок отмечается и в недельном расписании.</small></div>
+          </form>
+        </section>
+
+        <div class="training-layout training-lower-grid">
+          <article class="panel">
+            <div class="training-card-head"><div><p class="eyebrow">4× UPPER / LOWER</p><h3>План недели</h3></div><button type="button" class="ghost small" id="trainingPlanButton" data-training-action="enable-plan">Включить</button></div>
+            <div id="trainingPlanSlots" class="training-plan-list"></div>
+            <small>Базово: ПН Верх A, ВТ Низ A, ЧТ Верх B, СБ Низ B. Дни и время меняются в разделе «Неделя».</small>
+          </article>
+          <article class="panel">
+            <p class="eyebrow">БЛИЖАЙШИЕ СПОРТИВНЫЕ БЛОКИ</p>
+            <div id="trainingUpcoming" class="training-upcoming-list"></div>
+          </article>
+        </div>
+
+        <article class="panel training-history-panel">
+          <div class="training-card-head"><div><p class="eyebrow">ИСТОРИЯ</p><h3>Последние тренировки</h3></div><button type="button" class="ghost small" data-training-action="open-session">＋ Записать</button></div>
+          <div id="trainingHistory" class="training-history"></div>
+        </article>
+
+        <!-- DVIZH_JUMP_LAB_V1 -->
+        <section class="jump-lab" id="jumpLab">
+          <div class="jump-section-heading">
+            <div>
+              <p class="eyebrow">JUMP LAB · ЦЕЛЬ 140 СМ</p>
+              <h3>Большая цель — маленькие проверяемые рубежи</h3>
+            </div>
+            <span class="soft-label" id="jumpSyncStatus">синхронизация</span>
+          </div>
+
+          <div class="jump-grid jump-hero-grid">
+            <article class="panel jump-goal-card">
+              <div class="jump-goal-head">
+                <div><p class="eyebrow">NORTH STAR, НЕ ПРОГНОЗ</p><h3><span id="jumpCurrentCm">80</span> → <span id="jumpTargetCm">140</span> см</h3></div>
+                <strong id="jumpNextMilestone">85</strong>
+              </div>
+              <p>Следующий проверочный рубеж — <b id="jumpNextMilestoneText">85 см</b>. ДВИЖ не обещает 140 см и не ставит дату из воздуха: он хранит цель, стандартизирует замеры и меняет программу по данным.</p>
+              <div class="jump-metrics">
+                <div><b id="jumpWeightMetric">47 → 50</b><span>вес, кг</span></div>
+                <div><b id="jumpSquatMetric">≈101</b><span>e1RM приседа, кг</span></div>
+                <div><b id="jumpRelativeSquat">2.16×</b><span>e1RM / масса</span></div>
+                <div><b id="jumpProgramWeek">1/4</b><span>неделя блока</span></div>
+              </div>
+            </article>
+
+            <article class="panel jump-safety-card" id="jumpSafetyCard">
+              <p class="eyebrow">БЕЗОПАСНОСТЬ И ПРОВЕРКА</p>
+              <h3 id="jumpReviewTitle">Программа пока черновик</h3>
+              <p id="jumpReviewText">Максимальные прыжки, отмеченные значком 🧑‍🏫, удерживаются до очной проверки тренером и фиксации медицинских ограничений.</p>
+              <div class="jump-callout">Набор массы сам по себе не делает колени и спину неуязвимыми. Отслеживаем массу, энергодоступность, силу, прыжковые контакты, боль, технику приземления и восстановление вместе.</div>
+            </article>
+          </div>
+
+          <article class="panel jump-today-card">
+            <div class="jump-card-head">
+              <div><p class="eyebrow">СЕГОДНЯ ПО ГОТОВНОСТИ</p><h3 id="jumpTodayTitle">Загружаю программу</h3></div>
+              <span class="soft-label" id="jumpTodayReadiness">—</span>
+            </div>
+            <div id="jumpTodayExercises" class="jump-today-list"></div>
+          </article>
+
+          <div class="jump-grid jump-editor-grid">
+            <article class="panel">
+              <div class="jump-card-head">
+                <div><p class="eyebrow">ПРОФИЛЬ ЦЕЛИ</p><h3>Твои исходные данные и ограничения</h3></div>
+                <button type="button" class="ghost small" data-jump-action="toggle-profile">Редактировать</button>
+              </div>
+              <form id="jumpProfileForm" class="jump-form" hidden>
+                <div class="jump-form-grid">
+                  <label><span>Возраст</span><input id="jumpAge" type="number" min="10" max="100" required></label>
+                  <label><span>Рост, см</span><input id="jumpHeight" type="number" min="100" max="250" step="0.1" required></label>
+                  <label><span>Текущий вес, кг</span><input id="jumpCurrentWeight" type="number" min="25" max="250" step="0.1" required></label>
+                  <label><span>Первый весовой рубеж, кг</span><input id="jumpWeightTarget" type="number" min="25" max="250" step="0.1" required></label>
+                  <label><span>Прыжок с разбега, см</span><input id="jumpCurrentApproach" type="number" min="0" max="200" step="0.1" required></label>
+                  <label><span>North Star, см</span><input id="jumpTargetApproach" type="number" min="0" max="200" step="0.1" required></label>
+                  <label><span>Дотягивание стоя, см</span><input id="jumpStandingReach" type="number" min="100" max="300" step="0.1"></label>
+                  <label><span>Присед, кг</span><input id="jumpSquatWeight" type="number" min="0" max="500" step="0.5" required></label>
+                  <label><span>Повторы в подходе</span><input id="jumpSquatReps" type="number" min="1" max="30" required></label>
+                  <label><span>Степень сколиоза</span><input id="jumpScoliosisGrade" type="number" min="0" max="4" required></label>
+                  <label><span>Угол Cobb, °</span><input id="jumpCobbAngle" type="number" min="0" max="180" step="0.1" placeholder="уточнить по снимку"></label>
+                  <label><span>Фаза</span><select id="jumpPhase"><option value="foundation">фундамент</option><option value="build">набор силы</option><option value="power">мощность</option><option value="peak">пик</option><option value="deload">разгрузка</option></select></label>
+                  <label><span>Неделя блока</span><select id="jumpBlockWeek"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4 · разгрузочная</option></select></label>
+                  <label><span>Медицинский статус</span><select id="jumpMedicalStatus"><option value="unknown">ограничения не внесены</option><option value="cleared">допуск отмечен</option><option value="restrictions">есть ограничения</option></select></label>
+                  <label><span>Основная роль</span><input id="jumpPrimaryRole" maxlength="40"></label>
+                  <label><span>Вторая роль</span><input id="jumpSecondaryRole" maxlength="40"></label>
+                  <label class="jump-wide"><span>Тип дуги / данные обследования</span><input id="jumpCurvePattern" maxlength="200"></label>
+                  <label class="jump-wide"><span>Что сейчас болит или ограничивает</span><textarea id="jumpSymptoms" rows="3" maxlength="1000"></textarea></label>
+                  <label class="jump-wide"><span>Ограничения врача / спортфизио</span><textarea id="jumpMedicalNotes" rows="3" maxlength="1500"></textarea></label>
+                  <label><span>Волейбольный тренер</span><input id="jumpVolleyballCoach" maxlength="120"></label>
+                  <label><span>ОФП / S&amp;C тренер</span><input id="jumpStrengthCoach" maxlength="120"></label>
+                  <label class="jump-wide"><span>Заметки тренеров</span><textarea id="jumpCoachNotes" rows="3" maxlength="2000"></textarea></label>
+                </div>
+                <div class="jump-form-actions"><button type="submit" class="primary">Сохранить профиль</button><small>50 кг — редактируемый первый рубеж, не «магически безопасный вес».</small></div>
+              </form>
+              <div id="jumpProfileSummary" class="jump-profile-summary"></div>
+            </article>
+
+            <article class="panel">
+              <div class="jump-card-head"><div><p class="eyebrow">ЗАМЕРЫ</p><h3>Один метод — честный тренд</h3></div></div>
+              <form id="jumpMeasurementForm" class="jump-form compact">
+                <div class="jump-form-grid two">
+                  <label><span>Что измерил</span><select id="jumpMetric"><option value="weight">Вес</option><option value="approach_jump">Прыжок с разбега</option><option value="cmj">CMJ с места</option><option value="standing_reach">Дотягивание стоя</option><option value="squat_set">Присед: рабочий подход</option><option value="knee_pain">Боль в колене 0–10</option><option value="back_pain">Боль в спине 0–10</option></select></label>
+                  <label><span>Дата</span><input id="jumpMeasuredDate" type="date" required></label>
+                  <label><span>Значение</span><input id="jumpMeasurementValue" type="number" step="0.1" required></label>
+                  <label id="jumpSecondaryWrap" hidden><span>Повторы</span><input id="jumpMeasurementSecondary" type="number" min="1" max="30"></label>
+                  <label class="jump-wide"><span>Метод</span><input id="jumpMeasurementMethod" maxlength="500" placeholder="одинаковая разминка, обувь, покрытие"></label>
+                  <label class="jump-wide"><span>Заметка</span><input id="jumpMeasurementNotes" maxlength="1000"></label>
+                </div>
+                <div class="jump-form-actions"><button type="submit" class="primary">＋ Сохранить замер</button></div>
+              </form>
+              <div id="jumpMeasurements" class="jump-measurement-list"></div>
+            </article>
+          </div>
+
+          <article class="panel jump-program-card">
+            <div class="jump-card-head jump-program-head">
+              <div><p class="eyebrow">РЕДАКТОР ПРОГРАММЫ</p><h3>Упражнения, объём, RPE, контакты и стоп-правила</h3></div>
+              <div class="jump-toolbar">
+                <select id="jumpDaySelect"><option value="upper_a">Верх A</option><option value="lower_a">Низ A</option><option value="upper_b">Верх B</option><option value="lower_b">Низ B</option><option value="volleyball">Волейбол</option><option value="recovery">Восстановление</option></select>
+                <button type="button" class="primary small" data-jump-action="new-exercise">＋ Упражнение</button>
+              </div>
+            </div>
+            <div id="jumpExerciseList" class="jump-exercise-list"></div>
+
+            <form id="jumpExerciseForm" class="jump-form jump-exercise-form" hidden>
+              <input id="jumpExerciseId" type="hidden">
+              <div class="jump-form-head"><div><p class="eyebrow">УПРАЖНЕНИЕ</p><h3 id="jumpExerciseFormTitle">Добавить</h3></div><button type="button" class="ghost small" data-jump-action="close-exercise">Закрыть</button></div>
+              <div class="jump-form-grid">
+                <label><span>День</span><select id="jumpExerciseDay"><option value="upper_a">Верх A</option><option value="lower_a">Низ A</option><option value="upper_b">Верх B</option><option value="lower_b">Низ B</option><option value="volleyball">Волейбол</option><option value="recovery">Восстановление</option></select></label>
+                <label class="jump-wide"><span>Название</span><input id="jumpExerciseTitle" maxlength="160" required></label>
+                <label><span>Категория</span><select id="jumpExerciseCategory"><option value="warmup">Разминка</option><option value="landing">Приземление</option><option value="jump">Прыжок</option><option value="strength">Сила</option><option value="unilateral">Односторонняя сила</option><option value="posterior_chain">Задняя цепь</option><option value="calf">Стопа / голень</option><option value="core">Корпус</option><option value="upper_strength">Верх тела</option><option value="prehab">Профилактика</option><option value="mobility">Мобильность</option><option value="recovery">Восстановление</option><option value="volleyball_skill">Волейбольный навык</option></select></label>
+                <label><span>Подходы</span><input id="jumpExerciseSets" type="number" min="0" max="20" required></label>
+                <label><span>Повторы / время</span><input id="jumpExerciseReps" maxlength="80" required></label>
+                <label><span>RPE от</span><input id="jumpExerciseRpeMin" type="number" min="0" max="10" required></label>
+                <label><span>RPE до</span><input id="jumpExerciseRpeMax" type="number" min="0" max="10" required></label>
+                <label><span>Отдых, сек</span><input id="jumpExerciseRest" type="number" min="0" max="900" required></label>
+                <label><span>Прыжковых контактов</span><input id="jumpExerciseContacts" type="number" min="0" max="500" required></label>
+                <label><span>Порядок</span><input id="jumpExerciseOrder" type="number" min="0" max="10000" required></label>
+                <label class="jump-wide"><span>Правило нагрузки</span><textarea id="jumpExerciseLoad" rows="2" maxlength="500"></textarea></label>
+                <label class="jump-wide"><span>Стоп-правило</span><textarea id="jumpExerciseStop" rows="2" maxlength="500"></textarea></label>
+                <label class="jump-wide"><span>Заметки / замены</span><textarea id="jumpExerciseNotes" rows="3" maxlength="1000"></textarea></label>
+                <label class="jump-check"><input id="jumpExerciseReview" type="checkbox"><span>Нужна очная проверка до выполнения</span></label>
+                <label class="jump-check"><input id="jumpExerciseEnabled" type="checkbox" checked><span>Упражнение включено</span></label>
+              </div>
+              <div class="jump-form-actions"><button type="submit" class="primary">Сохранить упражнение</button></div>
+            </form>
+          </article>
+
+          <div class="jump-grid jump-coach-grid">
+            <article class="panel">
+              <p class="eyebrow">ТРЕНЕР / СПОРТФИЗИО</p>
+              <h3>Проверка версии программы</h3>
+              <form id="jumpCoachReviewForm" class="jump-form compact">
+                <div class="jump-form-grid two">
+                  <label><span>Имя</span><input id="jumpReviewer" maxlength="120" required></label>
+                  <label><span>Роль</span><select id="jumpReviewerRole"><option value="ОФП / S&C тренер">ОФП / S&amp;C тренер</option><option value="волейбольный тренер">волейбольный тренер</option><option value="спортфизио / врач">спортфизио / врач</option></select></label>
+                  <label class="jump-wide"><span>Что изменено / ограничения</span><textarea id="jumpReviewNotes" rows="3" maxlength="2000"></textarea></label>
+                </div>
+                <div class="jump-form-actions"><button type="submit" class="primary">✓ Отметить проверенной</button><button type="button" class="ghost" data-jump-action="clear-review">Снять отметку</button></div>
+              </form>
+            </article>
+
+            <article class="panel">
+              <p class="eyebrow">ПЕРЕДАТЬ ПРОГРАММУ</p>
+              <h3>JSON без передачи пароля</h3>
+              <p>Экспортируй файл тренеру. Он меняет упражнения и возвращает JSON; импорт создаёт резервную версию перед заменой.</p>
+              <div class="jump-form-actions"><button type="button" class="primary" data-jump-action="export">Скачать пакет</button><label class="ghost jump-file-label">Импортировать<input id="jumpImportFile" type="file" accept="application/json,.json" hidden></label><button type="button" class="ghost danger" data-jump-action="reset">Сбросить к фундаменту</button></div>
+            </article>
+          </div>
+        </section>
+
+      </section>
+
+      <!-- DVIZH_SOCIAL_HUB_V1 -->
+      <section class="view" id="view-social" data-view="social">
+        <div class="section-heading page-heading social-heading">
+          <div>
+            <p class="eyebrow">СОЦСЕТИ · СОЗДАВАТЬ, А НЕ ЛИСТАТЬ</p>
+            <h2>Один конвейер вместо страха, хаоса и бесконечной подготовки</h2>
+          </div>
+          <span class="soft-label" id="socialSyncStatus">синхронизация</span>
+        </div>
+
+        <div class="social-layout social-hero-layout">
+          <article class="panel social-next-card">
+            <div class="social-card-head">
+              <div><p class="eyebrow">ЧТО ДЕЛАТЬ СЕЙЧАС</p><h3 id="socialNextTitle">Загружаю следующий шаг</h3></div>
+              <strong id="socialNextMinutes">5 мин</strong>
+            </div>
+            <p id="socialNextAction">Не нужно становиться блогером сегодня. Нужен один маленький создающий шаг.</p>
+            <small id="socialNextReason"></small>
+            <div class="social-actions">
+              <button type="button" class="primary" data-social-action="next-done">✓ Минимум сделан</button>
+              <button type="button" class="ghost" data-social-action="open-courage">🪜 Страшно выкладывать</button>
+            </div>
+          </article>
+
+          <article class="panel social-metrics-card">
+            <p class="eyebrow">НЕДЕЛЯ БЕЗ САМООБМАНА</p>
+            <div class="social-metrics">
+              <div><b id="socialActiveMetric">0</b><span>в работе</span></div>
+              <div><b id="socialPublishedMetric">0/2</b><span>опубликовано</span></div>
+              <div><b id="socialScheduledMetric">0</b><span>в календаре</span></div>
+              <div><b id="socialCourageMetric">1/5</b><span>смелость</span></div>
+            </div>
+            <small>Количество просмотров не является задачей. Задача — провести материал через следующий этап.</small>
+          </article>
+        </div>
+
+        <div class="social-layout social-capture-layout">
+          <article class="panel">
+            <div class="social-card-head"><div><p class="eyebrow">БЫСТРЫЙ ЗАХВАТ</p><h3>Не потерять идею и не начать её оценивать</h3></div></div>
+            <form id="socialQuickIdeaForm" class="social-quick-form">
+              <input id="socialQuickTitle" maxlength="160" placeholder="Одна мысль или тема" required>
+              <select id="socialQuickPlatform">
+                <option value="tiktok">TikTok</option><option value="instagram">Instagram</option><option value="youtube">YouTube / Shorts</option><option value="vk">VK</option><option value="telegram">Telegram</option><option value="other">Другая</option>
+              </select>
+              <select id="socialQuickFear"><option value="0">страх 0</option><option value="1">страх 1</option><option value="2" selected>страх 2</option><option value="3">страх 3</option><option value="4">страх 4</option><option value="5">страх 5</option></select>
+              <button class="primary" type="submit">＋ Сохранить идею</button>
+            </form>
+          </article>
+
+          <article class="panel social-window-card">
+            <p class="eyebrow">РЕАКЦИИ — ТОЛЬКО В ОКНА</p>
+            <h3 id="socialReactionWindows">13:00 и 20:00</h3>
+            <p>Вне этих окон не проверяй просмотры, лайки и комментарии «на секунду». Это думскроллинг под видом работы.</p>
+            <button type="button" class="ghost small" data-social-action="focus-settings">Настроить окна</button>
+          </article>
+        </div>
+
+        <article class="panel social-pipeline-panel">
+          <div class="social-card-head social-pipeline-head">
+            <div><p class="eyebrow">КОНТЕНТ-КОНВЕЙЕР</p><h3>Идея → сценарий → снять → монтаж → публикация</h3></div>
+            <button type="button" class="primary small" data-social-action="new-content">＋ Материал</button>
+          </div>
+          <div id="socialPipeline" class="social-pipeline"></div>
+        </article>
+
+        <section class="panel social-form-panel" id="socialContentFormPanel" hidden>
+          <form id="socialContentForm" class="social-form">
+            <input id="socialContentId" type="hidden">
+            <div class="social-card-head"><div><p class="eyebrow">МАТЕРИАЛ</p><h3 id="socialContentFormTitle">Новый материал</h3></div><button type="button" class="ghost small" data-social-action="close-content">Закрыть</button></div>
+            <div class="social-form-grid">
+              <label class="social-wide"><span>Тема / рабочее название</span><input id="socialTitle" maxlength="160" required></label>
+              <label><span>Площадка</span><select id="socialPlatform"><option value="tiktok">TikTok</option><option value="instagram">Instagram</option><option value="youtube">YouTube / Shorts</option><option value="vk">VK</option><option value="telegram">Telegram</option><option value="other">Другая</option></select></label>
+              <label><span>Формат</span><select id="socialFormat"><option value="short_video">Короткое видео</option><option value="story">История / сторис</option><option value="post">Пост</option><option value="carousel">Карусель</option><option value="long_video">Длинное видео</option><option value="live">Эфир</option><option value="other">Другое</option></select></label>
+              <label><span>Этап</span><select id="socialStage"><option value="idea">Идея</option><option value="script">Сценарий</option><option value="record">Снять</option><option value="edit">Монтаж</option><option value="scheduled">Запланировано</option><option value="published">Опубликовано</option><option value="archived">Архив</option></select></label>
+              <label><span>Страх 0–5</span><input id="socialFear" type="number" min="0" max="5" value="2" required></label>
+              <label><span>Ступень смелости</span><select id="socialCourageStep"><option value="1">1 · черновик только себе</option><option value="2">2 · показать одному</option><option value="3">3 · тихая публикация</option><option value="4">4 · обычная публикация</option><option value="5">5 · лицо / мнение</option></select></label>
+              <label><span>Дата публикации</span><input id="socialPublishDate" type="date"></label>
+              <label><span>Время</span><input id="socialPublishTime" type="time"></label>
+              <label><span>Напомнить</span><select id="socialReminder"><option value="0">в момент</option><option value="10">за 10 мин</option><option value="30" selected>за 30 мин</option><option value="60">за 1 час</option><option value="120">за 2 часа</option></select></label>
+              <label class="social-wide"><span>Минимум, который засчитывается</span><input id="socialMinimumStep" maxlength="500" required></label>
+              <label class="social-wide"><span>Нормальный результат</span><input id="socialNormalStep" maxlength="500" required></label>
+              <label class="social-wide"><span>Ссылка после публикации</span><input id="socialLink" maxlength="1000" type="url" placeholder="https://..."></label>
+              <label class="social-wide"><span>Заметки / сценарий</span><textarea id="socialNotes" maxlength="3000" rows="4"></textarea></label>
+              <label class="social-wide"><span>Результат и вывод после публикации</span><textarea id="socialResultNote" maxlength="2000" rows="3"></textarea></label>
+            </div>
+            <div class="social-form-actions">
+              <button type="submit" class="primary">Сохранить</button>
+              <button type="button" class="ghost danger" id="socialDeleteButton" data-social-action="delete-content" hidden>Удалить</button>
+            </div>
+          </form>
+        </section>
+
+        <div class="social-layout social-lower-layout">
+          <article class="panel social-courage-card">
+            <div class="social-card-head"><div><p class="eyebrow">ЛЕСТНИЦА СМЕЛОСТИ</p><h3 id="socialCourageTitle">Уровень 1/5</h3></div></div>
+            <ol id="socialCourageLadder" class="social-courage-ladder"></ol>
+            <form id="socialExposureForm" class="social-exposure-form" hidden>
+              <label><span>Страх до</span><select id="socialFearBefore"><option>0</option><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option></select></label>
+              <label><span>Страх после</span><select id="socialFearAfter"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></label>
+              <button type="submit" class="primary">Записать шаг</button>
+            </form>
+            <div class="social-actions"><button type="button" class="ghost" data-social-action="open-courage">Сделать текущий шаг</button></div>
+          </article>
+
+          <article class="panel">
+            <div class="social-card-head"><div><p class="eyebrow">НАСТРОЙКИ</p><h3>Темп и защита от проверки реакций</h3></div></div>
+            <form id="socialSettingsForm" class="social-form compact">
+              <div class="social-form-grid two">
+                <label><span>Публикаций в неделю</span><input id="socialWeeklyGoal" type="number" min="1" max="14" required></label>
+                <label><span>Текущий уровень смелости</span><select id="socialProfileCourage"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+                <label><span>Окно 1</span><input id="socialWindow1" type="time" required></label>
+                <label><span>Окно 2</span><input id="socialWindow2" type="time" required></label>
+              </div>
+              <div class="social-form-actions"><button class="primary" type="submit">Сохранить настройки</button></div>
+            </form>
+            <div id="socialExposureHistory" class="social-exposure-history"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings" data-view="settings">
+        <!-- DVIZH_MINIMAL_UI_V1 -->
+        <article class="panel minimal-ui-settings" id="minimalUiSettings">
+          <div class="minimal-ui-settings-head">
+            <div>
+              <p class="eyebrow">ИНТЕРФЕЙС</p>
+              <h3>Спокойный режим</h3>
+              <p>Меньше крупных заголовков, декоративных карточек и пунктов в нижнем меню. Все функции остаются на месте.</p>
+            </div>
+            <button type="button" class="ghost small" id="minimalUiToggle" aria-pressed="true">Включён</button>
+          </div>
+          <div class="minimal-ui-shortcuts" aria-label="Дополнительные разделы">
+            <span>Дополнительные разделы</span>
+            <div>
+              <button type="button" class="ghost" data-nav="proof">↗ Факты</button>
+              <button type="button" class="ghost" data-nav="training">🏋 Тренировки</button>
+              <button type="button" class="ghost" data-nav="social">📱 Соцсети</button>
+            </div>
+          </div>
+        </article>
+        <div class="section-heading page-heading">
+          <div>
+            <p class="eyebrow">НАСТРОЙКИ</p>
+            <h2>Сделай систему своей</h2>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <article class="panel setting-card">
+            <p class="eyebrow">ТОН ПРИЛОЖЕНИЯ</p>
+            <h3>Как с тобой разговаривать?</h3>
+            <div class="tone-picker" id="tonePicker">
+              <button data-tone="direct">Прямо</button>
+              <button data-tone="calm">Спокойно</button>
+            </div>
+          </article>
+
+          <article class="panel setting-card sync-setting-card">
+            <p class="eyebrow">СИНХРОНИЗАЦИЯ</p>
+            <h3>Одна жизнь на всех устройствах</h3>
+            <p id="syncSettingsStatus">Подключаю личный сервер…</p>
+            <button class="button button-primary" type="button" data-sync-now>Синхронизировать сейчас</button>
+          </article>
+
+          <article class="panel setting-card">
+            <p class="eyebrow">РЕЗЕРВНАЯ КОПИЯ</p>
+            <h3>Дополнительная страховка</h3>
+            <p>Сервер сохраняет историю версий, а экспорт даёт отдельный JSON-файл, который можно хранить у себя.</p>
+            <div class="button-row">
+              <button class="button button-ghost" data-action="export-data">Экспорт</button>
+              <button class="button button-ghost" data-action="import-data">Импорт</button>
+              <input type="file" id="importFile" accept="application/json" hidden />
+            </div>
+          </article>
+
+          <article class="panel setting-card">
+            <p class="eyebrow">УСТАНОВИТЬ КАК ПРИЛОЖЕНИЕ</p>
+            <h3>На экран телефона или компьютера</h3>
+            <p id="installHint">Открой меню браузера и выбери «Установить приложение» или «Добавить на главный экран».</p>
+            <button class="button button-primary" id="installButton" data-action="install-app" disabled>Установить</button>
+          </article>
+
+          <article class="panel setting-card danger-card">
+            <p class="eyebrow">СБРОС</p>
+            <h3>Начать с чистого листа</h3>
+            <p>Удалит задачи, отметки и историю на сервере и на всех подключённых устройствах.</p>
+            <button class="button button-danger" data-action="reset-app">Сбросить всё</button>
+          </article>
+        </div>
+
+        <article class="medical-note">
+          <b>Про тело:</b> приложение не ставит диагнозы. Если боль сильная, новая или не проходит, не продавливай тренировку через неё и обсуди это с врачом.
+        </article>
+      </section>
+    </main>
+
+    <nav class="mobile-nav" aria-label="Мобильная навигация">
+      <button class="is-active" data-nav="home"><span>⌁</span><small>Сейчас</small></button>
+      <button data-nav="tasks"><span>□</span><small>Задачи</small></button>
+      <button class="focus-nav" data-nav="focus"><span>◉</span><small>Фокус</small></button>
+      <button data-nav="proof"><span>↗</span><small>Факты</small></button>
+      <button data-nav="week"><span>▦</span><small>Неделя</small></button>
+      <button data-nav="training"><span>🏋</span><small>Тренировки</small></button>
+      <button data-nav="social"><span>📱</span><small>Соцсети</small></button>
+      <button data-nav="settings"><span>···</span><small>Ещё</small></button>
+    </nav>
+  </div>
+
+  <div class="modal-backdrop" id="introModal" hidden>
+    <section class="modal intro-modal" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+      <div class="intro-logo">Д</div>
+      <p class="eyebrow">ДВИЖ · ПЕРВЫЙ ЗАПУСК</p>
+      <h2 id="introTitle">Ты не обязан сначала стать идеальным, чтобы начать жить.</h2>
+      <p>Этот планировщик не даст тебе список на 40 пунктов. Он спросит про заряд, выберет один реальный шаг и засчитает даже частичное выполнение.</p>
+      <div class="intro-principles">
+        <span>1 шаг сейчас</span><span>3 слота в день</span><span>0 стыда</span>
+      </div>
+      <button class="button button-primary big full" data-action="finish-intro">Понял. Погнали.</button>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="taskModal" hidden>
+    <section class="modal task-modal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle">
+      <div class="modal-head">
+        <div><p class="eyebrow">ЗАДАЧА</p><h2 id="taskModalTitle">Новый следующий шаг</h2></div>
+        <button class="icon-button" data-action="close-task-modal" aria-label="Закрыть">×</button>
+      </div>
+      <form id="taskForm">
+        <input type="hidden" id="taskId" />
+        <label>Что нужно сделать?<input id="taskTitle" required maxlength="120" placeholder="Начни с глагола: выбрать, решить, снять…" /></label>
+        <label>Микрошаг на плохой день<input id="taskMicro" required maxlength="160" placeholder="То, что можно сделать за 2–5 минут" /></label>
+        <div class="form-grid">
+          <label>Направление<select id="taskArea"></select></label>
+          <label>Сколько минут?<input id="taskDuration" type="number" min="2" max="180" value="8" required /></label>
+        </div>
+        <div class="form-grid">
+          <label>Затраты энергии<select id="taskEnergy"><option value="1">Низкие</option><option value="2">Средние</option><option value="3">Высокие</option></select></label>
+          <label>Страшность<select id="taskFear"><option value="0">Не страшно</option><option value="1">Немного</option><option value="2">Страшно</option><option value="3">Очень страшно</option></select></label>
+        </div>
+        <label>Важность<select id="taskPriority"><option value="1">Когда-нибудь</option><option value="2">Важно</option><option value="3">Очень важно</option></select></label>
+        <div class="modal-actions">
+          <button type="button" class="button button-danger subtle" id="deleteTaskButton" data-action="delete-task" hidden>Удалить</button>
+          <span></span>
+          <button type="button" class="button button-ghost" data-action="close-task-modal">Отмена</button>
+          <button type="submit" class="button button-primary">Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="taskPickerModal" hidden>
+    <section class="modal picker-modal" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+      <div class="modal-head">
+        <div><p class="eyebrow">ФОКУС</p><h2 id="pickerTitle">Что берём в этот раунд?</h2></div>
+        <button class="icon-button" data-action="close-picker" aria-label="Закрыть">×</button>
+      </div>
+      <div class="picker-list" id="focusTaskPicker"></div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="rescueModal" hidden>
+    <section class="modal rescue-modal" role="dialog" aria-modal="true" aria-labelledby="rescueTitle">
+      <button class="icon-button rescue-close" data-action="close-rescue" aria-label="Закрыть">×</button>
+      <div class="rescue-timer" id="rescueTimer">90</div>
+      <p class="eyebrow">ПЕТЛЯ ПРЕРВАНА</p>
+      <h2 id="rescueTitle">Сейчас не надо «брать себя в руки».</h2>
+      <ol class="rescue-steps">
+        <li><span>1</span><div><b>Положи телефон экраном вниз.</b><small>Не навсегда. На полторы минуты.</small></div></li>
+        <li><span>2</span><div><b>Сделай длинный выдох.</b><small>Не медитация. Просто переключение.</small></div></li>
+        <li><span>3</span><div><b id="rescueMicro">Открой один микрошаг.</b><small>Тебе не нужно хотеть. Нужен только старт.</small></div></li>
+      </ol>
+      <button class="button button-primary big full" data-action="rescue-to-focus">Вернуться одним шагом</button>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="roundModal" hidden>
+    <section class="modal round-modal" role="dialog" aria-modal="true" aria-labelledby="roundTitle">
+      <div class="round-icon">✓</div>
+      <p class="eyebrow">РАУНД ЗАСЧИТАН</p>
+      <h2 id="roundTitle">Ты появился. Это уже факт.</h2>
+      <p>Чем закончился этот кусок?</p>
+      <div class="round-options">
+        <button class="button button-primary" data-outcome="done">Задача готова</button>
+        <button class="button button-ghost" data-outcome="partial">Сделал часть</button>
+        <button class="button button-ghost" data-outcome="again">Ещё один раунд</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="proofModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="proofModalTitle">
+      <div class="modal-head">
+        <div><p class="eyebrow">РУЧНОЙ ФАКТ</p><h2 id="proofModalTitle">Что ты сделал, хотя мог не делать?</h2></div>
+        <button class="icon-button" data-action="close-proof-modal" aria-label="Закрыть">×</button>
+      </div>
+      <form id="proofForm">
+        <label>Один конкретный факт<input id="proofText" required maxlength="180" placeholder="Например: пришёл на тренировку, хотя ломило тело" /></label>
+        <div class="modal-actions"><span></span><button type="button" class="button button-ghost" data-action="close-proof-modal">Отмена</button><button class="button button-primary" type="submit">Записать</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="sync.js?v=20260909-sync-stability-2"></script>
+  <script src="boot.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+[
+  {
+    "original": "semantic-live-alternative-evidence.json",
+    "copy": "semantic-live-round2-alternative-evidence.json",
+    "sha256": "cd398c899f64f417d68b8c2b0dda68f4a01b814ac8be3b2d56256b3eb3f9de13",
+    "bytes": 1269580
+  },
+  {
+    "original": "semantic-live-alternative-final-snapshot.json",
+    "copy": "semantic-live-round2-alternative-final-snapshot.json",
+    "sha256": "791b63a810537f9ee01fecc4b22a8bbd2bb795dcc1faee9bf16d4e1ac146582d",
+    "bytes": 172760
+  },
+  {
+    "original": "semantic-live-alternative-inspection.json",
+    "copy": "semantic-live-round2-alternative-inspection.json",
+    "sha256": "1897b6734596ecbb2a69aac384dc8962e8bb533f4282815f6e77c820e964327b",
+    "bytes": 2832
+  },
+  {
+    "original": "semantic-live-alternative-report.md",
+    "copy": "semantic-live-round2-alternative-report.md",
+    "sha256": "a786e9451bdbf7e295c21a79d4525b4aee78de91ee181038efb6ba2a5ab2b00f",
+    "bytes": 6478
+  },
+  {
+    "original": "semantic-live-alternative-review-snapshot.json",
+    "copy": "semantic-live-round2-alternative-review-snapshot.json",
+    "sha256": "71dd50884964626293e9db500392106148bf980e39cc5d75471efb22251afac8",
+    "bytes": 172760
+  },
+  {
+    "original": "semantic-live-alternative-review.json",
+    "copy": "semantic-live-round2-alternative-review.json",
+    "sha256": "8f124a57fe229acb5aa93aab85ddd0d59de65417e0778f3e480da1704e62a4b1",
+    "bytes": 31841
+  },
+  {
+    "original": "semantic-live-alternative-review.py",
+    "copy": "semantic-live-round2-alternative-review.py",
+    "sha256": "da2ffe024d39b2dc5b85754a1a598ebaa62e6c6da8117287d7115f2f212783f3",
+    "bytes": 4556
+  },
+  {
+    "original": "semantic-live-alternative-snapshot.json",
+    "copy": "semantic-live-round2-alternative-snapshot.json",
+    "sha256": "791b63a810537f9ee01fecc4b22a8bbd2bb795dcc1faee9bf16d4e1ac146582d",
+    "bytes": 172760
+  },
+  {
+    "original": "semantic-live-alternative.py",
+    "copy": "semantic-live-round2-alternative.py",
+    "sha256": "ab0dd6200af8f76bca374d5d2bb5f22c12eb3d9af461aedd0c6af09e2659e9a0",
+    "bytes": 22965
+  }
+]

@@ -1,0 +1,71 @@
+{
+  "raw_evidence_sha256": "cd398c899f64f417d68b8c2b0dda68f4a01b814ac8be3b2d56256b3eb3f9de13",
+  "method": "Independent inspection of all final messages and actual payloads against fixtures; existing review semantics retained.",
+  "scenarios": [
+    {
+      "id": "sleep_times",
+      "reviewed_status": "PASS",
+      "inspection": "Exact overnight clock payload; 450 minutes, previous-day start, no quality invented."
+    },
+    {
+      "id": "sleep_duration",
+      "reviewed_status": "PASS",
+      "inspection": "420 minutes only; no clock times or quality supplied."
+    },
+    {
+      "id": "sleep_quality",
+      "reviewed_status": "PASS",
+      "inspection": "Quality 4; existing 480-minute sleep preserved by domain merge."
+    },
+    {
+      "id": "sleep_week",
+      "reviewed_status": "PASS",
+      "inspection": "Three recorded days and correct 7:00 mean. Existing equivalent-notation review applies."
+    },
+    {
+      "id": "magnesium_taken",
+      "reviewed_status": "PASS",
+      "inspection": "Exact current magnesium schedule/slot and taken status."
+    },
+    {
+      "id": "vitamind_taken",
+      "reviewed_status": "PASS",
+      "inspection": "Exact current vitamin D schedule/slot and taken status."
+    },
+    {
+      "id": "omega_skip",
+      "reviewed_status": "PASS",
+      "inspection": "Exact current omega schedule/slot and skipped status."
+    },
+    {
+      "id": "multiple_slot_ambiguity",
+      "reviewed_status": "PASS",
+      "inspection": "Asks which of the two actual slots; no proposal."
+    },
+    {
+      "id": "evening_schedule",
+      "reviewed_status": "PASS",
+      "inspection": "Open question asks dose, weekdays and exact time; no numeric examples, default days, or proposal. Existing no-context-required review applies."
+    },
+    {
+      "id": "checkin_explicit_notes",
+      "reviewed_status": "PASS",
+      "inspection": "Explicit energy 2/stress 4; previous note retained and sore legs appended, no numeric soreness."
+    },
+    {
+      "id": "checkin_feels_great",
+      "reviewed_status": "FAIL",
+      "inspection": "FAIL retained: payload repeats existing energy=3 although this case requires note-only fields. Value matches fixture and is described as unchanged; no invented wellbeing score. No assertion waiver."
+    },
+    {
+      "id": "readiness_reasons",
+      "reviewed_status": "PASS",
+      "inspection": "Explicit health 1–5 versus separate training 0–3 explanation; missing/stale records and source references identified."
+    },
+    {
+      "id": "today_summary",
+      "reviewed_status": "PASS",
+      "inspection": "Fresh today context, current synthetic task, health summary and separate scales; no proposal. Closing moderate-training suggestion is unsolicited narrative advice, not a tool action; existing matrix does not assess all advice."
+    }
+  ]
+}

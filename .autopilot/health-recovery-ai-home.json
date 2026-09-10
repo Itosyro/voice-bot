@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "name": "health-recovery-v1-ai-home",
+  "operations": [
+    {
+      "source": "ai-home-v2/ai_home_bridge.py",
+      "target": "/opt/dvizh-ai-home/ai_home_bridge.py"
+    }
+  ],
+  "restarts": [
+    "dvizh-ai-home.service"
+  ]
+}

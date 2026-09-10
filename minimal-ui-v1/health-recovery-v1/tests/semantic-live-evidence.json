@@ -1,0 +1,270 @@
+{
+  "schema": 1,
+  "created_at": "2026-09-10T12:12:10.084306+00:00",
+  "status": "BLOCKED_BEFORE_RUNTIME_IMPORT",
+  "semantic_acceptance": "NOT_RUN",
+  "scope": "Static preflight only. No runtime import, agent construction, production API call, or model execution.",
+  "docs": [
+    "https://hermes-agent.nousresearch.com/docs/llms.txt",
+    "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture",
+    "https://hermes-agent.nousresearch.com/docs/developer-guide/programmatic-integration",
+    "https://hermes-agent.nousresearch.com/docs/developer-guide/provider-runtime"
+  ],
+  "sources": {
+    "run_agent": {
+      "path": "/home/exedev/.hermes/hermes-agent/run_agent.py",
+      "sha256": "9f789a3cd61821e8894882b6a035b6885d749a35ab045d9b16928bb4155b049c"
+    },
+    "model_tools": {
+      "path": "/home/exedev/.hermes/hermes-agent/model_tools.py",
+      "sha256": "8af21e3a3ec73444f9612d1d17640c62f5b19b8d201ce0cb836e79f0ccdddc86"
+    },
+    "agent_init": {
+      "path": "/home/exedev/.hermes/hermes-agent/agent/agent_init.py",
+      "sha256": "ff051678e80721ad4e053f83b66b220fbffaeef28c441fdbd8c9a7e81bdd1a8b"
+    },
+    "conversation_loop": {
+      "path": "/home/exedev/.hermes/hermes-agent/agent/conversation_loop.py",
+      "sha256": "86474bf782d9418c4203dd662c46227784698d53090f6664ddb3cdf6119d20df"
+    },
+    "production_bridge_source": {
+      "path": "/home/exedev/.hermes/dev/dvizh/worktrees/20260909-115201-e37585/ai-home-v2/ai_home_bridge.py",
+      "sha256": "03bf51db843ed3fc9cccc50103149459549e9b9ac98b4893aa6fdab98bc4a0f6"
+    },
+    "new_health_prompt": {
+      "path": "/home/exedev/.hermes/dev/dvizh/worktrees/20260909-115201-e37585/minimal-ui-v1/health-recovery-v1/AI-PROMPT.txt",
+      "sha256": "2dde4d17daee415c810f42933b0b61272cc5e770ccfe0bcc4d4e0ef897313e8b"
+    },
+    "domain_validator_source": {
+      "path": "/home/exedev/.hermes/dev/dvizh/worktrees/20260909-115201-e37585/minimal-ui-v1/health-recovery-v1/domain.py",
+      "sha256": "b84a21849422a8f6527958ab2bc958fff5146a4175a237146745a0b693a00925"
+    }
+  },
+  "static_checks": {
+    "bridge_has_hermes_messages": true,
+    "bridge_contains_exact_new_prompt": true,
+    "constructor_parameters": [
+      "base_url",
+      "api_key",
+      "provider",
+      "api_mode",
+      "acp_command",
+      "acp_args",
+      "command",
+      "args",
+      "model",
+      "max_iterations",
+      "tool_delay",
+      "enabled_toolsets",
+      "disabled_toolsets",
+      "save_trajectories",
+      "verbose_logging",
+      "quiet_mode",
+      "tool_progress_mode",
+      "ephemeral_system_prompt",
+      "log_prefix_chars",
+      "log_prefix",
+      "providers_allowed",
+      "providers_ignored",
+      "providers_order",
+      "provider_sort",
+      "provider_require_parameters",
+      "provider_data_collection",
+      "openrouter_min_coding_score",
+      "session_id",
+      "tool_progress_callback",
+      "tool_start_callback",
+      "tool_complete_callback",
+      "thinking_callback",
+      "reasoning_callback",
+      "clarify_callback",
+      "read_terminal_callback",
+      "read_preview_callback",
+      "drive_preview_callback",
+      "read_window_below_callback",
+      "setup_mcp_callback",
+      "tour_callback",
+      "step_callback",
+      "stream_delta_callback",
+      "interim_assistant_callback",
+      "tool_gen_callback",
+      "status_callback",
+      "notice_callback",
+      "notice_clear_callback",
+      "event_callback",
+      "reaction_callback",
+      "max_tokens",
+      "reasoning_config",
+      "service_tier",
+      "request_overrides",
+      "prefill_messages",
+      "platform",
+      "user_id",
+      "user_id_alt",
+      "user_name",
+      "chat_id",
+      "chat_name",
+      "chat_type",
+      "thread_id",
+      "gateway_session_key",
+      "skip_context_files",
+      "load_soul_identity",
+      "skip_memory",
+      "skip_background_review",
+      "session_db",
+      "parent_session_id",
+      "iteration_budget",
+      "run_budget_seconds",
+      "fallback_model",
+      "credential_pool",
+      "checkpoints_enabled",
+      "checkpoint_max_snapshots",
+      "checkpoint_max_total_size_mb",
+      "checkpoint_max_file_size_mb",
+      "pass_session_id",
+      "requested_provider",
+      "capabilities"
+    ],
+    "dotenv_import_side_effect_lines": [
+      95
+    ],
+    "tool_module_discovery_lines": [
+      147
+    ],
+    "tool_module_plugin_discovery_lines": [
+      160
+    ],
+    "constructor_plugin_discovery_lines": [
+      1037
+    ],
+    "constructor_config_load_lines": [
+      2285
+    ],
+    "conversation_lifecycle_hook_lines": [
+      731
+    ]
+  },
+  "blocker": "A pre-import filesystem/tool/hook isolation boundary has not been established and verified for the installed Hermes runtime. Import-time dotenv/plugin discovery precedes instance-level executor injection. Toolset filtering and a post-construction terminal replacement alone cannot guarantee the requested isolation. No safe authenticated runtime/client path was exercised.",
+  "availability": {
+    "auth": "NOT_TESTED",
+    "model": "NOT_TESTED"
+  },
+  "counts": {
+    "model_requests": 0,
+    "runtime_tool_calls": 0,
+    "production_api_calls": 0,
+    "synthetic_proposals": 0,
+    "semantic_passes": 0,
+    "semantic_failures": 0,
+    "semantic_unrun": 13
+  },
+  "assistant_outputs": [],
+  "tool_outputs": [],
+  "scenarios": [
+    {
+      "id": "sleep_times",
+      "synthetic_user_input": "Спал с 23:30 до 07:00.",
+      "required_assertions": "health context; health_sleep start/end; 450-minute overnight interpretation; no invented quality",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "sleep_duration",
+      "synthetic_user_input": "Спал 7 часов.",
+      "required_assertions": "health context; health_sleep durationMinutes=420; no invented times or quality",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "sleep_quality",
+      "synthetic_user_input": "Качество сна 4.",
+      "required_assertions": "synthetic existing sleep day; health_sleep quality=4; preserve sleep values",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "sleep_week",
+      "synthetic_user_input": "Сон за неделю?",
+      "required_assertions": "week context; recorded-day denominator; query-only",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "magnesium_taken",
+      "synthetic_user_input": "Принял магний.",
+      "required_assertions": "health context; unique enabled synthetic magnesium slot; typed taken proposal",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "vitamind_taken",
+      "synthetic_user_input": "Принял витамин D.",
+      "required_assertions": "health context; correct synthetic vitamin D schedule/slot; typed taken proposal",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "omega_skip",
+      "synthetic_user_input": "Омегу сегодня пропустил.",
+      "required_assertions": "health context; correct synthetic omega schedule/slot; typed skipped proposal",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "multiple_slot_ambiguity",
+      "synthetic_user_input": "Принял магний.",
+      "required_assertions": "synthetic magnesium with two slots; clarification; no proposal",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "evening_schedule",
+      "synthetic_user_input": "Добавь магний вечером.",
+      "required_assertions": "clarify dose, exact time and weekdays; no fabricated values or proposal",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "checkin_explicit_notes",
+      "synthetic_user_input": "energy 2, stress 4, sore legs",
+      "required_assertions": "health context; health_checkin energy=2 stress=4 note; no inferred soreness",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "checkin_feels_great",
+      "synthetic_user_input": "feels great",
+      "required_assertions": "health context; health_checkin note; no inferred wellbeing score; preserve existing note",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "readiness_reasons",
+      "synthetic_user_input": "Почему такая готовность сегодня?",
+      "required_assertions": "health context; readiness level/factors, missing/stale data and reference scales; query-only",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    },
+    {
+      "id": "today_summary",
+      "synthetic_user_input": "Краткий итог на сегодня?",
+      "required_assertions": "today context; grounded brief summary; query-only",
+      "status": "NOT_RUN",
+      "reason": "isolation_preflight_blocked"
+    }
+  ],
+  "future_run_budget": {
+    "enabled": false,
+    "max_scenarios": 13,
+    "max_model_steps_per_scenario": 4,
+    "max_tool_calls_per_scenario": 6,
+    "max_seconds_per_scenario": 90,
+    "retries": 0
+  },
+  "limitations": [
+    "No synthetic storage instantiated and no domain validation executed.",
+    "Static source checks are not live semantic evidence.",
+    "No claim that an isolated harness is impossible; this run stopped because isolation was not established.",
+    "Source hashes describe this snapshot; another agent may update the bridge, prompt, or validator."
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "name": "health-recovery-v1-manual",
+  "operations": [
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/dist/app.js",
+      "target": "/opt/dvizh/static/app.js",
+      "http_path": "/app.js"
+    },
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/dist/manual.html",
+      "target": "/opt/dvizh/static/manual.html",
+      "http_path": "/manual.html"
+    },
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/dist/sync.js",
+      "target": "/opt/dvizh/static/sync.js",
+      "http_path": "/sync.js"
+    }
+  ],
+  "restarts": []
+}
