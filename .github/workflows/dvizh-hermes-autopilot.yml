@@ -101,20 +101,14 @@ jobs:
           [[ ! -f .autopilot/release.json ]] && exit 0
           python3 - <<'PY'
           import json
+          import importlib.util
           from pathlib import Path
-          p=Path('.autopilot/release.json')
-          d=json.loads(p.read_text(encoding='utf-8'))
+          spec = importlib.util.spec_from_file_location('release_contract', Path('hermes-dev-v2/dvizhrelease.py'))
+          gate = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(gate)
+          d = json.loads(Path('.autopilot/release.json').read_text(encoding='utf-8'), object_pairs_hook=gate.unique_object)
           if d.get('schema') != 1: raise SystemExit('release schema must be 1')
-          ops=d.get('operations')
-          if not isinstance(ops,list) or not (1 <= len(ops) <= 20): raise SystemExit('operations must be 1..20')
-          for op in ops:
-            if not isinstance(op,dict): raise SystemExit('operation must be object')
-            if set(op)-{'source','target','http_path'}: raise SystemExit('unsupported operation key')
-            src=str(op.get('source') or ''); target=str(op.get('target') or '')
-            if not src or Path(src).is_absolute() or '..' in Path(src).parts: raise SystemExit(f'unsafe source: {src}')
-            if not target.startswith('/') or '..' in Path(target).parts: raise SystemExit(f'unsafe target: {target}')
-          restarts=d.get('restarts',[])
-          if not isinstance(restarts,list): raise SystemExit('restarts must be list')
+          gate.validate_manifest({'mode': 'auto'}, d)
           print('release manifest structurally valid')
           PY
 
