@@ -22,7 +22,7 @@ class ReleaseTests(unittest.TestCase):
         html=(ROOT/'dist/manual.html').read_text()
         self.assertIn((ROOT/'baseline/static/manual.html').read_text().split('<style id="quiet-signal-manual-v2">')[1].split('</style>')[0],html)
     def test_self_contained_helpers_manifests(self):
-        manifest=json.loads((REPO/'.autopilot/health-recovery-privileged.json').read_text())
+        manifest=json.loads((ROOT/'manifests/health-recovery-privileged.json').read_text())
         expected={'/usr/local/libexec/dvizh-context':('hermes-control-v1/dvizh_context.py','python-syntax'),'/usr/local/libexec/dvizh-proposals':('hermes-control-v1/dvizh_proposals.py','python-syntax'),'/opt/dvizh-ai-approval/proposal_bridge.py':('hermes-control-v1/dvizh_proposal_bridge.py','python-syntax-service')}
         self.assertEqual({r['target'] for r in manifest['operations']},set(expected))
         for row in manifest['operations']:
@@ -33,14 +33,14 @@ class ReleaseTests(unittest.TestCase):
             self.assertNotIn('from domain import',source)
         self.assertEqual(manifest['restarts'],['dvizh-ai-approval.service']);self.assertTrue(manifest['restart_reason'])
         for name in ['frontend','ai-home']:
-            ordinary=json.loads((REPO/f'.autopilot/health-recovery-{name}.json').read_text())
+            ordinary=json.loads((ROOT/f'manifests/health-recovery-{name}.json').read_text())
             self.assertTrue(all(r['target'] not in expected for r in ordinary['operations']))
             for row in ordinary['operations']:
                 # Installed v2.2 accepts SHA only on privileged operations.
                 self.assertTrue(set(row) <= {'source', 'target', 'http_path'})
                 self.assertTrue((REPO/row['source']).is_file())
     def test_builder_reproducible(self):
-        paths=[*list((ROOT/'dist').glob('*')),*list((REPO/'.autopilot').glob('health-recovery-*.json')),*(REPO/'hermes-control-v1'/name for name in ['dvizh_context.py','dvizh_proposals.py','dvizh_proposal_bridge.py']),REPO/'ai-home-v2/ai_home_bridge.py']
+        paths=[*list((ROOT/'dist').glob('*')),*list((ROOT/'manifests').glob('health-recovery-*.json')),*(REPO/'hermes-control-v1'/name for name in ['dvizh_context.py','dvizh_proposals.py','dvizh_proposal_bridge.py']),REPO/'ai-home-v2/ai_home_bridge.py']
         before={str(p):p.read_bytes() for p in paths}
         subprocess.check_call(['python3',str(ROOT/'build.py')])
         self.assertEqual(before,{str(p):p.read_bytes() for p in paths})

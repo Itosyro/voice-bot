@@ -8,17 +8,17 @@ ordinary and privileged operations in one manifest.
 
 ## Packages and order
 
-1. `.autopilot/health-recovery-frontend.json`: generated `app.js`, `manual.html`,
+1. `minimal-ui-v1/health-recovery-v1/manifests/health-recovery-frontend.json`: generated `app.js`, `manual.html`,
    and `sync.js` with the exact health derived-field delta over its pinned base.
    Sync first, app second, HTML third; no restart.
    This makes manual health entry and exact proposal confirmation available
    independently of the helper upgrade. New app with old HTML is supported;
    old app with new HTML exposes an update message and disabled health forms.
-2. `.autopilot/health-recovery-privileged.json`: **only** the exact mappings below.
+2. `minimal-ui-v1/health-recovery-v1/manifests/health-recovery-privileged.json`: **only** the exact mappings below.
    Restart `dvizh-ai-approval.service` for the new typed handlers, with the declared
    `restart_reason`. Existing handlers continue to operate. The self-contained
    sources embed `domain.py`; no new runtime helper or path is required.
-3. `.autopilot/health-recovery-ai-home.json`: `ai-home-v2/ai_home_bridge.py` to the
+3. `minimal-ui-v1/health-recovery-v1/manifests/health-recovery-ai-home.json`: `ai-home-v2/ai_home_bridge.py` to the
    existing `/opt/dvizh-ai-home/ai_home_bridge.py`, then the declared
    `dvizh-ai-home.service` restart. Enables the additive health tool instructions
    in new Hermes requests only after the context, proposals and approval bridge

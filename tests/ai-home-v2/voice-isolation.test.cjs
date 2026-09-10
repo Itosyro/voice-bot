@@ -38,7 +38,7 @@ test('health feature preserves existing sources except the three authorized Herm
     assert.equal(execFileSync('git',['hash-object','--',name],{cwd:root,encoding:'utf8'}).trim(),
       execFileSync('git',['rev-parse',`${featureBase}:${name}`],{cwd:root,encoding:'utf8'}).trim(),name);
   }
-  const manifest=JSON.parse(fs.readFileSync(path.join(root,'.autopilot/health-recovery-privileged.json'),'utf8'));
+  const manifest=JSON.parse(fs.readFileSync(path.join(root,'minimal-ui-v1/health-recovery-v1/manifests/health-recovery-privileged.json'),'utf8'));
   assert.deepEqual(manifest.operations.map(o=>o.source).sort(),helpers.sort());
   const crypto=require('node:crypto');
   for(const op of manifest.operations)assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,op.source))).digest('hex'),op.sha256,op.source);

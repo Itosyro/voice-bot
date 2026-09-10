@@ -107,7 +107,7 @@ def apply_state_action(''')
     nav='<details class="health-more"><summary>Ещё</summary><nav aria-label="Разделы Manual">'+''.join(f'<button type="button" data-nav="{key}">{label}</button>' for key,label in [('home','Сейчас'),('tasks','Задачи'),('focus','Фокус'),('week','Неделя'),('training','Тренировки и Jump'),('social','Соцсети'),('proof','Факты'),('settings','Настройки')])+'<button type="button" data-open-health disabled>Здоровье</button></nav></details>'
     html=replace_once(html,'  </header>\n\n  <div class="app-shell">','    '+nav+'\n  </header>\n\n  <div class="app-shell">')
     (dist/'manual.html').write_text(html)
-    autopilot=REPO/'.autopilot';autopilot.mkdir(exist_ok=True)
+    manifests=ROOT/'manifests';manifests.mkdir(exist_ok=True)
     mappings=[('dvizh_proposal_bridge.py','/opt/dvizh-ai-approval/proposal_bridge.py','python-syntax-service'),('dvizh_context.py','/usr/local/libexec/dvizh-context','python-syntax'),('dvizh_proposals.py','/usr/local/libexec/dvizh-proposals','python-syntax')]
     privileged={'schema':1,'name':'health-recovery-v1-ai-integration','operations':[], 'restarts':['dvizh-ai-approval.service'],'restart_reason':'Load additive typed health actions in the existing authenticated approval bridge; preserve legacy handlers and CAS.'}
     for filename,target,verification in mappings:
@@ -116,6 +116,6 @@ def apply_state_action(''')
     frontend={'schema':1,'name':'health-recovery-v1-manual','operations':[{'source':'minimal-ui-v1/health-recovery-v1/dist/'+file,'target':'/opt/dvizh/static/'+file,'http_path':'/'+file} for file in ['app.js','manual.html','sync.js']], 'restarts':[]}
     ai_manifest={'schema':1,'name':'health-recovery-v1-ai-home','operations':[{'source':'ai-home-v2/ai_home_bridge.py','target':'/opt/dvizh-ai-home/ai_home_bridge.py'}], 'restarts':['dvizh-ai-home.service']}
     for name,manifest in [('health-recovery-privileged.json',privileged),('health-recovery-frontend.json',frontend),('health-recovery-ai-home.json',ai_manifest)]:
-        (autopilot/name).write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+        (manifests/name).write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 
 if __name__=='__main__': build()

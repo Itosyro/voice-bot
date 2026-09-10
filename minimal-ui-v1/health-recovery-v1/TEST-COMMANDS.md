@@ -44,7 +44,7 @@ python3 - <<'PY'
 import json, runpy
 from pathlib import Path
 gate = runpy.run_path('/usr/local/sbin/dvizhrelease', run_name='manifest_validation')
-for path in sorted(Path('.autopilot').glob('health-recovery-*.json')):
+for path in sorted(Path('minimal-ui-v1/health-recovery-v1/manifests').glob('health-recovery-*.json')):
     result = gate['validate_manifest']({'mode': 'safe'}, json.loads(path.read_text()))
     print(path.name, result['risk'], result['approval_required'])
 PY

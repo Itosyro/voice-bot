@@ -7,7 +7,7 @@ on:
       - 'hermes-control-v1/dvizh_proposals.py'
       - 'hermes-control-v1/dvizh_proposal_bridge.py'
       - 'ai-home-v2/ai_home_bridge.py'
-      - '.autopilot/health-recovery-*.json'
+      - 'minimal-ui-v1/health-recovery-v1/manifests/health-recovery-*.json'
       - '.github/workflows/dvizh-health-recovery.yml'
   push:
     paths:
@@ -16,7 +16,7 @@ on:
       - 'hermes-control-v1/dvizh_proposals.py'
       - 'hermes-control-v1/dvizh_proposal_bridge.py'
       - 'ai-home-v2/ai_home_bridge.py'
-      - '.autopilot/health-recovery-*.json'
+      - 'minimal-ui-v1/health-recovery-v1/manifests/health-recovery-*.json'
       - '.github/workflows/dvizh-health-recovery.yml'
   workflow_dispatch:
 permissions:
@@ -42,7 +42,7 @@ jobs:
       - name: Full local acceptance (temporary API and fake identities only)
         run: bash minimal-ui-v1/health-recovery-v1/tests/run.sh
       - name: Verify generated release bytes committed by orchestrator
-        run: git diff --exit-code -- hermes-control-v1/dvizh_context.py hermes-control-v1/dvizh_proposals.py hermes-control-v1/dvizh_proposal_bridge.py ai-home-v2/ai_home_bridge.py minimal-ui-v1/health-recovery-v1/dist .autopilot/health-recovery-privileged.json .autopilot/health-recovery-frontend.json .autopilot/health-recovery-ai-home.json
+        run: git diff --exit-code -- hermes-control-v1/dvizh_context.py hermes-control-v1/dvizh_proposals.py hermes-control-v1/dvizh_proposal_bridge.py ai-home-v2/ai_home_bridge.py minimal-ui-v1/health-recovery-v1/dist minimal-ui-v1/health-recovery-v1/manifests/health-recovery-privileged.json minimal-ui-v1/health-recovery-v1/manifests/health-recovery-frontend.json minimal-ui-v1/health-recovery-v1/manifests/health-recovery-ai-home.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
