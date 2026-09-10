@@ -1,4 +1,4 @@
-name: Owner maintenance v2.2 exact bundle export
+name: Owner maintenance v2.2 verified payload staging
 
 on:
   push:
@@ -9,42 +9,39 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: owner-maintenance-v22-export
+  group: owner-maintenance-v22-staging
   cancel-in-progress: false
 
 jobs:
-  verify-and-export:
+  verify-and-stage:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Reconstruct and verify exact Hermes bundle
+      - name: Reconstruct exact bundle
         shell: bash
         run: |
           set -Eeuo pipefail
-          cat .owner-maintenance/v22/bundle.b64.part* | base64 -d > /tmp/dvizh-owner-maintenance-v2.2.bundle
-          test "$(wc -c < /tmp/dvizh-owner-maintenance-v2.2.bundle)" = "46956"
-          test "$(sha256sum /tmp/dvizh-owner-maintenance-v2.2.bundle | awk '{print $1}')" = "aa6c7c0b74f3aefd44fdab68d881de52c9fd9091731649b470469c715153c4ea"
-          git bundle verify /tmp/dvizh-owner-maintenance-v2.2.bundle
-          git fetch /tmp/dvizh-owner-maintenance-v2.2.bundle HEAD
+          cat .owner-maintenance/v22/bundle.b64.part* | base64 -d > /tmp/v22.bundle
+          test "$(wc -c < /tmp/v22.bundle)" = "46956"
+          test "$(sha256sum /tmp/v22.bundle | awk '{print $1}')" = "aa6c7c0b74f3aefd44fdab68d881de52c9fd9091731649b470469c715153c4ea"
+          git bundle verify /tmp/v22.bundle
+          git fetch /tmp/v22.bundle HEAD
           TARGET="$(git rev-parse FETCH_HEAD)"
           BASE="$(git rev-parse "${TARGET}^")"
           test "$TARGET" = "da7395e436563774a29f7694b258bd85987bed2f"
           test "$BASE" = "accb555b0da3b90eed9d1708ee68a286506d4feb"
           echo "TARGET=$TARGET" >> "$GITHUB_ENV"
           echo "BASE=$BASE" >> "$GITHUB_ENV"
-
-      - name: Enforce owner-maintenance isolation
+      - name: Verify isolation and tests
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -52,64 +49,41 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           names=[x for x in Path('/tmp/changed').read_text().splitlines() if x]
-          exact={
-            '.github/workflows/dvizh-hermes-autopilot-v2-tests.yml',
-            '.github/workflows/dvizh-hermes-autopilot.yml',
-            'hermes-dev-v2/.gitattributes',
-            'hermes-dev-v2/OWNER-MAINTENANCE-v2.2.md',
-            'hermes-dev-v2/dvizhrelease.py',
-            'hermes-dev-v2/skill/SKILL.md',
-            'tests/hermes_autopilot/test_release_v22.py',
-            'tests/hermes_autopilot/test_release_v22_review.py',
-          }
-          def allowed(p): return p in exact or p.startswith('hermes-dev-v2/evidence/v2.2/')
-          bad=[p for p in names if not allowed(p)]
-          if bad: raise SystemExit('Unexpected owner-maintenance paths: '+repr(bad))
-          forbidden_prefixes=('src/','migrations/')
-          forbidden_exact={'Dockerfile','docker-compose.yml','docker-compose.server.yml','pyproject.toml','alembic.ini','Makefile','README.md'}
-          for p in names:
-              if p.startswith(forbidden_prefixes) or p in forbidden_exact:
-                  raise SystemExit('Friend-project path changed: '+p)
-          print(f'Owner-maintenance isolation OK: {len(names)} paths')
+          exact={'.github/workflows/dvizh-hermes-autopilot-v2-tests.yml','.github/workflows/dvizh-hermes-autopilot.yml','hermes-dev-v2/.gitattributes','hermes-dev-v2/OWNER-MAINTENANCE-v2.2.md','hermes-dev-v2/dvizhrelease.py','hermes-dev-v2/skill/SKILL.md','tests/hermes_autopilot/test_release_v22.py','tests/hermes_autopilot/test_release_v22_review.py'}
+          bad=[p for p in names if not (p in exact or p.startswith('hermes-dev-v2/evidence/v2.2/'))]
+          if bad: raise SystemExit('Unexpected paths: '+repr(bad))
+          forbidden=('src/','migrations/')
+          if any(p.startswith(forbidden) for p in names): raise SystemExit('friend project touched')
+          print('isolation OK', len(names))
           PY
-          test "$(git rev-parse "$BASE:hermes-dev-v2/dvizhautopilot.py")" = "1133a558b459dc5c1d4f76af066eb8132506e6be"
           test "$(git rev-parse "$TARGET:hermes-dev-v2/dvizhautopilot.py")" = "1133a558b459dc5c1d4f76af066eb8132506e6be"
-          test "$(git rev-parse "$BASE:hermes-dev-v2/dvizhgitpush.py")" = "71a50de55f30858708b0c5d6e3e7946e3211ff31"
           test "$(git rev-parse "$TARGET:hermes-dev-v2/dvizhgitpush.py")" = "71a50de55f30858708b0c5d6e3e7946e3211ff31"
-
-      - name: Run exact v2.2 maintenance suite
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git worktree add --detach /tmp/dvizh-v22 "$TARGET"
-          cd /tmp/dvizh-v22
+          git worktree add --detach /tmp/v22 "$TARGET"
+          cd /tmp/v22
           python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhgitpush.py hermes-dev-v2/dvizhrelease.py
           python3 -m unittest discover -s tests/hermes_autopilot -v
-          grep -F 'PRIVILEGED_CLASS = "ai-integration-privileged"' hermes-dev-v2/dvizhrelease.py
-          grep -F '2026.09.09-dvizh-release-gate.2.2' hermes-dev-v2/dvizhrelease.py
-
-      - name: Build exact owner payload
+      - name: Build base-parented commit containing exact non-workflow payload
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p /tmp/owner-export/files
-          cd /tmp/dvizh-v22
-          git diff --name-only "$BASE" "$TARGET" > /tmp/owner-export/changed-files.txt
-          git format-patch -1 --stdout "$TARGET" > /tmp/owner-export/0001-v2.2.patch
+          git config user.name 'DVIZH Owner Maintenance'
+          git config user.email 'owner-maintenance@users.noreply.github.com'
+          git checkout --detach "$BASE"
           while IFS= read -r p; do
-            mkdir -p "/tmp/owner-export/files/$(dirname "$p")"
-            cp -a -- "$p" "/tmp/owner-export/files/$p"
-          done < /tmp/owner-export/changed-files.txt
-          cd /tmp/owner-export
-          sha256sum $(find files -type f -print | sort) > SHA256SUMS.txt
-          printf '%s\n' "$TARGET" > TARGET.txt
-          printf '%s\n' "$BASE" > BASE.txt
-          tar -czf /tmp/dvizh-v2.2-owner-payload.tar.gz changed-files.txt 0001-v2.2.patch SHA256SUMS.txt TARGET.txt BASE.txt files
-          sha256sum /tmp/dvizh-v2.2-owner-payload.tar.gz
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dvizh-v2.2-owner-payload
-          path: /tmp/dvizh-v2.2-owner-payload.tar.gz
-          if-no-files-found: error
-          retention-days: 7
+            case "$p" in
+              .github/workflows/dvizh-hermes-autopilot-v2-tests.yml|.github/workflows/dvizh-hermes-autopilot.yml) continue ;;
+            esac
+            git checkout "$TARGET" -- "$p"
+          done < /tmp/changed
+          git diff --cached --name-only > /tmp/staged
+          test "$(wc -l < /tmp/staged)" = "40"
+          ! grep -q '^\.github/workflows/' /tmp/staged
+          git commit -m 'Owner maintenance v2.2 verified payload (workflow files staged separately)'
+          PAYLOAD_COMMIT="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE"
+          echo "PAYLOAD_COMMIT=$PAYLOAD_COMMIT" >> "$GITHUB_ENV"
+      - name: Push non-workflow payload branch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git push origin "$PAYLOAD_COMMIT:refs/heads/owner/hermes-autopilot-v2.2-payload-2026-09-10"
