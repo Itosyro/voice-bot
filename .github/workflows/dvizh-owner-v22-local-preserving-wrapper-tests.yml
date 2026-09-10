@@ -1,0 +1,54 @@
+name: DVIZH Owner v2.2 Local-Preserving Wrapper Tests
+
+on:
+  push:
+    branches:
+      - 'owner/hermes-autopilot-v2.2-install-compat-2026-09-10'
+    paths:
+      - 'install-dvizh-hermes-autopilot-v2.2-owner-maintenance-local-preserving.sh'
+      - '.github/workflows/dvizh-owner-v22-local-preserving-wrapper-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wrapper-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify pinned wrapper and patched installer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          WRAP=install-dvizh-hermes-autopilot-v2.2-owner-maintenance-local-preserving.sh
+          bash -n "$WRAP"
+          grep -Fq 'SOURCE_COMMIT="e197c5eff9bb2a8342478ac3f854e02bc9106b9d"' "$WRAP"
+          grep -Fq 'SOURCE_BLOB="51dc92d42180c2b3cdba1220fb9fbb62f4a07103"' "$WRAP"
+          grep -Fq 'expected exactly one compatibility grep site' "$WRAP"
+          git show e197c5eff9bb2a8342478ac3f854e02bc9106b9d:install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh > /tmp/source.sh
+          python3 - /tmp/source.sh <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          old='  grep -Fq "--approval \'APPROVE <proposal-id> <token>\'" "$p" || return 1'
+          new='  grep -Fq -- "--approval \'APPROVE <proposal-id> <token>\'" "$p" || return 1'
+          assert s.count(old) == 1
+          p.write_text(s.replace(old,new), encoding='utf-8')
+          PY
+          bash -n /tmp/source.sh
+          grep -Fq -- "grep -Fq -- \"--approval 'APPROVE <proposal-id> <token>'\"" /tmp/source.sh
+          grep -Fq 'LOCAL_SKILL_BLOB="082a6ce569a0c0c5bd34d00b8d1957a6d7bca233"' /tmp/source.sh
+          grep -Fq 'new.startswith(old)' /tmp/source.sh
+      - name: Preserve root boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          WRAP=install-dvizh-hermes-autopilot-v2.2-owner-maintenance-local-preserving.sh
+          ! grep -Eq 'systemctl|iptables|ufw|authorized_keys|sudoers|id_ed25519|NOPASSWD' "$WRAP"
+          grep -Fq 'raw.githubusercontent.com' "$WRAP"
+          grep -Fq 'pinned compatibility installer blob mismatch' "$WRAP"
