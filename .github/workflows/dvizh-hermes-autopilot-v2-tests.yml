@@ -41,7 +41,7 @@ jobs:
           python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py hermes-dev-v2/dvizhgitpush.py
           bash -n install-dvizh-hermes-autopilot.sh
           grep -Fq 'VERSION = "2026.09.08-hermes-autopilot.2"' hermes-dev-v2/dvizhautopilot.py
-          grep -Fq 'VERSION = "2026.09.08-dvizh-release-gate.1"' hermes-dev-v2/dvizhrelease.py
+          grep -Fq 'VERSION = "2026.09.09-dvizh-release-gate.2.2"' hermes-dev-v2/dvizhrelease.py
           grep -Fq 'VERSION = "2026.09.08-dvizh-git-push-gate.1"' hermes-dev-v2/dvizhgitpush.py
           grep -q '^name: dvizh-dev$' hermes-dev-v2/skill/SKILL.md
           grep -Fq 'Do not call release-apply until a later user Telegram message contains that exact phrase.' hermes-dev-v2/skill/SKILL.md
