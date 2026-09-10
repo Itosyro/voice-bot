@@ -1,0 +1,71 @@
+name: DVIZH Owner v2.2 State Root Fix Tests
+
+on:
+  push:
+    branches:
+      - 'owner/hermes-autopilot-v2.2-install-2026-09-10'
+    paths:
+      - 'install-dvizh-hermes-autopilot-v2.2-state-root-fix.sh'
+      - '.github/workflows/dvizh-owner-v22-state-root-fix-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax and narrow state-root contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          S=install-dvizh-hermes-autopilot-v2.2-state-root-fix.sh
+          bash -n "$S"
+          grep -Fq 'PAYLOAD_REF="57a2975bcfc47583e1f87250aca8eccddcfc9ebc"' "$S"
+          grep -Fq 'SOURCE_GATE_BLOB="cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844"' "$S"
+          grep -Fq "NEW_ROOT='/var/lib/dvizh-release-gate'" "$S"
+          grep -Fq 'Application state /var/lib/dvizh: unchanged' "$S"
+          ! grep -Eq 'chown .*\/var\/lib\/dvizh([[:space:]]|$)|chmod .*\/var\/lib\/dvizh([[:space:]]|$)' "$S"
+          ! grep -Eq 'systemctl|iptables|ufw|authorized_keys|sudoers|id_ed25519|NOPASSWD' "$S"
+      - name: Reproduce deterministic gate patch
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git show 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py > /tmp/source.py
+          test "$(git hash-object /tmp/source.py)" = cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844
+          python3 - /tmp/source.py /tmp/target.py <<'PY'
+          from pathlib import Path
+          import sys
+          src=Path(sys.argv[1]).read_text()
+          repls={
+          'VERSION = "2026.09.09-dvizh-release-gate.2.2"':'VERSION = "2026.09.10-dvizh-release-gate.2.2.1-state-root"',
+          'BACKUP_ROOT = Path(os.environ.get("DVIZH_RELEASE_BACKUP_ROOT", "/var/lib/dvizh/backups"))':'BACKUP_ROOT = Path(os.environ.get("DVIZH_RELEASE_BACKUP_ROOT", "/var/lib/dvizh-release-gate/backups"))',
+          'APPROVAL_ROOT = Path(os.environ.get("DVIZH_RELEASE_APPROVAL_ROOT", "/var/lib/dvizh/autopilot-approvals"))':'APPROVAL_ROOT = Path(os.environ.get("DVIZH_RELEASE_APPROVAL_ROOT", "/var/lib/dvizh-release-gate/approvals"))',
+          'BACKUP_ROOT != Path("/var/lib/dvizh/backups")':'BACKUP_ROOT != Path("/var/lib/dvizh-release-gate/backups")',
+          'APPROVAL_ROOT != Path("/var/lib/dvizh/autopilot-approvals")':'APPROVAL_ROOT != Path("/var/lib/dvizh-release-gate/approvals")',
+          }
+          for old,new in repls.items():
+              assert src.count(old)==1, (old,src.count(old))
+              src=src.replace(old,new)
+          Path(sys.argv[2]).write_text(src)
+          PY
+          python3 -m py_compile /tmp/target.py
+          grep -Fq '/var/lib/dvizh-release-gate/backups' /tmp/target.py
+          grep -Fq '/var/lib/dvizh-release-gate/approvals' /tmp/target.py
+          grep -Fq '2026.09.10-dvizh-release-gate.2.2.1-state-root' /tmp/target.py
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/target.py').read_text()
+          assert 'BACKUP_ROOT = Path(os.environ.get("DVIZH_RELEASE_BACKUP_ROOT", "/var/lib/dvizh/backups"))' not in s
+          assert 'APPROVAL_ROOT = Path(os.environ.get("DVIZH_RELEASE_APPROVAL_ROOT", "/var/lib/dvizh/autopilot-approvals"))' not in s
+          assert 'BACKUP_ROOT != Path("/var/lib/dvizh/backups")' not in s
+          assert 'APPROVAL_ROOT != Path("/var/lib/dvizh/autopilot-approvals")' not in s
+          PY
