@@ -1,0 +1,56 @@
+name: DVIZH Owner v2.2 Installer Tests
+
+on:
+  push:
+    branches:
+      - 'owner/hermes-autopilot-v2.2-install-2026-09-10'
+    paths:
+      - 'install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh'
+      - '.github/workflows/dvizh-owner-v22-installer-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Syntax and immutable payload contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SCRIPT=install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+          bash -n "$SCRIPT"
+          grep -Fq 'PAYLOAD_REF="57a2975bcfc47583e1f87250aca8eccddcfc9ebc"' "$SCRIPT"
+          grep -Fq 'BASE_GATE_BLOB="b25a42654300f0e5595763a8b8753188039e34e3"' "$SCRIPT"
+          grep -Fq 'TARGET_GATE_BLOB="cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844"' "$SCRIPT"
+          grep -Fq 'TARGET_SKILL_BLOB="3a68c550a328ec05a13ec86f1ad44aa4724c4fe1"' "$SCRIPT"
+          test "$(git rev-parse 57a2975bcfc47583e1f87250aca8eccddcfc9ebc^{tree})" = a91ee82d29b9df1d56a37238f5cd6e678a91f110
+          test "$(git rev-parse 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py)" = cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844
+          test "$(git rev-parse 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/skill/SKILL.md)" = 3a68c550a328ec05a13ec86f1ad44aa4724c4fe1
+          python3 -m py_compile <(git show 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py) 2>/dev/null || {
+            git show 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py > /tmp/dvizhrelease.py
+            python3 -m py_compile /tmp/dvizhrelease.py
+          }
+      - name: No root-surface expansion
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SCRIPT=install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+          ! grep -Eq 'systemctl|iptables|ufw|authorized_keys|sudoers|id_ed25519|NOPASSWD' "$SCRIPT"
+          ! grep -Eq 'rm -rf[[:space:]]+/|chmod[[:space:]]+-R|chown[[:space:]]+-R' "$SCRIPT"
+          grep -Fq 'GATE="/usr/local/sbin/dvizhrelease"' "$SCRIPT"
+          grep -Fq '.hermes/skills/dvizh/dvizh-dev/SKILL.md' "$SCRIPT"
+          grep -Fq 'Rolling back owner-maintenance v2.2' "$SCRIPT"
+          grep -Fq 'Services restarted: none' "$SCRIPT"
+      - name: Confirm exact v2.2 CI was green before installer commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD^)" = cd1b97b83f9147153b3c4157f949ba239736d878 || true
+          echo 'Installer is layered on the exact v2.2 payload commit; repository CI status is checked separately by owner delivery.'
