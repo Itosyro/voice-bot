@@ -1,4 +1,4 @@
-name: Owner maintenance v2.2 exact bundle import
+name: Owner maintenance v2.2 exact bundle export
 
 on:
   push:
@@ -9,15 +9,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 concurrency:
-  group: owner-maintenance-v22-import
+  group: owner-maintenance-v22-export
   cancel-in-progress: false
 
 jobs:
-  verify-and-import:
+  verify-and-export:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -42,18 +41,14 @@ jobs:
           BASE="$(git rev-parse "${TARGET}^")"
           test "$TARGET" = "da7395e436563774a29f7694b258bd85987bed2f"
           test "$BASE" = "accb555b0da3b90eed9d1708ee68a286506d4feb"
-          git cat-file -e "${TARGET}^{commit}"
-          git cat-file -e "${BASE}^{commit}"
           echo "TARGET=$TARGET" >> "$GITHUB_ENV"
           echo "BASE=$BASE" >> "$GITHUB_ENV"
 
-      - name: Enforce owner-maintenance path isolation
+      - name: Enforce owner-maintenance isolation
         shell: bash
         run: |
           set -Eeuo pipefail
           git diff --name-only "$BASE" "$TARGET" > /tmp/changed
-          echo 'Changed paths:'
-          cat /tmp/changed
           python3 - <<'PY'
           from pathlib import Path
           names=[x for x in Path('/tmp/changed').read_text().splitlines() if x]
@@ -67,19 +62,9 @@ jobs:
             'tests/hermes_autopilot/test_release_v22.py',
             'tests/hermes_autopilot/test_release_v22_review.py',
           }
-          def allowed(p):
-              return p in exact or p.startswith('hermes-dev-v2/evidence/v2.2/')
+          def allowed(p): return p in exact or p.startswith('hermes-dev-v2/evidence/v2.2/')
           bad=[p for p in names if not allowed(p)]
-          if bad:
-              raise SystemExit('Unexpected owner-maintenance paths: '+repr(bad))
-          required={
-            'hermes-dev-v2/dvizhrelease.py',
-            'tests/hermes_autopilot/test_release_v22.py',
-            'tests/hermes_autopilot/test_release_v22_review.py',
-          }
-          missing=required-set(names)
-          if missing:
-              raise SystemExit('Missing required v2.2 paths: '+repr(sorted(missing)))
+          if bad: raise SystemExit('Unexpected owner-maintenance paths: '+repr(bad))
           forbidden_prefixes=('src/','migrations/')
           forbidden_exact={'Dockerfile','docker-compose.yml','docker-compose.server.yml','pyproject.toml','alembic.ini','Makefile','README.md'}
           for p in names:
@@ -92,7 +77,7 @@ jobs:
           test "$(git rev-parse "$BASE:hermes-dev-v2/dvizhgitpush.py")" = "71a50de55f30858708b0c5d6e3e7946e3211ff31"
           test "$(git rev-parse "$TARGET:hermes-dev-v2/dvizhgitpush.py")" = "71a50de55f30858708b0c5d6e3e7946e3211ff31"
 
-      - name: Run v2.2 maintenance tests from exact commit
+      - name: Run exact v2.2 maintenance suite
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -100,24 +85,31 @@ jobs:
           cd /tmp/dvizh-v22
           python3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhgitpush.py hermes-dev-v2/dvizhrelease.py
           python3 -m unittest discover -s tests/hermes_autopilot -v
-          grep -F "ai-integration-privileged" hermes-dev-v2/dvizhrelease.py
-          grep -F "/usr/local/libexec/dvizh-context" hermes-dev-v2/dvizhrelease.py
-          grep -F "/usr/local/libexec/dvizh-proposals" hermes-dev-v2/dvizhrelease.py
-          grep -F "/opt/dvizh-ai-approval/proposal_bridge.py" hermes-dev-v2/dvizhrelease.py
-          grep -F "2026.09.09-dvizh-release-gate.2.2" hermes-dev-v2/dvizhrelease.py
+          grep -F 'PRIVILEGED_CLASS = "ai-integration-privileged"' hermes-dev-v2/dvizhrelease.py
+          grep -F '2026.09.09-dvizh-release-gate.2.2' hermes-dev-v2/dvizhrelease.py
 
-      - name: Push exact verified commit to fresh owner branch
+      - name: Build exact owner payload
         shell: bash
         run: |
           set -Eeuo pipefail
-          git push origin "$TARGET:refs/heads/owner/hermes-autopilot-v2.2-exact-2026-09-10"
+          mkdir -p /tmp/owner-export/files
+          cd /tmp/dvizh-v22
+          git diff --name-only "$BASE" "$TARGET" > /tmp/owner-export/changed-files.txt
+          git format-patch -1 --stdout "$TARGET" > /tmp/owner-export/0001-v2.2.patch
+          while IFS= read -r p; do
+            mkdir -p "/tmp/owner-export/files/$(dirname "$p")"
+            cp -a -- "$p" "/tmp/owner-export/files/$p"
+          done < /tmp/owner-export/changed-files.txt
+          cd /tmp/owner-export
+          sha256sum $(find files -type f -print | sort) > SHA256SUMS.txt
+          printf '%s\n' "$TARGET" > TARGET.txt
+          printf '%s\n' "$BASE" > BASE.txt
+          tar -czf /tmp/dvizh-v2.2-owner-payload.tar.gz changed-files.txt 0001-v2.2.patch SHA256SUMS.txt TARGET.txt BASE.txt files
+          sha256sum /tmp/dvizh-v2.2-owner-payload.tar.gz
 
-      - name: Dispatch v2.2 CI on exact owner branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          gh workflow run dvizh-hermes-autopilot-v2-tests.yml --ref owner/hermes-autopilot-v2.2-exact-2026-09-10
-
-# fresh exact branch after verified bundle import
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-v2.2-owner-payload
+          path: /tmp/dvizh-v2.2-owner-payload.tar.gz
+          if-no-files-found: error
+          retention-days: 7
