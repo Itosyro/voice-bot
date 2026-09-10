@@ -106,11 +106,11 @@ jobs:
           grep -F "/opt/dvizh-ai-approval/proposal_bridge.py" hermes-dev-v2/dvizhrelease.py
           grep -F "2026.09.09-dvizh-release-gate.2.2" hermes-dev-v2/dvizhrelease.py
 
-      - name: Push exact verified commit to owner branch
+      - name: Push exact verified commit to fresh owner branch
         shell: bash
         run: |
           set -Eeuo pipefail
-          git push origin "$TARGET:refs/heads/owner/hermes-autopilot-v2.2-2026-09-09"
+          git push origin "$TARGET:refs/heads/owner/hermes-autopilot-v2.2-exact-2026-09-10"
 
       - name: Dispatch v2.2 CI on exact owner branch
         env:
@@ -118,6 +118,6 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          gh workflow run dvizh-hermes-autopilot-v2-tests.yml --ref owner/hermes-autopilot-v2.2-2026-09-09
+          gh workflow run dvizh-hermes-autopilot-v2-tests.yml --ref owner/hermes-autopilot-v2.2-exact-2026-09-10
 
-# retrigger after exact bundle repair
+# fresh exact branch after verified bundle import
