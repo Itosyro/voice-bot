@@ -3,7 +3,7 @@ name: DVIZH Owner v2.2 Installer Tests
 on:
   push:
     branches:
-      - 'owner/hermes-autopilot-v2.2-install-2026-09-10'
+      - 'owner/hermes-autopilot-v2.2-install-compat-2026-09-10'
     paths:
       - 'install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh'
       - '.github/workflows/dvizh-owner-v22-installer-tests.yml'
@@ -26,17 +26,31 @@ jobs:
           set -Eeuo pipefail
           SCRIPT=install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
           bash -n "$SCRIPT"
+          grep -Fq 'VERSION="2026.09.10-dvizh-owner-maintenance-v2.2.2-local-preserving"' "$SCRIPT"
           grep -Fq 'PAYLOAD_REF="57a2975bcfc47583e1f87250aca8eccddcfc9ebc"' "$SCRIPT"
           grep -Fq 'BASE_GATE_BLOB="b25a42654300f0e5595763a8b8753188039e34e3"' "$SCRIPT"
           grep -Fq 'TARGET_GATE_BLOB="cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844"' "$SCRIPT"
           grep -Fq 'TARGET_SKILL_BLOB="3a68c550a328ec05a13ec86f1ad44aa4724c4fe1"' "$SCRIPT"
+          grep -Fq 'LOCAL_SKILL_BLOB="082a6ce569a0c0c5bd34d00b8d1957a6d7bca233"' "$SCRIPT"
+          grep -Fq 'Owner-delivered v2.2 privileged contract (local-preserving merge)' "$SCRIPT"
+          grep -Fq 'new.startswith(old)' "$SCRIPT"
+          grep -Fq "--approval 'APPROVE <proposal-id> <token>'" "$SCRIPT"
           test "$(git rev-parse 57a2975bcfc47583e1f87250aca8eccddcfc9ebc^{tree})" = a91ee82d29b9df1d56a37238f5cd6e678a91f110
           test "$(git rev-parse 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py)" = cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844
           test "$(git rev-parse 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/skill/SKILL.md)" = 3a68c550a328ec05a13ec86f1ad44aa4724c4fe1
-          python3 -m py_compile <(git show 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py) 2>/dev/null || {
-            git show 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py > /tmp/dvizhrelease.py
-            python3 -m py_compile /tmp/dvizhrelease.py
-          }
+          git show 57a2975bcfc47583e1f87250aca8eccddcfc9ebc:hermes-dev-v2/dvizhrelease.py > /tmp/dvizhrelease.py
+          python3 -m py_compile /tmp/dvizhrelease.py
+      - name: Local skill preservation contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SCRIPT=install-dvizh-hermes-autopilot-v2.2-owner-maintenance.sh
+          grep -Fq 'SKILL_KIND="local"' "$SCRIPT"
+          grep -Fq 'SKILL_KIND="merged"' "$SCRIPT"
+          grep -Fq 'local skill preservation check failed' "$SCRIPT"
+          grep -Fq 'post-install local skill preservation check failed' "$SCRIPT"
+          grep -Fq 'cp -a "$SKILL" "$BACKUP/SKILL.md"' "$SCRIPT"
+          grep -Fq 'validate_merged_skill "$SKILL"' "$SCRIPT"
       - name: No root-surface expansion
         shell: bash
         run: |
@@ -48,9 +62,9 @@ jobs:
           grep -Fq '.hermes/skills/dvizh/dvizh-dev/SKILL.md' "$SCRIPT"
           grep -Fq 'Rolling back owner-maintenance v2.2' "$SCRIPT"
           grep -Fq 'Services restarted: none' "$SCRIPT"
-      - name: Confirm exact v2.2 CI was green before installer commit
+      - name: Confirm exact v2.2 payload lineage
         shell: bash
         run: |
           set -Eeuo pipefail
-          test "$(git rev-parse HEAD^)" = cd1b97b83f9147153b3c4157f949ba239736d878 || true
-          echo 'Installer is layered on the exact v2.2 payload commit; repository CI status is checked separately by owner delivery.'
+          git merge-base --is-ancestor 57a2975bcfc47583e1f87250aca8eccddcfc9ebc HEAD
+          echo 'Compatibility installer is layered on the exact green v2.2 owner payload.'
