@@ -1,0 +1,18 @@
+test_exact_class_always_approval (test_release_v22.ContractTests.test_exact_class_always_approval) ... ok
+test_helpers_need_no_restart_bridge_requires_justification (test_release_v22.ContractTests.test_helpers_need_no_restart_bridge_requires_justification) ... ok
+test_raw_paths_and_exact_target_denials (test_release_v22.ContractTests.test_raw_paths_and_exact_target_denials) ... ok
+test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22.ContractTests.test_reject_extra_fields_missing_fields_wrong_policy) ... ok
+test_auto_missing_expired_wrong_digest_exact_phrase_and_replay (test_release_v22.TrustTests.test_auto_missing_expired_wrong_digest_exact_phrase_and_replay) ... ok
+test_ci_red_missing_pending_wrong_commit_and_truncated_tree (test_release_v22.TrustTests.test_ci_red_missing_pending_wrong_commit_and_truncated_tree) ... ok
+test_exact_class_always_approval (test_release_v22.TrustTests.test_exact_class_always_approval) ... ok
+test_helpers_need_no_restart_bridge_requires_justification (test_release_v22.TrustTests.test_helpers_need_no_restart_bridge_requires_justification) ... ok
+test_manifest_sha_and_independent_source_sha (test_release_v22.TrustTests.test_manifest_sha_and_independent_source_sha) ... ok
+test_raw_paths_and_exact_target_denials (test_release_v22.TrustTests.test_raw_paths_and_exact_target_denials) ... ok
+test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22.TrustTests.test_reject_extra_fields_missing_fields_wrong_policy) ... ok
+test_source_destination_and_proposal_symlinks_and_nonregular (test_release_v22.TrustTests.test_source_destination_and_proposal_symlinks_and_nonregular) ... ok
+test_trusted_download_sha_and_git_regular_blob (test_release_v22.TrustTests.test_trusted_download_sha_and_git_regular_blob) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.042s
+
+OK

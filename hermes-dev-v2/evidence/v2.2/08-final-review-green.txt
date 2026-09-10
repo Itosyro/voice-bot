@@ -1,0 +1,8 @@
+test_final_journal_unlink_fsync_failure_is_critical_and_blocks (test_release_v22_review.ReviewTests.test_final_journal_unlink_fsync_failure_is_critical_and_blocks) ... ok
+test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) ... ok
+test_final_two_actual_sigterms_during_rollback_setup (test_release_v22_review.ReviewTests.test_final_two_actual_sigterms_during_rollback_setup) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.235s
+
+OK

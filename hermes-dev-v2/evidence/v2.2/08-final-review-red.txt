@@ -1,0 +1,175 @@
+test_final_journal_unlink_fsync_failure_is_critical_and_blocks (test_release_v22_review.ReviewTests.test_final_journal_unlink_fsync_failure_is_critical_and_blocks) ... 
+  test_final_journal_unlink_fsync_failure_is_critical_and_blocks (test_release_v22_review.ReviewTests.test_final_journal_unlink_fsync_failure_is_critical_and_blocks) (rollback=False) ... FAIL
+  test_final_journal_unlink_fsync_failure_is_critical_and_blocks (test_release_v22_review.ReviewTests.test_final_journal_unlink_fsync_failure_is_critical_and_blocks) (rollback=True) ... ERROR
+test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) ... 
+  test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='pending') ... FAIL
+  test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='transaction') ... FAIL
+  test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='transaction.lock') ... FAIL
+  test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='pending.json') ... FAIL
+test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) ... FAIL
+test_final_two_actual_sigterms_during_rollback_setup (test_release_v22_review.ReviewTests.test_final_two_actual_sigterms_during_rollback_setup) ... 
+  test_final_two_actual_sigterms_during_rollback_setup (test_release_v22_review.ReviewTests.test_final_two_actual_sigterms_during_rollback_setup) (broken_restore=False) ... FAIL
+  test_final_two_actual_sigterms_during_rollback_setup (test_release_v22_review.ReviewTests.test_final_two_actual_sigterms_during_rollback_setup) (broken_restore=True) ... ERROR
+
+======================================================================
+ERROR: test_final_journal_unlink_fsync_failure_is_critical_and_blocks (test_release_v22_review.ReviewTests.test_final_journal_unlink_fsync_failure_is_critical_and_blocks) (rollback=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 670, in apply_release
+    restart_service(service)
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1187, in _execute_mock_call
+    raise result
+dvizhrelease_test_139826177995776.GateError: restart failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 373, in test_final_journal_unlink_fsync_failure_is_critical_and_blocks
+    self.g.apply(str(self.proposal_path), planned['approval_phrase'])
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 154, in call
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 856, in apply
+    result = apply_release(proposal, raw, manifest, manifest_raw, plan)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 154, in call
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 690, in apply_release
+    return rollback_release(sources, records, plan, backup_dir, failure, journal_errors)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 744, in rollback_release
+    journal_clear()
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 162, in journal_clear
+    os.fsync(parent)
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1189, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 369, in sync
+    raise OSError('journal directory fsync failed')
+OSError: journal directory fsync failed
+
+======================================================================
+ERROR: test_final_two_actual_sigterms_during_rollback_setup (test_release_v22_review.ReviewTests.test_final_two_actual_sigterms_during_rollback_setup) (broken_restore=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 312, in test_final_two_actual_sigterms_during_rollback_setup
+    planned = self.g.plan_release(str(self.proposal_path))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 153, in call
+    with transaction():
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/contextlib.py", line 137, in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 134, in transaction
+    raise GateError("interrupted pending transaction; owner recovery required before plan/apply")
+dvizhrelease_test_139826175145920.GateError: interrupted pending transaction; owner recovery required before plan/apply
+
+======================================================================
+FAIL: test_final_journal_unlink_fsync_failure_is_critical_and_blocks (test_release_v22_review.ReviewTests.test_final_journal_unlink_fsync_failure_is_critical_and_blocks) (rollback=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 678, in apply_release
+    journal_clear()
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/hermes-dev-v2/dvizhrelease.py", line 162, in journal_clear
+    os.fsync(parent)
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.local/share/uv/python/cpython-3.11.16-linux-x86_64-gnu/lib/python3.11/unittest/mock.py", line 1189, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 369, in sync
+    raise OSError('journal directory fsync failed')
+OSError: journal directory fsync failed
+
+The above exception was the direct cause of the following exception:
+
+dvizhrelease_test_139826177995776.GateError: release failed; rollback confirmed; backup=/tmp/tmpoofu0dt_/backups/autopilot.zvmzzvcr; original=journal directory fsync failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 372, in test_final_journal_unlink_fsync_failure_is_critical_and_blocks
+    with self.assertRaisesRegex(self.g.GateError, 'CRITICAL'):
+AssertionError: "CRITICAL" does not match "release failed; rollback confirmed; backup=/tmp/tmpoofu0dt_/backups/autopilot.zvmzzvcr; original=journal directory fsync failed"
+
+======================================================================
+FAIL: test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='pending')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 300, in test_final_reserved_ids_and_separate_challenge_namespace
+    with self.assertRaisesRegex(self.g.GateError, 'reserved'):
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='transaction')
+----------------------------------------------------------------------
+dvizhrelease_test_139826176911072.GateError: interrupted pending transaction; owner recovery required before plan/apply
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 300, in test_final_reserved_ids_and_separate_challenge_namespace
+    with self.assertRaisesRegex(self.g.GateError, 'reserved'):
+AssertionError: "reserved" does not match "interrupted pending transaction; owner recovery required before plan/apply"
+
+======================================================================
+FAIL: test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='transaction.lock')
+----------------------------------------------------------------------
+dvizhrelease_test_139826176911072.GateError: interrupted pending transaction; owner recovery required before plan/apply
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 300, in test_final_reserved_ids_and_separate_challenge_namespace
+    with self.assertRaisesRegex(self.g.GateError, 'reserved'):
+AssertionError: "reserved" does not match "interrupted pending transaction; owner recovery required before plan/apply"
+
+======================================================================
+FAIL: test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace) (reserved='pending.json')
+----------------------------------------------------------------------
+dvizhrelease_test_139826176911072.GateError: interrupted pending transaction; owner recovery required before plan/apply
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 300, in test_final_reserved_ids_and_separate_challenge_namespace
+    with self.assertRaisesRegex(self.g.GateError, 'reserved'):
+AssertionError: "reserved" does not match "interrupted pending transaction; owner recovery required before plan/apply"
+
+======================================================================
+FAIL: test_final_reserved_ids_and_separate_challenge_namespace (test_release_v22_review.ReviewTests.test_final_reserved_ids_and_separate_challenge_namespace)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 302, in test_final_reserved_ids_and_separate_challenge_namespace
+    self.assertFalse((self.g.APPROVAL_ROOT / 'pending.json').exists())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_final_two_actual_sigterms_during_rollback_setup (test_release_v22_review.ReviewTests.test_final_two_actual_sigterms_during_rollback_setup) (broken_restore=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/exedev/.hermes/dev/dvizh/owner-maintenance-v2.2/tests/hermes_autopilot/test_release_v22_review.py", line 346, in test_final_two_actual_sigterms_during_rollback_setup
+    self.assertIn('CRITICAL: rollback unconfirmed' if broken_restore else 'rollback confirmed', message)
+AssertionError: 'rollback confirmed' not found in 'termination signal 15'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.197s
+
+FAILED (failures=7, errors=2)

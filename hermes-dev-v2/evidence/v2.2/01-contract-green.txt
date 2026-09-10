@@ -1,0 +1,9 @@
+test_exact_class_always_approval (test_release_v22.ContractTests.test_exact_class_always_approval) ... ok
+test_helpers_need_no_restart_bridge_requires_justification (test_release_v22.ContractTests.test_helpers_need_no_restart_bridge_requires_justification) ... ok
+test_raw_paths_and_exact_target_denials (test_release_v22.ContractTests.test_raw_paths_and_exact_target_denials) ... ok
+test_reject_extra_fields_missing_fields_wrong_policy (test_release_v22.ContractTests.test_reject_extra_fields_missing_fields_wrong_policy) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.012s
+
+OK

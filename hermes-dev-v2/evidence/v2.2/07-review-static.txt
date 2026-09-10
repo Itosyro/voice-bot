@@ -1,0 +1,3 @@
+Syntax and static security boundary: exit 0
+Generic Hermes branch CI must repeat path isolation and AI browser smoke: exit 0
+Confirm no unrestricted root or Git surface: exit 0

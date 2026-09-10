@@ -1,0 +1,3 @@
+/usr/local/libexec/dvizh-context regular file 0 0 755
+/usr/local/libexec/dvizh-proposals regular file 0 0 755
+/opt/dvizh-ai-approval/proposal_bridge.py regular file 0 0 755

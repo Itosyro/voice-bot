@@ -1,0 +1,17 @@
+Installed bytes unchanged: /usr/local/sbin/dvizhrelease
+Installed bytes unchanged: /usr/local/libexec/dvizh-context
+Installed bytes unchanged: /usr/local/libexec/dvizh-proposals
+Installed bytes unchanged: /opt/dvizh-ai-approval/proposal_bridge.py
+Repository bytes unchanged: hermes-dev-v2/dvizhgitpush.py
+Repository bytes unchanged: hermes-dev-v2/dvizhautopilot.py
+Repository bytes unchanged: install-dvizh-hermes-autopilot.sh
+Repository bytes unchanged: .github/workflows/dvizh-hermes-autopilot-installer-smoke.yml
+git diff --check: 0
+ M .github/workflows/dvizh-hermes-autopilot-v2-tests.yml
+ M .github/workflows/dvizh-hermes-autopilot.yml
+ M hermes-dev-v2/dvizhrelease.py
+ M hermes-dev-v2/skill/SKILL.md
+?? hermes-dev-v2/OWNER-MAINTENANCE-v2.2.md
+?? hermes-dev-v2/evidence/
+?? tests/hermes_autopilot/test_release_v22.py
+

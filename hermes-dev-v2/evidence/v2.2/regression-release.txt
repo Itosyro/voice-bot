@@ -1,0 +1,11 @@
+test_approval_is_digest_bound_and_one_time (test_release_gate.ReleaseGateTests.test_approval_is_digest_bound_and_one_time) ... ok
+test_approval_target_requires_token_even_in_auto (test_release_gate.ReleaseGateTests.test_approval_target_requires_token_even_in_auto) ... ok
+test_auto_safe_release_applies_and_backups (test_release_gate.ReleaseGateTests.test_auto_safe_release_applies_and_backups) ... ok
+test_denied_target_is_rejected_before_write (test_release_gate.ReleaseGateTests.test_denied_target_is_rejected_before_write) ... ok
+test_http_verification_failure_rolls_back (test_release_gate.ReleaseGateTests.test_http_verification_failure_rolls_back) ... ok
+test_safe_mode_requires_explicit_approval (test_release_gate.ReleaseGateTests.test_safe_mode_requires_explicit_approval) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.098s
+
+OK

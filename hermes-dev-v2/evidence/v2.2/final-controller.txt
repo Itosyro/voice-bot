@@ -1,0 +1,10 @@
+test_inspect_mode_never_creates_job (test_controller.ControllerTests.test_inspect_mode_never_creates_job) ... ok
+test_mode_state_defaults_safe_and_roundtrips (test_controller.ControllerTests.test_mode_state_defaults_safe_and_roundtrips) ... ok
+test_profile_routing_is_narrow_and_deterministic (test_controller.ControllerTests.test_profile_routing_is_narrow_and_deterministic) ... ok
+test_wait_ci_stops_on_completed_failure (test_controller.ControllerTests.test_wait_ci_stops_on_completed_failure) ... ok
+test_wait_ci_stops_on_green (test_controller.ControllerTests.test_wait_ci_stops_on_green) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.019s
+
+OK
