@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="2026.09.10-dvizh-owner-maintenance-v2.2.1"
+VERSION="2026.09.10-dvizh-owner-maintenance-v2.2.2-local-preserving"
 REPO="Itosyro/voice-bot"
 PAYLOAD_REF="57a2975bcfc47583e1f87250aca8eccddcfc9ebc"
 TARGET_USER="${DVIZH_OWNER_USER:-exedev}"
@@ -10,6 +10,8 @@ BASE_GATE_BLOB="b25a42654300f0e5595763a8b8753188039e34e3"
 TARGET_GATE_BLOB="cf6ec6e4915739fe0b7d2c609b41b4eb7c27d844"
 BASE_SKILL_BLOB="626a3c29cfd4f77f2612c92f2b4ff20780f473ce"
 TARGET_SKILL_BLOB="3a68c550a328ec05a13ec86f1ad44aa4724c4fe1"
+LOCAL_SKILL_BLOB="082a6ce569a0c0c5bd34d00b8d1957a6d7bca233"
+MERGED_MARKER="## Owner-delivered v2.2 privileged contract (local-preserving merge)"
 
 GATE="/usr/local/sbin/dvizhrelease"
 
@@ -30,6 +32,15 @@ print(h.hexdigest())
 PY
 }
 
+validate_merged_skill() {
+  local p="$1"
+  grep -Fq "$MERGED_MARKER" "$p" || return 1
+  grep -Fq '/usr/local/libexec/dvizh-context' "$p" || return 1
+  grep -Fq '/usr/local/libexec/dvizh-proposals' "$p" || return 1
+  grep -Fq '/opt/dvizh-ai-approval/proposal_bridge.py' "$p" || return 1
+  grep -Fq "--approval 'APPROVE <proposal-id> <token>'" "$p" || return 1
+}
+
 [[ ${EUID:-$(id -u)} -eq 0 ]] || fail "run this installer with sudo/root"
 command -v python3 >/dev/null || fail "python3 is required"
 command -v curl >/dev/null || fail "curl is required"
@@ -46,12 +57,21 @@ case "$CURRENT_GATE_BLOB" in
   *) fail "installed dvizhrelease is not the known v2.1/v2.2 payload ($CURRENT_GATE_BLOB)" ;;
 esac
 
+SKILL_KIND="missing"
 if [[ -e "$SKILL" ]]; then
   [[ -f "$SKILL" && ! -L "$SKILL" ]] || fail "installed dvizh-dev skill is not a regular file"
   CURRENT_SKILL_BLOB="$(git_blob_sha1 "$SKILL")"
   case "$CURRENT_SKILL_BLOB" in
-    "$BASE_SKILL_BLOB"|"$TARGET_SKILL_BLOB") ;;
-    *) fail "installed dvizh-dev skill is not the known v2.1/v2.2 payload ($CURRENT_SKILL_BLOB)" ;;
+    "$BASE_SKILL_BLOB") SKILL_KIND="base" ;;
+    "$TARGET_SKILL_BLOB") SKILL_KIND="target" ;;
+    "$LOCAL_SKILL_BLOB") SKILL_KIND="local" ;;
+    *)
+      if validate_merged_skill "$SKILL"; then
+        SKILL_KIND="merged"
+      else
+        fail "installed dvizh-dev skill is not a known payload and has no verified v2.2 merge contract ($CURRENT_SKILL_BLOB)"
+      fi
+      ;;
   esac
 else
   CURRENT_SKILL_BLOB="missing"
@@ -62,10 +82,10 @@ trap 'rm -rf "$TMP"' EXIT
 RAW="https://raw.githubusercontent.com/$REPO/$PAYLOAD_REF"
 
 curl -fsSL "$RAW/hermes-dev-v2/dvizhrelease.py" -o "$TMP/dvizhrelease"
-curl -fsSL "$RAW/hermes-dev-v2/skill/SKILL.md" -o "$TMP/SKILL.md"
+curl -fsSL "$RAW/hermes-dev-v2/skill/SKILL.md" -o "$TMP/SKILL.target.md"
 
 [[ "$(git_blob_sha1 "$TMP/dvizhrelease")" == "$TARGET_GATE_BLOB" ]] || fail "downloaded gate failed immutable blob verification"
-[[ "$(git_blob_sha1 "$TMP/SKILL.md")" == "$TARGET_SKILL_BLOB" ]] || fail "downloaded skill failed immutable blob verification"
+[[ "$(git_blob_sha1 "$TMP/SKILL.target.md")" == "$TARGET_SKILL_BLOB" ]] || fail "downloaded reference skill failed immutable blob verification"
 python3 -m py_compile "$TMP/dvizhrelease"
 grep -Fq 'VERSION = "2026.09.09-dvizh-release-gate.2.2"' "$TMP/dvizhrelease" || fail "unexpected gate version"
 for marker in \
@@ -77,10 +97,74 @@ do
   grep -Fq "$marker" "$TMP/dvizhrelease" || fail "missing v2.2 marker: $marker"
 done
 
-if [[ "$CURRENT_GATE_BLOB" == "$TARGET_GATE_BLOB" && "$CURRENT_SKILL_BLOB" == "$TARGET_SKILL_BLOB" ]]; then
-  echo "DVIZH Autopilot owner maintenance v2.2 is already installed byte-exact."
-  sudo -u "$TARGET_USER" -H /usr/local/bin/dvizhautopilot doctor
-  exit 0
+case "$SKILL_KIND" in
+  base|missing|target)
+    cp "$TMP/SKILL.target.md" "$TMP/SKILL.install.md"
+    ;;
+  local|merged)
+    cp "$SKILL" "$TMP/SKILL.install.md"
+    python3 - "$TMP/SKILL.install.md" "$MERGED_MARKER" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+marker = sys.argv[2]
+text = p.read_text(encoding="utf-8")
+if marker not in text:
+    block = r'''
+
+## Owner-delivered v2.2 privileged contract (local-preserving merge)
+
+This section preserves all locally learned DVIZH instructions above and overrides
+only the legacy v2.1 approval argument rule for the privileged integration class.
+
+`ai-integration-privileged` is always approval-required, including in auto mode,
+and is restricted to these exact production targets:
+
+- `/usr/local/libexec/dvizh-context`
+- `/usr/local/libexec/dvizh-proposals`
+- `/opt/dvizh-ai-approval/proposal_bridge.py`
+
+The root-owned release gate validates immutable source bytes, SHA-256, exact target,
+owner/mode, fixed verification enum, CI, backup, rollback and the allowed bridge
+restart contract. Managed jobs must not edit their own Autopilot control plane.
+
+For an `ai-integration-privileged` plan, after the owner sends the exact later phrase
+returned by `release-plan`, pass the **entire phrase** as one approval argument:
+
+```bash
+dvizhautopilot release-apply <proposal-path> --approval 'APPROVE <proposal-id> <token>'
+```
+
+A bare token is valid only for legacy v2.1-style releases. Never infer, manufacture,
+or self-approve the owner phrase. The challenge remains one-time, digest-bound and
+expires after 30 minutes.
+'''
+    if text and not text.endswith("\n"):
+        text += "\n"
+    text += block.lstrip("\n")
+    p.write_text(text, encoding="utf-8")
+PY
+    validate_merged_skill "$TMP/SKILL.install.md" || fail "generated merged skill failed contract validation"
+    ;;
+esac
+
+if [[ "$SKILL_KIND" == "local" || "$SKILL_KIND" == "merged" ]]; then
+  python3 - "$SKILL" "$TMP/SKILL.install.md" <<'PY'
+from pathlib import Path
+import sys
+old = Path(sys.argv[1]).read_bytes()
+new = Path(sys.argv[2]).read_bytes()
+if not new.startswith(old):
+    raise SystemExit("local skill preservation check failed: original bytes are not an exact prefix")
+PY
+fi
+
+if [[ "$CURRENT_GATE_BLOB" == "$TARGET_GATE_BLOB" ]]; then
+  if [[ "$SKILL_KIND" == "target" || "$SKILL_KIND" == "merged" ]]; then
+    echo "DVIZH Autopilot owner maintenance v2.2 is already installed with a compatible skill."
+    sudo -u "$TARGET_USER" -H /usr/local/bin/dvizhautopilot doctor
+    exit 0
+  fi
 fi
 
 BACKUP="/var/lib/dvizh/backups/autopilot-owner-v2.2.$(date -u +%Y%m%d-%H%M%S).$(python3 - <<'PY'
@@ -96,6 +180,7 @@ fi
 printf '%s\n' "$CURRENT_GATE_BLOB" > "$BACKUP/gate.before.git-blob-sha1"
 printf '%s\n' "$CURRENT_SKILL_BLOB" > "$BACKUP/skill.before.git-blob-sha1"
 printf '%s\n' "$PAYLOAD_REF" > "$BACKUP/payload.commit"
+printf '%s\n' "$SKILL_KIND" > "$BACKUP/skill.kind"
 
 APPLIED=0
 rollback() {
@@ -135,12 +220,24 @@ APPLIED=1
 
 install -d -o "$TARGET_USER" -g "$(id -gn "$TARGET_USER")" -m 0755 "$(dirname "$SKILL")"
 SKILL_TMP="$(dirname "$SKILL")/.SKILL.md.v2.2.$$"
-install -o "$TARGET_USER" -g "$(id -gn "$TARGET_USER")" -m 0644 "$TMP/SKILL.md" "$SKILL_TMP"
+install -o "$TARGET_USER" -g "$(id -gn "$TARGET_USER")" -m 0644 "$TMP/SKILL.install.md" "$SKILL_TMP"
 mv -f "$SKILL_TMP" "$SKILL"
 
 [[ "$(git_blob_sha1 "$GATE")" == "$TARGET_GATE_BLOB" ]]
-[[ "$(git_blob_sha1 "$SKILL")" == "$TARGET_SKILL_BLOB" ]]
 [[ "$(stat -c '%U:%G %a' "$GATE")" == "root:root 755" ]]
+if [[ "$SKILL_KIND" == "base" || "$SKILL_KIND" == "missing" || "$SKILL_KIND" == "target" ]]; then
+  [[ "$(git_blob_sha1 "$SKILL")" == "$TARGET_SKILL_BLOB" ]]
+else
+  validate_merged_skill "$SKILL"
+  python3 - "$BACKUP/SKILL.md" "$SKILL" <<'PY'
+from pathlib import Path
+import sys
+old = Path(sys.argv[1]).read_bytes()
+new = Path(sys.argv[2]).read_bytes()
+if not new.startswith(old):
+    raise SystemExit("post-install local skill preservation check failed")
+PY
+fi
 
 DOCTOR_OUT="$TMP/doctor.json"
 sudo -u "$TARGET_USER" -H /usr/local/bin/dvizhautopilot doctor > "$DOCTOR_OUT"
@@ -154,6 +251,7 @@ trap - ERR
 echo "Installed: $VERSION"
 echo "Payload commit: $PAYLOAD_REF"
 echo "Backup: $BACKUP"
+echo "Skill mode: $SKILL_KIND -> local-preserving v2.2 compatible"
 echo "Services restarted: none"
 echo "Friend project: untouched by this installer"
 cat "$DOCTOR_OUT"
