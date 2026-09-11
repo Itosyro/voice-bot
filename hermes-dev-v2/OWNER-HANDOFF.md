@@ -1,57 +1,64 @@
-# STOP — v2.3.1 independent review FAIL — DO NOT INSTALL
+# STOP — v2.3.2 review FAIL — DO NOT INSTALL
 
-Final status: see SECURITY-REVIEW-V231.md and evidence/v231/INDEPENDENT-REVIEW.json.
-The implementation-stage notes below predate the independent review and final
-orchestrator verification. They are historical, not the final delivery status.
+Final status: SECURITY-REVIEW-V232.md and evidence/v232/INDEPENDENT-REVIEW.json.
+The implementation-stage handoff below predates review and final blocked bundle.
+Its pending-review/commit statements are historical, not final delivery status.
 
-Do not install this candidate. Base is
-`fbbfad02e61882c174660a3ef7db384546d80e6a`; no commit or push was made.
-Five internal test-fix cycles are exhausted. No independent review was performed.
-See DESIGN.md for unresolved critical/high findings, including runtime confinement,
-privilege-separated Git and independently enforced CI pins. These are not waived.
+# OWNER v2.3.2 foundation handoff
 
-The owner installer is now a standalone bootstrap with buffered digest verification.
-Before ANY execution, a future independent owner process must authenticate its
-complete bytes and dependencies from a separately trusted channel. Verify the
-composite payload digest as sorted filename + NUL + binary SHA256(content), then
-SHA256 of the concatenation. Inputs: owner_install.py, dvizhautopilot.py,
-dvizhrelease.py, dvizhgitpush.py, TRUSTED-MODE-v2.3.md. Never use candidate imports
-to establish bootstrap trust. No approved bootstrap SHA or installation command
-is issued in this handoff. The old shell installer still pins its older version;
-it is not a v2.3.1 upgrade route.
+Local implementation only; awaiting independent review. No installation approval,
+independent PASS verdict, commit, push or bundle is issued here. Prior mandatory
+review evidence is unchanged. See DESIGN.md for the implemented trust boundaries
+and evidence/v232/REPORT.md for exact verification commands and limits.
 
-The live local skill was not accessed or edited by this task. Only the additive
-policy in this repository changed. No production files were imported, installed
-or intentionally read for tests. This statement describes actions performed;
-there was no live-file hash audit, and no universal untouched assertion is made.
-All test execution was in disposable copies under OS namespace containment.
-No keys, secrets, sudoers, systemd configuration or ownership were changed.
-No friend source files or unrelated jobs were changed in the workspace.
+The narrowed release contract is schema 1 from base
+`da7395e436563774a29f7694b258bd85987bed2f`, retaining the root state fix and Jump DENY.
+Only the three existing index/AI Home static targets can be automatic. Existing
+privileged/runtime/Manual/server changes require owner approval. Schema 2 and
+trusted-runtime auto deployment have been removed. No new mappings or source
+materialization were introduced. The owner installer now targets only the three
+existing control-plane executables; it does not append to the live skill.
 
-## Rollback and doctor
+The root gates have functional entry points with fixture overrides rejected.
+Guarded push drops to the authenticated invoking UID/GID with empty groups for
+caller Git, exports objects, validates a private sanitized repository, then names
+the exact commit in the push refspec. Release authorization independently checks
+owner-pinned blobs and every commit's protected paths through immutable APIs.
 
-Installer fixture rollback verifies all backups before writes and restores all
-original bytes/UID/GID/modes on caught failure, retaining pending on uncertainty.
-It does not restart services. For interrupted recovery, an independent owner must
-verify journal kind, mapping SHA, backup identities and metadata before restoring
-all listed originals. Never delete a pending marker just to unblock work. No live
-rollback or power-loss recovery was attempted.
+The external trust procedure is in BOOTSTRAP-v232.md. Before any future root
+execution, an independent owner/reviewer must authenticate the launcher,
+bootstrap SHA256, installer SHA256 and complete payload digest. Root-owned
+staging and a trusted isolated system interpreter are required. Candidate hashes
+or this implementation's test results are not owner approval.
 
-Candidate root doctor currently fails closed with “v2.3.1 hardening incomplete”.
-It must not be interpreted as deployable. Unprivileged fixture doctor still tests
-policy and pending-state reporting. No live doctor or key authorization was run.
-Only after implementation and independent review may production doctor semantics,
-protected CI rollout/base coordination and immutable bootstrap pins be finalized.
+Remaining rollout prerequisites and unverified limits:
 
-The root control state contract is `/var/lib/dvizh-release-gate` only.
-`/var/lib/dvizh` ownership must remain unchanged. Restart map is in DESIGN.md.
+- An independently reviewed immutable v2.3.2 base containing the exact new
+  workflow/validator blobs does not yet exist as an approved commit. Committing
+  or pushing one was explicitly prohibited in this task. The supplied historical
+  base is a restoration source, not authorization for the revised CI blobs.
+- The owner must provision the independently authenticated owner-approval.json
+  at the fixed root control-state path, and coordinate the protected workflow's
+  DVIZH_OWNER_FOUNDATION_BASE variable. The gate rejects absent/unapproved trust
+  data. This is an authorization prerequisite, not unconditional root quarantine.
+  The current installer does not create that owner authorization on the user's behalf.
+- No authenticated external digest/channel, live CI, real root privilege drop,
+  deploy-key/known-host authorization, production doctor, installation, service
+  restart, actual push or power-loss recovery was exercised. System Python/Git/SSH,
+  GitHub HTTPS/API and the existing sudo identity contract remain trust anchors.
+  Workflow action dependencies still use their existing major-version references.
+- The v2.2 bearer phrase is digest-bound, expiring and one-use; it does not prove
+  a later Telegram owner's identity. Owner orchestration remains an assumption.
+- Full runtime/feature regression is outside the revised scope. Generic service
+  health is not claimed as behavioral proof for approved runtime changes.
 
-## Test evidence
+Existing interrupted-transaction recovery remains an owner operation: authenticate
+the journal/mapping and backup bytes/metadata before restoring originals. Retain
+pending state on uncertainty; do not delete it simply to unblock the gate. No live
+recovery or rollback procedure was executed here.
 
-Actual commands, exit statuses, cycle ledger and remaining dependency blockers are
-in evidence/v231/REPORT.md. Owner suite: 154 PASS. Health: 41 Python and 6 Node
-PASS, browser blocked by absent Playwright. AI Home: 99/100 PASS, routing probe
-fails because awk's alternatives target is not present inside isolation. Full
-repository pytest cannot start: pytest is absent. Tests were not weakened or
-friend files changed to obtain green. Audible/device and exhaustive feature
-acceptance remain unverified.
+All workspace edits are confined to hermes-dev-v2, tests/hermes_autopilot and
+protected owner workflows. No production files or installed code were executed
+or imported; no keys/secrets/sudoers/unit files, friend source or unrelated jobs
+were changed. No live-skill edits, sudo, system installation or --apply invocation
+occurred. Disposable fixture installation functions were exercised by tests.

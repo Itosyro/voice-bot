@@ -1,0 +1,237 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-q"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+======================================================================
+ERROR: test_health_never_invokes_candidate_helper (test_hardening_v231.HardeningTests.test_health_never_invokes_candidate_helper)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 28, in test_health_never_invokes_candidate_helper
+    g.trusted_health(plan)
+    ^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease' has no attribute 'trusted_health'
+
+======================================================================
+ERROR: test_jump_denied_in_both_schemas (test_hardening_v231.HardeningTests.test_jump_denied_in_both_schemas)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 33, in test_jump_denied_in_both_schemas
+    self.assertNotIn('/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py', g.TARGET_POLICY)
+                                                                      ^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_ai_home_maps_actual_feature_source (test_release_v23.TrustedTests.test_ai_home_maps_actual_feature_source)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 141, in test_ai_home_maps_actual_feature_source
+    self.assertEqual(self.g.TARGET_POLICY['/opt/dvizh-ai-home/ai_home_bridge.py']['source'], 'ai-home-v2/ai_home_bridge.py')
+                     ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606559065744' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_all_sources_and_metadata_preflight_zero_destination_writes (test_release_v23.TrustedTests.test_all_sources_and_metadata_preflight_zero_destination_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 75, in test_all_sources_and_metadata_preflight_zero_destination_writes
+    self.add('/usr/local/libexec/dvizh-context'); dest=self.add('/opt/dvizh/static/index.html'); self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606554701888' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_all_target_ancestors_require_mapped_group (test_release_v23.TrustedTests.test_all_target_ancestors_require_mapped_group)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 211, in test_all_target_ancestors_require_mapped_group
+    dest=self.add('/usr/local/libexec/dvizh-context');self.publish()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606554702224' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_backup_failure_zero_target_writes (test_release_v23.TrustedTests.test_backup_failure_zero_target_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 162, in test_backup_failure_zero_target_writes
+    dest=self.add('/usr/local/libexec/dvizh-context'); self.publish(); original=self.g.atomic_write
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606554702672' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_ci_and_ancestry_fail_closed (test_release_v23.TrustedTests.test_ci_and_ancestry_fail_closed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 193, in test_ci_and_ancestry_fail_closed
+    self.add('/usr/local/libexec/dvizh-context');self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606553989728' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_doctor_reports_policy_state_and_pending_without_reading_keys (test_release_v23.TrustedTests.test_doctor_reports_policy_state_and_pending_without_reading_keys)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 204, in test_doctor_reports_policy_state_and_pending_without_reading_keys
+    self.assertEqual(report['state_root'],str(self.g.APPROVAL_ROOT.parent))
+                     ~~~~~~^^^^^^^^^^^^^^
+KeyError: 'state_root'
+
+======================================================================
+ERROR: test_exact_policy_mutations_deny (test_release_v23.TrustedTests.test_exact_policy_mutations_deny)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 60, in test_exact_policy_mutations_deny
+    self.add('/usr/local/libexec/dvizh-context')
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606553991632' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_health_fixed_active_pid_api_context_no_diagnostics_leak (test_release_v23.TrustedTests.test_health_fixed_active_pid_api_context_no_diagnostics_leak)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 145, in test_health_fixed_active_pid_api_context_no_diagnostics_leak
+    self.add('/opt/dvizh-ai-home/ai_home_bridge.py')
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606553986928' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_manual_not_auto_without_binding_browser_evidence (test_release_v23.TrustedTests.test_manual_not_auto_without_binding_browser_evidence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 71, in test_manual_not_auto_without_binding_browser_evidence
+    self.manifest['operations']=[]; self.add('/opt/dvizh/static/'+name)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606559068544' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_middle_write_failure_restores_mixed_batch_and_restarts_old (test_release_v23.TrustedTests.test_middle_write_failure_restores_mixed_batch_and_restarts_old)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 99, in test_middle_write_failure_restores_mixed_batch_and_restarts_old
+    first=self.add('/usr/local/libexec/dvizh-context'); second=self.add('/opt/dvizh-ai-home/ai_home_bridge.py'); self.publish()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606555142880' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_mixed_runtime_auto_and_approval_union (test_release_v23.TrustedTests.test_mixed_runtime_auto_and_approval_union)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 53, in test_mixed_runtime_auto_and_approval_union
+    self.add('/usr/local/libexec/dvizh-context'); self.add('/opt/dvizh-ai-home/ai_home_bridge.py'); self.add('/opt/dvizh/static/index.html')
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606555138624' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_pending_blocks_plan_and_apply (test_release_v23.TrustedTests.test_pending_blocks_plan_and_apply)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 125, in test_pending_blocks_plan_and_apply
+    self.add('/usr/local/libexec/dvizh-context'); self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606560053264' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_production_rejects_legacy_manifest (test_release_v23.TrustedTests.test_production_rejects_legacy_manifest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 131, in test_production_rejects_legacy_manifest
+    self.add('/usr/local/libexec/dvizh-context'); self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606553565424' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_readonly_preflight_never_creates_state_or_writes (test_release_v23.TrustedTests.test_readonly_preflight_never_creates_state_or_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 223, in test_readonly_preflight_never_creates_state_or_writes
+    self.add('/usr/local/libexec/dvizh-context');self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606553558592' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_restart_and_smoke_failure_restore_and_recheck (test_release_v23.TrustedTests.test_restart_and_smoke_failure_restore_and_recheck)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 173, in test_restart_and_smoke_failure_restore_and_recheck
+    dest=self.add('/opt/dvizh-ai-home/ai_home_bridge.py');self.publish()
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606552946080' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_safe_full_phrase_wrong_expired_digest_replay (test_release_v23.TrustedTests.test_safe_full_phrase_wrong_expired_digest_replay)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 112, in test_safe_full_phrase_wrong_expired_digest_replay
+    self.add('/usr/local/libexec/dvizh-context'); self.proposal['mode']='safe'; self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606552941264' has no attribute 'TARGET_POLICY'
+
+======================================================================
+ERROR: test_source_parent_symlink_and_git_mode (test_release_v23.TrustedTests.test_source_parent_symlink_and_git_mode)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 184, in test_source_parent_symlink_and_git_mode
+    self.add('/usr/local/libexec/dvizh-context');self.publish()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_release_v23.py", line 24, in add
+    policy = self.g.TARGET_POLICY[target]
+             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'dvizhrelease_test_140606553555568' has no attribute 'TARGET_POLICY'
+
+======================================================================
+FAIL: test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) (name='dvizhgitpush')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 74, in test_incomplete_candidate_cannot_reach_privileged_git_or_apply
+    with self.assertRaisesRegex(gate.GateError, 'v2.3.1.*incomplete'):
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) (name='dvizhrelease')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 74, in test_incomplete_candidate_cannot_reach_privileged_git_or_apply
+    with self.assertRaisesRegex(gate.GateError, 'v2.3.1.*incomplete'):
+AssertionError: GateError not raised
+
+----------------------------------------------------------------------
+Ran 162 tests in 6.413s
+
+FAILED (failures=2, errors=19)
+COMMAND_EXIT=1

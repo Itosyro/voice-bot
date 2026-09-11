@@ -1,0 +1,38 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_foundation_v232.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_harmless_fsmonitor_does_not_execute (test_foundation_v232.FoundationTests.test_harmless_fsmonitor_does_not_execute) ... FAIL
+test_protected_add_remove_rejected (test_foundation_v232.FoundationTests.test_protected_add_remove_rejected) ... FAIL
+test_root_entry_not_quarantined (test_foundation_v232.FoundationTests.test_root_entry_not_quarantined) ... ERROR
+test_schema_two_retired (test_foundation_v232.FoundationTests.test_schema_two_retired) ... ok
+
+======================================================================
+ERROR: test_root_entry_not_quarantined (test_foundation_v232.FoundationTests.test_root_entry_not_quarantined)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_foundation_v232.py", line 41, in test_root_entry_not_quarantined
+    g.require_root()
+  File "/repo/hermes-dev-v2/dvizhrelease.py", line 223, in require_root
+    raise GateError("v2.3.1 hardening incomplete; production execution disabled pending independent review")
+dvizhrelease.GateError: v2.3.1 hardening incomplete; production execution disabled pending independent review
+
+======================================================================
+FAIL: test_harmless_fsmonitor_does_not_execute (test_foundation_v232.FoundationTests.test_harmless_fsmonitor_does_not_execute)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_foundation_v232.py", line 30, in test_harmless_fsmonitor_does_not_execute
+    self.assertFalse(marker.exists())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_protected_add_remove_rejected (test_foundation_v232.FoundationTests.test_protected_add_remove_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_foundation_v232.py", line 19, in test_protected_add_remove_rejected
+    with self.assertRaises(g.GateError):
+AssertionError: GateError not raised
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.080s
+
+FAILED (failures=2, errors=1)
+COMMAND_EXIT=1

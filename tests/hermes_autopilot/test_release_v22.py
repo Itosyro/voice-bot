@@ -332,7 +332,11 @@ class BoundaryTests(TrustTests):
         start = workflow.index("          import json\n", workflow.index('Validate committed release manifest'))
         end = workflow.index("          PY", start)
         code = '\n'.join(line[10:] for line in workflow[start:end].splitlines())
-        (self.source / 'hermes-dev-v2').symlink_to(root / 'hermes-dev-v2', target_is_directory=True)
+        # Model the workflow's prior immutable-base extraction in this isolated
+        # fixture; the candidate tree is no longer the validator import root.
+        import shutil
+        trusted=Path('/tmp/owner-validators');trusted.mkdir(exist_ok=True)
+        shutil.copyfile(root/'hermes-dev-v2/dvizhrelease.py',trusted/'dvizhrelease.py')
         self.publish()
         def run():
             return subprocess.run(['python3', '-c', code], cwd=self.source, capture_output=True, text=True)

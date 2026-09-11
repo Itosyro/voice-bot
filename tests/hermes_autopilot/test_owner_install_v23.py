@@ -26,20 +26,18 @@ class InstallerTests(unittest.TestCase):
     def install(self):
         return self.m.install(self.g,self.payload,self.m.payload_digest(self.payload))
 
-    def test_preserve_whole_actual_skill_and_idempotent_backup(self):
-        result=self.install();skill=self.fs/self.m.SKILL_TARGET.lstrip('/')
-        self.assertTrue(skill.read_bytes().startswith(self.original))
-        self.assertEqual(skill.read_bytes(),self.original+self.m.policy_bytes(self.payload))
-        backup=Path(result['backup']);self.assertTrue(any(p.read_bytes()==self.original for p in backup.iterdir() if p.is_file()))
-        before=skill.stat().st_mtime_ns
-        again=self.install();self.assertEqual(again['status'],'unchanged');self.assertEqual(skill.stat().st_mtime_ns,before)
-        for term in [b'Manual',b'Quiet Signal',b'sync',b'Owner-maintenance handoff']:self.assertIn(term,skill.read_bytes())
+    def test_only_gates_installed_and_idempotent(self):
+        self.assertNotIn(self.m.SKILL_TARGET,self.m.TARGETS)
+        result=self.install()
+        for target,source in self.m.TARGETS.items():
+            self.assertEqual((self.fs/target.lstrip('/')).read_bytes(),(self.payload/source).read_bytes())
+        self.assertEqual(self.install()['status'],'unchanged')
 
     def test_bad_digest_zero_writes_and_no_secrets_or_sudo_targets(self):
         with patch.object(self.g,'atomic_write') as writes:
             with self.assertRaises(self.g.GateError):self.m.install(self.g,self.payload,'0'*64)
             writes.assert_not_called()
-        self.assertEqual(set(self.m.TARGETS),{'/usr/local/bin/dvizhautopilot','/usr/local/sbin/dvizhrelease','/usr/local/sbin/dvizhgitpush',self.m.SKILL_TARGET})
+        self.assertEqual(set(self.m.TARGETS),{'/usr/local/bin/dvizhautopilot','/usr/local/sbin/dvizhrelease','/usr/local/sbin/dvizhgitpush'})
 
     def test_middle_failure_full_rollback(self):
         old={p:p.read_bytes() for p in self.fs.rglob('*') if p.is_file()}
@@ -52,9 +50,7 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(self.g.GateError,'rollback confirmed'):self.install()
         for p,data in old.items():self.assertEqual(p.read_bytes(),data)
 
-    def test_conflicting_append_or_symlink_denied(self):
-        path=self.fs/self.m.SKILL_TARGET.lstrip('/')
-        path.write_bytes(self.original+b'\n<!-- DVIZH TRUSTED MODE v2.3 -->\nconflict')
-        with self.assertRaises(self.g.GateError):self.install()
+    def test_destination_symlink_denied(self):
+        path=self.fs/'usr/local/sbin/dvizhrelease'
         path.unlink();path.symlink_to(self.root/'other')
         with self.assertRaises(self.g.GateError):self.install()

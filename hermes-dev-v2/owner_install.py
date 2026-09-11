@@ -24,7 +24,6 @@ TARGETS = {
     '/usr/local/bin/dvizhautopilot': 'dvizhautopilot.py',
     '/usr/local/sbin/dvizhrelease': 'dvizhrelease.py',
     '/usr/local/sbin/dvizhgitpush': 'dvizhgitpush.py',
-    SKILL_TARGET: 'TRUSTED-MODE-v2.3.md',
 }
 MARKER = b'<!-- DVIZH TRUSTED MODE v2.3 -->'
 
@@ -71,32 +70,16 @@ def prepare(gate, payload, expected):
         buffers[name] = data
     if not expected or buffer_digest(buffers) != expected:
         raise gate.GateError('owner payload digest mismatch')
-    policy = buffers['TRUSTED-MODE-v2.3.md']
-    if policy.count(MARKER) != 1:
-        raise gate.GateError('invalid additive skill policy')
     records = []
     for target, source in TARGETS.items():
         path = gate.fs_path(target)
         gate.checked_path(path)
         old, metadata = gate.read_regular(path)
-        if target == SKILL_TARGET:
-            if MARKER in old:
-                if not old.endswith(policy) or old.count(MARKER) != 1:
-                    raise gate.GateError('conflicting v2.3 policy; owner reconciliation required')
-                new = old
-            else:
-                new = old + policy
-            if not gate.TEST_MODE:
-                import pwd
-                user = pwd.getpwnam('exedev')
-                if metadata != dict(uid=user.pw_uid, gid=user.pw_gid, mode=0o600):
-                    raise gate.GateError('installed skill metadata mismatch')
-        else:
-            if metadata != gate.privileged_metadata():
-                raise gate.GateError('installed gate metadata mismatch')
-            new = buffers[source]
-            compile(new, source, 'exec', dont_inherit=True)
-            parent = gate.walk_parent(path, trusted=True); os.close(parent)
+        if metadata != gate.privileged_metadata():
+            raise gate.GateError('installed gate metadata mismatch')
+        new = buffers[source]
+        compile(new, source, 'exec', dont_inherit=True)
+        parent = gate.walk_parent(path, trusted=True); os.close(parent)
         records.append(dict(target=target, old=old, new=new, metadata=metadata))
     return records
 
@@ -111,7 +94,7 @@ def install(gate, payload, expected):
         parent = gate.walk_parent(gate.BACKUP_ROOT/'placeholder', create=True, trusted=True)
         try:
             os.fchmod(parent, 0o700)
-            backup = Path(tempfile.mkdtemp(prefix='owner-v23.', dir=gate.BACKUP_ROOT)); os.fsync(parent)
+            backup = Path(tempfile.mkdtemp(prefix='owner-v232.', dir=gate.BACKUP_ROOT)); os.fsync(parent)
         finally: os.close(parent)
         mapping = []
         for i, r in enumerate(records):
@@ -128,7 +111,7 @@ def install(gate, payload, expected):
             gate.verify_file(Path(m['backup']), m['sha256'], m)
             gate.verify_file(gate.fs_path(m['target']), m['sha256'], m)
         gate.verify_file(backup/'mapping.json', hashlib.sha256(raw).hexdigest(), metadata)
-        journal = dict(schema=1, kind='owner-install-v23', backup=str(backup), mapping_sha256=hashlib.sha256(raw).hexdigest(), state='pending', restarts=[])
+        journal = dict(schema=1, kind='owner-install-v232', backup=str(backup), mapping_sha256=hashlib.sha256(raw).hexdigest(), state='pending', restarts=[])
         gate.atomic_write(gate.APPROVAL_ROOT/'pending.json', json.dumps(journal).encode(), metadata)
         try:
             for r in records:

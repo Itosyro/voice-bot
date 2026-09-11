@@ -1,0 +1,9 @@
+[Compacted: successful per-test rows omitted; diagnostics and summary retained.]
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+
+----------------------------------------------------------------------
+Ran 150 tests in 6.161s
+
+OK
+COMMAND_EXIT=0

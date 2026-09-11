@@ -1,0 +1,249 @@
+{
+  "passed": false,
+  "verdict": "FAIL_DO_NOT_INSTALL",
+  "review_version": "v2.3.2 FOUNDATION",
+  "review_date_utc": "2026-09-11",
+  "base": "00dd0fc83bc53f8c5382ad55159769ba926ac220",
+  "head": "00dd0fc83bc53f8c5382ad55159769ba926ac220",
+  "scope": "Independent review of the working-tree diff against the requested base, untracked foundation implementation, and relevant inherited controller, release/push gates, standalone installer, OS-isolation harness, owner tests and three protected workflows. Revised schema-1 foundation scope: no trusted-runtime automatic deployment, no new mappings, Jump DENY, existing v2.2.1 approvals retained.",
+  "security_concerns": [],
+  "logic_errors": [
+    {
+      "id": "L1",
+      "severity": "HIGH",
+      "status": "CONFIRMED_UNRESOLVED",
+      "locations": [
+        ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml:43",
+        ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml:45",
+        "hermes-dev-v2/dvizhautopilot.py:19",
+        "hermes-dev-v2/dvizhgitpush.py:16",
+        "tests/hermes_autopilot/test_foundation_v232.py:182"
+      ],
+      "finding": "The protected v2 CI contracts job deterministically fails on these candidate bytes. Only the release-gate version assertion was updated. The controller assertion still requires 2026.09.08-hermes-autopilot.2 and the push-gate assertion still requires 2026.09.08-dvizh-git-push-gate.1; both sources now report 2026.09.11 versions ending .2.3.2. With set -Eeuo pipefail, the first mismatch aborts contracts and prevents its dependent release-gate job from succeeding.",
+      "evidence": "T4 independently executed all three exact grep commands extracted from the workflow in OS isolation: controller exit 1, release exit 0, push gate exit 1. The 156-test suite nevertheless passed; its new version test checks only dvizhrelease. This is an actual implementation/workflow mismatch, not a missing owner pin prerequisite.",
+      "required_resolution": "Coordinate all three version contracts with the reviewed candidate and validate the actual protected workflow static step before issuing an approved base. No fixes made in this review."
+    },
+    {
+      "id": "L2",
+      "severity": "MEDIUM",
+      "status": "CONFIRMED_UNRESOLVED",
+      "locations": [
+        "hermes-dev-v2/dvizhrelease.py:900",
+        "hermes-dev-v2/dvizhgitpush.py:230",
+        "hermes-dev-v2/dvizhautopilot.py:308",
+        "hermes-dev-v2/skill/SKILL.md:96"
+      ],
+      "finding": "Foundation readiness is reported as successful without checking its mandatory owner authorization. Release doctor checks tool availability and pending state only; push doctor checks key/transport authorization only. Neither validates owner-approval.json. The controller aggregates these ok fields, so its documented mandatory readiness check can be green while every production push/release fails because the foundation approval is absent or invalid.",
+      "evidence": "T4 ran the actual release doctor function with only root requirement/tool availability/pending-state probes substituted, and an owner_manifest spy configured to reject missing authorization. doctor returned ok=true and never invoked the spy. Push doctor and controller aggregation were inspected statically; no key, transport or production doctor was accessed. Authorization paths still fail closed: this is a readiness/delivery diagnostic defect, not an authorization bypass.",
+      "required_resolution": "Expose and validate foundation authorization readiness through the doctor contract, distinguish unavailable/invalid owner trust from transport readiness, and make aggregate readiness reflect the prerequisites. The owner must still provide the authorization independently."
+    }
+  ],
+  "suggestions": [
+    {
+      "locations": [
+        "tests/hermes_autopilot/test_foundation_v232.py:182",
+        ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml:38"
+      ],
+      "suggestion": "Exercise the complete version/static workflow contract instead of checking one version string. A green unit suite did not detect L1."
+    },
+    {
+      "locations": [
+        ".github/workflows/dvizh-hermes-autopilot-installer-smoke.yml:31",
+        "install-dvizh-hermes-autopilot.sh:1",
+        "hermes-dev-v2/OWNER-HANDOFF.md:28"
+      ],
+      "suggestion": "Keep the inherited v2.1 installer smoke explicitly labeled as legacy coverage. It does not validate privileged installation of this v2.3.2 bootstrap/installer. Preserve the documented owner-side staging, interpreter, manifest, identity and transport validation prerequisites; do not count legacy smoke as current delivery acceptance."
+    },
+    {
+      "locations": [
+        "hermes-dev-v2/dvizhautopilot.py:21",
+        "hermes-dev-v2/dvizhautopilot.py:45",
+        "hermes-dev-v2/BOOTSTRAP-v232.md:55"
+      ],
+      "suggestion": "The eventual owner rollout should explicitly align the controller's managed-job base branch with the independently approved foundation base, as well as the workflow variable and both gates' manifest. No base, ref or pin was changed during review."
+    }
+  ],
+  "tests": [
+    {
+      "id": "T1",
+      "command": "python3 hermes-dev-v2/regression_health.py python3 -m unittest discover -s tests/hermes_autopilot -q",
+      "exit_code": 0,
+      "result": "156 test executions passed in 6.373 seconds.",
+      "coverage": "Existing schema-1/v2.2 approval, one-use/concurrent claims, TTL, rollback, metadata, ancestor races, signals/pending state, installer fixtures; current foundation export/config/identity spies, CI/history fixtures, bootstrap and verified-buffer tests.",
+      "limitations": "These are test executions, including inherited test methods, not 156 independent end-to-end security properties. Root identity and live services/transport/API responses are mocked where needed. Actual fixture installation functions ran only in disposable isolation."
+    },
+    {
+      "id": "T2",
+      "command": "python3 hermes-dev-v2/regression_health.py python3 -m pytest tests/ -q",
+      "exit_code": 1,
+      "result": "Blocked before collection: /usr/bin/python3: No module named pytest. No full-repository pytest pass claimed; no dependencies installed."
+    },
+    {
+      "id": "T3",
+      "command": "python3 hermes-dev-v2/regression_health.py bash -c 'node --test tests/ai-home-v2/*.test.cjs; python3 tests/ai-home-v2/promote_byte_smoke_test.py; python3 tests/ai-home-v2/bridge_contract_test.py; python3 tests/ai-home-v2/browser_test.py'",
+      "exit_code": 1,
+      "result": {
+        "node": "99 executions: 98 passed, 1 failed because awk is unavailable in isolation.",
+        "promote_byte_smoke": "3 failures caused by unavailable awk, before expected byte-verification behavior.",
+        "bridge_contract": "2 tests passed against fixture services.",
+        "browser": "Blocked at import: No module named playwright."
+      },
+      "limitations": "Ran current checkout via the harness, without --health historical checkout. Some inherited feature tests internally resolve historical payloads. The shell intentionally attempted each command; its final exit is the browser exit, and each preceding result is reported separately. These environment limitations do not prove feature regressions and are not demands to reinstate retired runtime-auto acceptance."
+    },
+    {
+      "id": "T4",
+      "command_argv": [
+        "python3",
+        "hermes-dev-v2/regression_health.py",
+        "python3",
+        "-c",
+        "import sys,os,tempfile,subprocess,json,hashlib,re\nfrom pathlib import Path\nfrom unittest.mock import patch\nsys.path.insert(0,'/repo/tests/hermes_autopilot')\nfrom test_git_push_gate import fixture,git,load_gate,JOB_ID\nfrom test_hardening_v231 import module\nout=[]\nwith tempfile.TemporaryDirectory() as td:\n home,wt,base,branch=fixture(td);g=load_gate(home,base)\n (wt/'ai-home-v2/index.html').write_text('captured')\n git(wt,'add','.');git(wt,'commit','-m','allowed');head=git(wt,'rev-parse','HEAD')\n marker=Path(td)/'marker';hook=Path(td)/'hook'\n hook.write_text('#!/bin/sh\\necho harmless > '+str(marker)+'\\n');hook.chmod(0o755)\n inc=Path(td)/'include';inc.write_text('[core]\\n fsmonitor = '+str(hook)+'\\n sshCommand = '+str(hook)+'\\n[credential]\\n helper = !'+str(hook)+'\\n')\n git(wt,'config','include.path',str(inc))\n with patch.dict(os.environ,{'GIT_CONFIG_COUNT':'1','GIT_CONFIG_KEY_0':'core.fsmonitor','GIT_CONFIG_VALUE_0':str(hook),'GIT_CONFIG_PARAMETERS':\"'core.fsmonitor=\"+str(hook)+\"'\",'GIT_DIR':'/does-not-exist','GIT_WORK_TREE':'/does-not-exist','GIT_OBJECT_DIRECTORY':'/does-not-exist','GIT_SSH_COMMAND':str(hook),'GIT_EXTERNAL_DIFF':str(hook)}):\n  g.validate_worktree(home,JOB_ID,{'worktree':str(wt),'branch':branch})\n  with g.immutable_export(wt,head) as clean:\n   assert g.changed_paths(clean,base,head)==['ai-home-v2/index.html']\n   # Mutate caller config/refs during independently validated object reads.\n   mutation=subprocess.Popen(['/bin/sh','-c','for n in 1 2 3 4 5; do git -C \"$1\" update-ref HEAD \"$2\"; git -C \"$1\" config core.fsmonitor false; done','probe',str(wt),base],env={'PATH':'/usr/bin:/bin','HOME':'/nonexistent','GIT_CONFIG_NOSYSTEM':'1'},stdout=subprocess.PIPE,stderr=subprocess.PIPE)\n   for i in range(5):\n    assert g.run(g.git_args(clean,'show',head+':ai-home-v2/index.html')).stdout=='captured'\n   assert mutation.wait()==0\n assert not marker.exists()\n out.append({'case':'config_environment_and_concurrent_caller_mutations','result':'PASS'})\nwith tempfile.TemporaryDirectory() as td:\n home,wt,base,branch=fixture(td);g=load_gate(home,base)\n protected=wt/'hermes-dev-v2';protected.mkdir();(protected/'hidden.py').write_text('# harmless')\n git(wt,'add','.');git(wt,'commit','-m','protected');(protected/'hidden.py').unlink()\n (wt/'ai-home-v2/index.html').write_text('allowed');git(wt,'add','-A');git(wt,'commit','-m','hide');head=git(wt,'rev-parse','HEAD')\n with g.immutable_export(wt,head) as clean:\n  try:g.changed_paths(clean,base,head)\n  except g.GateError as e:out.append({'case':'exported_protected_add_remove','result':'REJECTED','error':str(e)})\n  else:raise AssertionError('hidden protected history accepted')\nwith tempfile.TemporaryDirectory() as td:\n home,wt,base,branch=fixture(td);g=load_gate(home,base)\n original=g.subprocess.run\n def corrupt(args,**kw):\n  if 'pack-objects' in args:\n   kw['stdout'].write(b'not a git pack');kw['stdout'].flush()\n   return subprocess.CompletedProcess(args,0,b'',b'')\n  return original(args,**kw)\n with patch.object(g.subprocess,'run',side_effect=corrupt):\n  try:\n   with g.immutable_export(wt,base):raise AssertionError('invalid pack accepted')\n  except g.GateError as e:out.append({'case':'corrupted_export','result':'REJECTED','error':str(e)})\ng=module('dvizhrelease')\nwith patch.object(g,'require_root'),patch.object(g.shutil,'which',return_value='/fixture/tool'),patch.object(g.os.path,'lexists',return_value=False),patch.object(g,'owner_manifest',side_effect=g.GateError('missing owner approval')) as pins:\n result=g.doctor()\n assert result['ok'] and not pins.called\n out.append({'case':'doctor_without_owner_authorization','result':'REPORTS_OK_WITHOUT_CHECKING_PINS','doctor':result})\nworkflow=Path('/repo/.github/workflows/dvizh-hermes-autopilot-v2-tests.yml').read_text()\nfor line in workflow.splitlines():\n if \"grep -Fq 'VERSION = \" in line:\n  command=line.strip();cp=subprocess.run(['/bin/bash','-c',command],capture_output=True)\n  out.append({'case':'actual_workflow_version_command','command':command,'exit_code':cp.returncode})\nprint(json.dumps(out,indent=2))\n"
+      ],
+      "exit_code": 0,
+      "result": [
+        "Caller include-config plus GIT_CONFIG_COUNT/KEY/VALUE, GIT_CONFIG_PARAMETERS, GIT_DIR, GIT_WORK_TREE, GIT_OBJECT_DIRECTORY, SSH-command and external-diff injections did not execute the harmless marker hook or redirect the validated reads.",
+        "Real Git export/index-pack retained captured bytes while a separate process repeatedly changed caller HEAD and config.",
+        "Protected add/remove history was rejected inside the exported repository.",
+        "Injected invalid pack bytes were rejected by the real index-pack boundary.",
+        "Actual release doctor reported ok without checking missing owner authorization (L2).",
+        "Actual workflow controller/push version commands each exited 1; release version command exited 0 (L1)."
+      ],
+      "limitations": "Exit zero means all stated observations, including adverse ones, were reproduced. No root Git, real push, key or production command used. Concurrency fixture mutates only disposable refs/config."
+    },
+    {
+      "id": "T5",
+      "command_argv": [
+        "python3",
+        "hermes-dev-v2/regression_health.py",
+        "python3",
+        "-c",
+        "import sys,tempfile,subprocess,hashlib,json\nfrom pathlib import Path\nfrom unittest.mock import patch\nsys.path.insert(0,'/repo/tests/hermes_autopilot')\nfrom test_hardening_v231 import module\nout=[]\ng=module('dvizhrelease')\nbase='a'*40;middle='b'*40;head='c'*40\npins={p:'d'*40 for p in g.PIN_PATHS}\nold={p:{'path':p,'type':'blob','mode':'100644','sha':sha} for p,sha in pins.items()}\nnew=dict(old);new['ai-home-v2/index.html']={'type':'blob','mode':'100644','sha':'e'*40}\nhistory={base:old,head:new}\ndef api(url):\n sha=url.rsplit('/',1)[-1]\n return {'sha':sha,'parents':[{'sha':base}]}\nwith patch.object(g,'owner_manifest',return_value={'base':base,'pins':pins}),patch.object(g,'source_tree',side_effect=lambda sha:history[sha]),patch.object(g,'api_json',side_effect=api):\n g.verify_owner_history({'commit':head})\n out.append({'case':'independent_valid_pinned_history','result':'ACCEPTED'})\n for name in sorted(pins):\n  previous=new[name];new[name]={**previous,'sha':'f'*40}\n  try:g.verify_owner_history({'commit':head})\n  except g.GateError:pass\n  else:raise AssertionError(name+' changed pin accepted')\n  new[name]=previous\n out.append({'case':'each_of_five_pin_substitutions','result':'REJECTED'})\n hidden=dict(new);hidden['tests/hermes_autopilot/hidden.py']={'type':'blob','sha':'f'*40}\n history[middle]=hidden\n def hidden_api(url):\n  sha=url.rsplit('/',1)[-1]\n  return {'sha':sha,'parents':[{'sha':middle if sha==head else base}]}\n with patch.object(g,'api_json',side_effect=hidden_api):\n  try:g.verify_owner_history({'commit':head})\n  except g.GateError as e:assert 'protected history' in str(e)\n  else:raise AssertionError('hidden commit accepted')\n out.append({'case':'independent_remote_protected_add_remove','result':'REJECTED'})\nwith tempfile.TemporaryDirectory() as td:\n p=Path(td);installer=p/'owner_install.py';marker=p/'unverified'\n malicious='open('+repr(str(marker))+',\"w\").write(\"harmless\")\\n'\n approved=('from pathlib import Path\\nPath('+repr(str(installer))+').write_text('+repr(malicious)+')\\ndef gate_for(): return None\\ndef prepare(*args): return []\\n').encode()\n installer.write_bytes(approved)\n bootstrap=Path('/repo/hermes-dev-v2/bootstrap_v232.py');bootstrap_data=bootstrap.read_bytes()\n doc=Path('/repo/hermes-dev-v2/BOOTSTRAP-v232.md').read_text();launcher=doc.split('~~~')[0].split('```python\\n')[1].split('```')[0]\n cp=subprocess.run(['/usr/bin/python3','-I','-S','-c',launcher,str(bootstrap),hashlib.sha256(bootstrap_data).hexdigest(),str(p),hashlib.sha256(approved).hexdigest(),'0'*64],cwd=p,capture_output=True,text=True)\n assert cp.returncode==0,cp.stderr\n assert not marker.exists() and installer.read_text()==malicious\n out.append({'case':'full_launcher_bootstrap_installer_buffer_chain','result':'PASS','stdout':cp.stdout.strip(),'limit':'authenticated fixture installer; no production prepare or install'})\nprint(json.dumps(out,indent=2))\n"
+      ],
+      "exit_code": 0,
+      "result": [
+        "Independent synthetic valid pinned release history accepted.",
+        "Each of the five owner-pinned workflow/validator substitutions rejected.",
+        "Protected intermediate test-file addition/removal rejected by actual release history traversal.",
+        "Full documented external launcher -> actual bootstrap -> authenticated fixture installer chain executed the verified installer buffer despite replacement of its pathname; replacement marker was never executed."
+      ],
+      "limitations": "GitHub APIs and owner manifest are synthetic authenticated inputs, not live API/authentication tests. The chain uses an independently hashed harmless stub installer so it performs no production prepare/install. Actual buffered fixture installation is additionally covered by T1."
+    },
+    {
+      "id": "T6",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "No tracked diff whitespace errors."
+    }
+  ],
+  "findings": [
+    "L1",
+    "L2"
+  ],
+  "boundary_assessment": {
+    "caller_git": "Implemented privilege-separated caller Git: explicit invoking UID/primary GID cross-check, extra_groups=[], fixed cwd '/', constructed environment, absolute Git binary, explicit hook/fsmonitor/helper/transport overrides. Caller repository config/includes are still parsed, but in the caller-identity subprocess rather than root. Actual privileged identity transition was not executed; subprocess arguments are covered by T1.",
+    "immutable_push": "Implemented private temporary bare repository without copied config/hooks/refs/alternates/shallow files, opaque pack export, strict index-pack, captured commit existence, ancestry/count/merge checks, per-commit scope validation and external base/head pins. Push refspec uses captured SHA. T1/T4 exercise real export and adversarial mutations; transport is spied/mocked, never pushed. No authorization bypass demonstrated in this review.",
+    "ci_and_history": "External fixed-path manifest is implemented in both gates and is not derived from candidate assertions. Required five paths include all three protected workflows and both validators. Release walks every single-parent commit, comparing protected leaf changes, and requires exact successful CI run/job identities. Push rechecks every commit after export. Tests reject pinned substitutions and hidden protected history. L1 remains a functional protected-workflow failure.",
+    "bootstrap": "Standalone buffered launcher and bootstrap are delivered. External digests authenticate bootstrap then installer before execution; isolated/no-site interpreter and standalone standard-library installer remove adjacent candidate imports. Installer digests and installs captured buffers with trusted staging metadata and transaction handling. T1/T5 confirm buffer replacement behavior. No authenticated owner channel or actual root installation was exercised.",
+    "release_scope": "Schema 2 rejected. Only the existing three static targets can be automatic. Former runtime-auto targets require existing approval; three privileged targets retain exact source/SHA/metadata/full-phrase policy. Manual/shared frontend/server remain approval-required. Jump target/restart denial retained. No new runtime behavior-test obligation imposed.",
+    "functional_entrypoints": "Unconditional root quarantine removed and fixed production configuration accepted by entry checks. Real privileged entrypoints were not run. Readiness contract is incomplete (L2); this must not be described as unconditional quarantine.",
+    "resource_and_platform_limits": "Timeouts and compressed export file-size limit exist. Exhaustive hostile-object resource exhaustion, simultaneous independent gate invocations, OS/Git vulnerabilities, power-loss durability and every possible race are not proven safe by these bounded fixtures."
+  },
+  "delivery_contract": {
+    "implemented": "BOOTSTRAP-v232.md supplies the external launcher, buffer authentication chain, trusted interpreter/staging requirements, composite payload digest algorithm and external owner manifest shape. owner_install.py upgrades only three existing control-plane executables and does not modify the live skill, sudoers, keys or application mappings.",
+    "external_prerequisites_not_findings": [
+      "Owner independently authenticates launcher/bootstrap/installer/payload identities and approval manifest via a channel outside candidate control.",
+      "Owner approves an immutable foundation base containing the exact reviewed workflows/validators, provisions root-owned owner-approval.json and coordinates DVIZH_OWNER_FOUNDATION_BASE.",
+      "Owner validates installed OS/interpreter/Git/SSH, sudo identity contract, staging, transport/known-host authorization and installation/recovery under separate authorization."
+    ],
+    "missing_or_failed_delivery_evidence": [
+      "Protected v2.3.2 CI static contract fails (L1).",
+      "Doctor does not expose or validate mandatory owner authorization readiness (L2).",
+      "Existing installer-smoke still tests its immutable legacy v2.1 payload. No real v2.3.2 root installation, live CI, actual transport or production recovery acceptance is claimed."
+    ],
+    "trust_circularity": "No circular pin requirement identified: the independent manifest lives outside Git and pins blobs in an approved immutable base. That base need not contain its own digest. Candidate inventory hashes or this review's hashes are not owner approval. Absence of issued owner pins/digests is not counted as absent security implementation."
+  },
+  "prior_review_disposition": [
+    {
+      "prior": "v231 S1",
+      "disposition": "Runtime-auto feature retired by explicit scope revision. No requirement to implement or test its four behavior bindings. Existing approved runtime operations are retained without claiming generic health proves behavior."
+    },
+    {
+      "prior": "v231 S2",
+      "disposition": "Previously missing sanitized immutable push implementation is now present and has meaningful adversarial evidence. Real root/transport behavior remains unexecuted by instruction; no privilege-escalation finding reproduced."
+    },
+    {
+      "prior": "v231 S3",
+      "disposition": "Independent owner pins and complete protected-history enforcement are now implemented. External owner provisioning remains a rollout prerequisite."
+    },
+    {
+      "prior": "v231 S4",
+      "disposition": "Independent bootstrap invocation contract and buffered chain now delivered. Authentication of the actual owner input remains external, not a candidate self-approval."
+    },
+    {
+      "prior": "v231 L1",
+      "disposition": "Unconditional root quarantine removed. L2 of this review identifies a narrower readiness diagnostic defect."
+    },
+    {
+      "prior": "v231 L2",
+      "disposition": "Release version fixed, but controller and push version assertions now mismatch (current L1)."
+    },
+    {
+      "prior": "v231 L3",
+      "disposition": "Seven missing schema-2 mapped source requirements are not carried forward into the revised no-new-mappings foundation. Do not require their materialization merely to pass this review."
+    },
+    {
+      "prior": "v231 L4",
+      "disposition": "Full pytest and browser acceptance remain unavailable in this isolation environment; actual attempts recorded. Historical feature/runtime-auto obligations are not reimposed on the narrowed scope."
+    },
+    {
+      "prior": "v2.2 owner approval limitation",
+      "disposition": "Retained as explicitly permitted orchestration assumption. Bearer phrase possession is not cryptographic Telegram provenance; no new finding for that allowed limitation."
+    }
+  ],
+  "isolation": {
+    "boundary": "Existing audited regression_health.py: disposable complete local clone with candidate owner files/workflows overlaid, bwrap mount/PID/network/user namespaces, clear environment, capabilities dropped, no_new_privs.",
+    "observed": "Each invocation's probe passed: uid 1000; CapEff zero; NoNewPrivs=1; host-only sentinel/home, installed production gate and /var/lib/dvizh absent; external test-address connection failed.",
+    "groups": "Harness reports invoking gid 1000 plus unmapped supplementary IDs 65534. This is not evidence of the production empty-group transition; that launch contract was inspected and tested with subprocess spies.",
+    "prohibited_actions": "No production commands/imports, sudo, keys/secrets, real push/install, --apply invocation, dependency installation, implementation fixes, commits, friend/unrelated changes. Fixture tests mutate only disposable repositories/files. Only persistent review output is this JSON.",
+    "limitations": "No universal production-filesystem unchanged claim; no production source/key inventory was read for this review."
+  },
+  "evidence_reviewed": {
+    "mandatory": [
+      "hermes-dev-v2/SECURITY-REVIEW-V231.md",
+      "hermes-dev-v2/evidence/v231/INDEPENDENT-REVIEW.json"
+    ],
+    "additional": [
+      "hermes-dev-v2/SECURITY-REVIEW-V23.md",
+      "hermes-dev-v2/evidence/v2.2/FINAL-REVIEW.json",
+      "hermes-dev-v2/evidence/v232/REPORT.md",
+      "hermes-dev-v2/evidence/v232/RESULTS.json",
+      "hermes-dev-v2/DESIGN.md",
+      "hermes-dev-v2/OWNER-HANDOFF.md",
+      "hermes-dev-v2/BOOTSTRAP-v232.md"
+    ],
+    "implementation": "Entire current tracked diff plus untracked bootstrap/foundation test, current gates/controller/installer, relevant inherited transaction/approval tests, regression harness, protected workflows and legacy installer/skill delivery contract.",
+    "distinction": "Supplied implementation logs/inventory were not treated as independently executed results. T1-T6 are this review's checks.",
+    "candidate_sha256": {
+      ".github/workflows/dvizh-hermes-autopilot-installer-smoke.yml": "5b97142e21462704b695406dadc7451997cd36f620e02d09ea72f6eb06e1ace9",
+      ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml": "d19a4d17161d433df61b7138a073445241fb425381cdc95f7f7aad5bb9556b0d",
+      ".github/workflows/dvizh-hermes-autopilot.yml": "df30377b8d221795731d1a833ac336e3f007a07e554b1168215c35a100c439a6",
+      "hermes-dev-v2/BOOTSTRAP-v232.md": "1e4f99c487ae73cfcb70d359c4ede3d4187f26c4912eb81003d602961aad437f",
+      "hermes-dev-v2/DESIGN.md": "6a4e12b6b2b3a4874c387541d61f63c1628359cd0d6c92ee5955fdba69b9bcbf",
+      "hermes-dev-v2/OWNER-HANDOFF.md": "9a902c07ebfaff468db1dc7f72084a1130918b5ce7de4e26981e529abfca21ad",
+      "hermes-dev-v2/bootstrap_v232.py": "1cbdc117a5256382643aeb2de1dc7d5e2aa700799e1f6c0ebe60e841adfc01c2",
+      "hermes-dev-v2/dvizhautopilot.py": "fde7483b477a9a2b213db855378ee97f9f36b6e4598398da7af28a98089b82d4",
+      "hermes-dev-v2/dvizhgitpush.py": "09522e6307c5d6dec6ac9d904dfa3a5c31d132fcd7e89abc2106f7b510394fd1",
+      "hermes-dev-v2/dvizhrelease.py": "c8619f3dc7857bfdfddbd90de051f15a8a6097a993e6f3019d06bf1e8e27bc12",
+      "hermes-dev-v2/owner_install.py": "c976026e09807a235b46dc4349469c5669149ff54387238038ff1cc45ea91a0b",
+      "hermes-dev-v2/regression_health.py": "b87edfb2d354c5d97db679e93c7fa95ebe2de5e10fd9b73dca857009e34d9903",
+      "install-dvizh-hermes-autopilot.sh": "7cccaee2eafc0cfe45ef639491e79fcd83e0d07bf26ee7770ddc823bfc9381cf",
+      "tests/hermes_autopilot/test_foundation_v232.py": "5101e9d4379b64974936c9ee17d34d9167b02aca12dad4ca73316c904509a42c",
+      "tests/hermes_autopilot/test_hardening_v231.py": "4579c98950a9ba1d1ed0aec48b47ef37be9ef95a75345620c7b10f7c9abed2cf",
+      "tests/hermes_autopilot/test_owner_install_v23.py": "9545590127f063c055120de879f95b9f25f81fb5f96e7d6794511b13e505ea43",
+      "tests/hermes_autopilot/test_release_v22.py": "c8c2c70c25ff10cbdd98e1c30325677cfcaa646a6a4f618df84a53415ff2d2f8",
+      "tests/hermes_autopilot/test_release_v23.py": "e1572edf520bc9ee923739652faf968a3d0dba19ff38b9bada6cd0fd7fec8b58"
+    },
+    "tracked_diff_sha256": "7b4eeed948294f72b25f927cbba525deb3ee1b2f8ab214f08888ce79ef51ee86",
+    "inventory_status": "Read-only identity inventory, not installation approval or authenticated owner pins."
+  }
+}

@@ -1,7 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3 -I
 from __future__ import annotations
 
 import argparse
+import tempfile
+import pwd
+import contextlib
 import json
 import os
 import re
@@ -11,7 +14,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-VERSION = "2026.09.08-dvizh-git-push-gate.1"
+VERSION = "2026.09.11-dvizh-git-push-gate.2.3.2"
 REPO = "Itosyro/voice-bot"
 BASE_BRANCH = "codex/hermes-autopilot-v2-2026-09-08"
 KEY = Path(os.environ.get("DVIZH_GIT_GATE_KEY", "/var/lib/dvizh/autopilot-github/id_ed25519"))
@@ -76,18 +79,28 @@ def emit(value: Any) -> None:
 
 
 def run(args: list[str], *, cwd: Path | None = None, check: bool = True, timeout: int = 90, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    merged = os.environ.copy()
+    clean = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent", "LANG": "C.UTF-8",
+             "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+             "GIT_CONFIG_SYSTEM": "/dev/null", "GIT_NO_REPLACE_OBJECTS": "1",
+             "GIT_TERMINAL_PROMPT": "0"}
     if env:
-        merged.update(env)
-    cp = subprocess.run(args, cwd=str(cwd) if cwd else None, env=merged, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=timeout)
+        clean.update(env)
+    identity = {}
+    # All -C operations outside our private bare boundary are caller reads.
+    if "-C" in args and str(Path(args[args.index("-C")+1])) not in TRUSTED_REPOS and os.geteuid() == 0:
+        uid, gid = invoking_identity()
+        identity = dict(user=uid, group=gid, extra_groups=[])
+    cp = subprocess.run(args, cwd=str(cwd or Path("/")), env=clean, text=True,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+                        timeout=timeout, **identity)
     if check and cp.returncode != 0:
         raise GateError((cp.stderr or cp.stdout or "command failed").strip()[-4000:])
     return cp
 
 
 def require_root() -> None:
-    if os.geteuid() == 0:
-        raise GateError("v2.3.1 hardening incomplete; production execution disabled pending independent review")
+    if os.geteuid() == 0 and (TEST_MODE or TEST_HOME or KEY != Path("/var/lib/dvizh/autopilot-github/id_ed25519")):
+        raise GateError("root cannot use fixture overrides")
     if not TEST_MODE and os.geteuid() != 0:
         raise GateError("dvizhgitpush must run as root")
 
@@ -98,7 +111,7 @@ def caller_home() -> tuple[str, Path]:
         return user or "tester", Path(TEST_HOME).resolve()
     if not re.fullmatch(r"[a-z_][a-z0-9_-]*", user):
         raise GateError("missing or invalid SUDO_USER")
-    import pwd
+    invoking_identity()
     try:
         entry = pwd.getpwnam(user)
     except KeyError as exc:
@@ -132,7 +145,11 @@ def load_job(home: Path, job_id: str) -> dict[str, Any]:
 
 
 def git_args(wt: Path, *args: str) -> list[str]:
-    return ["git", "-c", f"safe.directory={wt}", "-C", str(wt), *args]
+    return ["/usr/bin/git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
+            "-c", "credential.helper=", "-c", "core.sshCommand=/bin/false",
+            "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never",
+            "-c", "core.attributesFile=/dev/null", "-c", "diff.external=",
+            "-C", str(wt), *args]
 
 
 def validate_worktree(home: Path, job_id: str, job: dict[str, Any]) -> tuple[Path, str, str]:
@@ -143,7 +160,7 @@ def validate_worktree(home: Path, job_id: str, job: dict[str, Any]) -> tuple[Pat
         raise GateError("job worktree is outside the managed DVIZH root")
     branch = run(git_args(wt, "branch", "--show-current")).stdout.strip()
     expected_prefix = f"hermes/dev/{job_id}-"
-    if not branch.startswith(expected_prefix) or branch != str(job.get("branch") or ""):
+    if not re.fullmatch(r"hermes/dev/[0-9]{8}-[0-9]{6}-[0-9a-f]{6}-[A-Za-z0-9_-]+", branch) or not branch.startswith(expected_prefix) or branch != str(job.get("branch") or ""):
         raise GateError("managed branch identity mismatch")
     dirty = run(git_args(wt, "status", "--porcelain=v1")).stdout.strip()
     if dirty:
@@ -160,27 +177,13 @@ def public_base_sha() -> str:
         if re.fullmatch(r"[0-9a-f]{40}", value):
             return value
         raise GateError("test base SHA is missing")
-    url = f"https://api.github.com/repos/{REPO}/branches/{BASE_BRANCH.replace('/', '%2F')}"
-    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": f"DVIZH-Git-Push-Gate/{VERSION}"})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
-        raise GateError(f"cannot resolve trusted DVIZH base: {type(exc).__name__}") from exc
-    sha = str((((payload or {}).get("commit") or {}).get("sha")) or "") if isinstance(payload, dict) else ""
-    if not re.fullmatch(r"[0-9a-f]{40}", sha):
-        raise GateError("trusted DVIZH base returned invalid SHA")
-    return sha
+    return owner_manifest()["base"]
 
 
 def ensure_commit(wt: Path, sha: str) -> None:
     if run(git_args(wt, "cat-file", "-e", f"{sha}^{{commit}}"), check=False).returncode == 0:
         return
-    if TEST_MODE:
-        raise GateError("trusted base commit is absent from fixture")
-    cp = run(git_args(wt, "fetch", "--no-tags", "--quiet", f"https://github.com/{REPO}.git", sha), check=False, timeout=120)
-    if cp.returncode != 0 or run(git_args(wt, "cat-file", "-e", f"{sha}^{{commit}}"), check=False).returncode != 0:
-        raise GateError("cannot fetch trusted DVIZH base commit")
+    raise GateError("trusted base commit is absent from caller export")
 
 
 def path_allowed(path: str) -> bool:
@@ -202,7 +205,8 @@ def changed_paths(wt: Path, base: str, head: str) -> list[str]:
         raise GateError(f"unexpected autonomous commit count: {count}")
     if run(git_args(wt, "rev-list", "--merges", f"{merge}..{head}"), check=False).stdout.strip():
         raise GateError("merge commits are not allowed in autonomous Hermes branches")
-    raw = run(git_args(wt, "diff", "--name-only", "-z", merge, head, "--", ".")).stdout
+    commits = run(git_args(wt, "rev-list", f"{merge}..{head}")).stdout.split()
+    raw = "".join(run(git_args(wt, "diff-tree", "--no-commit-id", "--no-renames", "--name-only", "-r", "-z", sha+"^", sha)).stdout for sha in commits)
     paths = sorted({p for p in raw.split("\0") if p})
     if not paths:
         raise GateError("nothing changed relative to the trusted DVIZH base")
@@ -220,7 +224,7 @@ def ssh_env() -> dict[str, str]:
     st = KEY.stat()
     if not TEST_MODE and (st.st_uid != 0 or (st.st_mode & 0o077) != 0):
         raise GateError("GitHub deploy key permissions are unsafe")
-    return {"GIT_SSH_COMMAND": f"ssh -i {KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new", "GIT_TERMINAL_PROMPT": "0"}
+    return {"GIT_SSH_COMMAND": f"/usr/bin/ssh -F /dev/null -i {KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes", "GIT_TERMINAL_PROMPT": "0"}
 
 
 def doctor() -> dict[str, Any]:
@@ -243,12 +247,139 @@ def push(job_id: str) -> dict[str, Any]:
     base = public_base_sha()
     ensure_commit(wt, base)
     paths = changed_paths(wt, base, head)
-    if TEST_MODE:
-        return {"ok": True, "status": "validated-test", "branch": branch, "head": head, "base": base, "paths": paths}
-    cp = run(git_args(wt, "push", "--porcelain", f"git@github.com:{REPO}.git", f"HEAD:refs/heads/{branch}"), check=False, timeout=180, env=ssh_env())
-    if cp.returncode != 0:
-        raise GateError("guarded push failed: " + (cp.stderr or cp.stdout).strip()[-3000:])
-    return {"ok": True, "status": "pushed", "branch": branch, "head": head, "base": base, "paths": paths, "output": (cp.stdout + cp.stderr)[-3000:]}
+    with immutable_export(wt, head) as boundary:
+        paths = changed_paths(boundary, base, head)
+        if TEST_MODE:
+            return {"ok": True, "status": "validated-test", "branch": branch, "head": head, "base": base, "paths": paths}
+        verify_local_pins(boundary, base, head)
+        cp = run(git_args(boundary, "-c", "core.sshCommand="+ssh_env()["GIT_SSH_COMMAND"],
+                          "push", "--porcelain", f"git@github.com:{REPO}.git",
+                          f"{head}:refs/heads/{branch}"), check=False, timeout=180)
+        if cp.returncode != 0:
+            raise GateError("guarded push failed: " + (cp.stderr or cp.stdout).strip()[-3000:])
+    return {"ok": True, "status": "pushed", "branch": branch, "head": head, "base": base, "paths": paths}
+
+
+# Owner approval is installed independently of candidate source and CI.
+# The base contains the approved workflows/validators; it does not contain its
+# own digest. No candidate branch or environment can select this manifest.
+OWNER_APPROVAL = Path('/var/lib/dvizh-release-gate/owner-approval.json')
+PIN_PATHS = {
+    '.github/workflows/dvizh-hermes-autopilot.yml',
+    '.github/workflows/dvizh-hermes-autopilot-v2-tests.yml',
+    '.github/workflows/dvizh-hermes-autopilot-installer-smoke.yml',
+    'hermes-dev-v2/dvizhgitpush.py',
+    'hermes-dev-v2/dvizhrelease.py',
+}
+
+
+def owner_manifest():
+    import stat
+    fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY)
+    try:
+        for part in OWNER_APPROVAL.parts[1:-1]:
+            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+            os.close(fd);fd=child
+            st=os.fstat(fd)
+            if st.st_uid != 0 or st.st_gid != 0 or st.st_mode & 0o022:
+                raise GateError('untrusted owner approval directory')
+        child=os.open(OWNER_APPROVAL.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+        with os.fdopen(child,'rb') as stream:
+            st=os.fstat(stream.fileno())
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_gid != 0 or st.st_mode & 0o022 or st.st_nlink != 1:
+                raise GateError('unsafe owner approval file')
+            raw=stream.read(65537)
+            if len(raw)>65536: raise GateError('oversized owner approval')
+        def unique(pairs):
+            out={}
+            for k,v in pairs:
+                if k in out: raise GateError('duplicate approval field')
+                out[k]=v
+            return out
+        d=json.loads(raw,object_pairs_hook=unique)
+        if (set(d) != {'schema','version','base','pins'} or d['schema'] != 1 or d['version'] != '2.3.2'
+            or not re.fullmatch('[0-9a-f]{40}', d['base']) or set(d['pins']) != PIN_PATHS
+            or any(not re.fullmatch('[0-9a-f]{40}',v) for v in d['pins'].values())):
+            raise GateError('invalid owner approval contract')
+        return d
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise GateError('owner approval unavailable or invalid') from exc
+    finally:
+        os.close(fd)
+
+
+TRUSTED_REPOS: set[str] = set()
+
+
+def invoking_identity():
+    """sudo's authenticated numeric caller identity, cross-checked with passwd.
+
+    The installed sudo command must retain its normal env_reset contract.
+    Root-direct use with no unprivileged invoking identity is rejected.
+    """
+    try:
+        uid = int(os.environ['SUDO_UID'])
+        gid = int(os.environ['SUDO_GID'])
+        entry = pwd.getpwuid(uid)
+    except (KeyError, ValueError) as exc:
+        raise GateError('authenticated invoking identity missing') from exc
+    if uid <= 0 or gid != entry.pw_gid or os.environ.get('SUDO_USER') != entry.pw_name:
+        raise GateError('invoking identity mismatch')
+    return uid, gid
+
+
+@contextlib.contextmanager
+def immutable_export(wt, head):
+    """Only opaque pack bytes cross from caller Git to a fresh private bare repo.
+
+    No config, hooks, alternates, refs, shallow files or worktree files are copied.
+    An attacker can replace the pack, but cannot change validated SHA identities.
+    """
+    import resource
+    if not re.fullmatch('[0-9a-f]{40}', head):
+        raise GateError('invalid export commit')
+    with tempfile.TemporaryDirectory(prefix='dvizh-push-', dir='/tmp') as td:
+        boundary = Path(td)/'objects.git'
+        env = {'PATH':'/usr/bin:/bin', 'HOME':'/nonexistent', 'LANG':'C.UTF-8',
+               'GIT_CONFIG_NOSYSTEM':'1', 'GIT_CONFIG_GLOBAL':'/dev/null',
+               'GIT_CONFIG_SYSTEM':'/dev/null', 'GIT_NO_REPLACE_OBJECTS':'1',
+               'GIT_TERMINAL_PROMPT':'0'}
+        identity = {}
+        if os.geteuid() == 0:
+            uid,gid=invoking_identity()
+            identity=dict(user=uid,group=gid,extra_groups=[])
+        def limits():
+            resource.setrlimit(resource.RLIMIT_FSIZE,(100_000_000,100_000_000))
+        with tempfile.TemporaryFile(dir=td) as pack:
+            cp=subprocess.run(git_args(wt,'pack-objects','--stdout','--revs'),
+                              input=(head+'\n').encode(), stdout=pack, stderr=subprocess.PIPE,
+                              cwd='/', env=env, timeout=120, preexec_fn=limits, **identity)
+            if cp.returncode:
+                raise GateError('caller export failed')
+            run(['/usr/bin/git','init','--bare','--template=',str(boundary)])
+            TRUSTED_REPOS.add(str(boundary))
+            try:
+                pack.seek(0)
+                cp=subprocess.run(git_args(boundary,'index-pack','--stdin','--strict'),
+                                  stdin=pack,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                                  cwd='/',env=env,timeout=120)
+                if cp.returncode:
+                    raise GateError('invalid exported objects')
+                run(git_args(boundary,'cat-file','-e',head+'^{commit}'))
+                yield boundary
+            finally:
+                TRUSTED_REPOS.discard(str(boundary))
+
+
+def verify_local_pins(wt, base, head):
+    approval=owner_manifest()
+    if base != approval['base']:
+        raise GateError('unapproved base')
+    for rev in (base,head):
+        for name,sha in approval['pins'].items():
+            actual=run(git_args(wt,'rev-parse',rev+':'+name)).stdout.strip()
+            if actual != sha:
+                raise GateError('owner-pinned blob mismatch: '+name)
 
 
 def main() -> int:

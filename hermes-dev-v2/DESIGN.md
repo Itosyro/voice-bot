@@ -1,88 +1,101 @@
-# OWNER MAINTENANCE v2.3.1 — incomplete, pending independent review
+# OWNER v2.3.2 foundation — local implementation awaiting independent review
 
-Base: `fbbfad02e61882c174660a3ef7db384546d80e6a`.
-Local changes only. Five internal test-fix cycles exhausted; DO NOT INSTALL.
-This document supersedes the v2.3 design. SECURITY-REVIEW-V23.md remains the
-original independent review; this task is not an independent review.
+This supersedes the v2.3/v2.3.1 runtime-auto design. Mandatory prior findings are
+retained in SECURITY-REVIEW-V231.md and evidence/v231/INDEPENDENT-REVIEW.json.
+This document is implementation evidence, not an independent security verdict.
 
-## Implemented and tested
+## Restored release contract
 
-The release health probe no longer executes the deployed context helper. It
-checks fixed service status/PID and HTTP health only. These are availability
-checks, not binding proof of candidate component behavior. Root entry points
-in both gates now reject production execution because required boundaries are
-incomplete. This quarantine is a blocker, not a substitute for implementing them.
+The release implementation was restored from local Git base
+`da7395e436563774a29f7694b258bd85987bed2f`, then given the root state fix,
+Jump denial, read-only preflight and the foundation trust checks. Schema 1 is
+again the production contract. Schema 2 is rejected by controller and gate.
+There is no trusted-runtime automatic deployment, new release mapping, source
+materialization, capability, restart permission or live-skill append.
 
-The offline owner installer no longer imports adjacent release code. Its
-filesystem/transaction primitives are standalone source within owner_install.py.
-It reads payloads into byte buffers, verifies their composite digest, and uses
-those exact buffers for installation. Root staging must have root-owned,
-non-writable ancestors/files. Candidate bytes are syntax-compiled, never imported.
-The bootstrap itself must be independently trusted BEFORE execution: self-hashing
-or a digest supplied by the candidate cannot establish that trust. Only stdlib
-imports are used. Fixture tests cover payload reread races and rollback; this is
-not proof of power-loss behavior or every possible staging race.
+Only existing index.html, ai-home-v2.js and ai-home-v2.css targets can be automatic
+in auto mode with no restarts. Safe mode requires approval. Existing Manual/shared
+frontend, server and /opt/dvizh-ai-home/ targets retain approval requirements.
+The three exact privileged integration targets retain the v2.2 source/hash/mode
+contract and full approval phrase. Privileged and ordinary files cannot be mixed
+in one manifest. Jump targets and dvizh-jump.service remain denied. The existing
+runtime prefix has deliberately not been expanded into new exact mappings.
 
-The regression harness uses temporary complete Git clones, with unchanged
-candidate/test bytes inside mount, PID, network and user namespaces. It exposes
-system runtime directories read-only, a copied Node executable, and the disposable
-clone; host /home, /etc, /usr/local, application state and sockets are absent.
-No Python rewriting/audit hook is used. Probes test host sentinel invisibility,
-child-shell invisibility, network rejection, zero capabilities and no_new_privs.
-Inherited supplementary IDs are unmapped except invoking GID; this local harness
-is NOT the required production privilege-drop boundary with stripped groups.
-Full history includes health commit `9d492693de2c7cf66350293afcf42b74edeebaef`.
+Existing v2.2 transaction locking, pending journal, byte/metadata backup,
+rollback, signal handling and bearer-approval limitations remain. The state root
+is `/var/lib/dvizh-release-gate`; /var/lib/dvizh ownership is not changed.
+Health uses fixed service/HTTP checks and never executes candidate context code.
+Those checks do not prove runtime behavior; runtime changes require owner approval.
 
-## Exact proposed policy
+## Caller Git and immutable object boundary
 
-| Target | Source | Class | Mode | Restart |
-|---|---|---|---|---|
-| /opt/dvizh/static/index.html | ai-home-v2/index.html | auto-safe | 0644 | none |
-| /opt/dvizh/static/ai-home-v2.js | ai-home-v2/ai-home-v2.js | auto-safe | 0644 | none |
-| /opt/dvizh/static/ai-home-v2.css | ai-home-v2/ai-home-v2.css | auto-safe | 0644 | none |
-| /usr/local/libexec/dvizh-context | hermes-control-v1/dvizh_context.py | trusted-runtime | 0755 | none |
-| /usr/local/libexec/dvizh-proposals | hermes-control-v1/dvizh_proposals.py | trusted-runtime | 0755 | none |
-| /opt/dvizh-ai-approval/proposal_bridge.py | hermes-control-v1/dvizh_proposal_bridge.py | trusted-runtime | 0755 | dvizh-ai-approval.service |
-| /opt/dvizh-ai-home/ai_home_bridge.py | ai-home-v2/ai_home_bridge.py | trusted-runtime | 0755 | dvizh-ai-home.service |
-| /opt/dvizh/server.py | minimal-ui-v1/health-recovery-v1/baseline/helpers/server.py | approval-required | 0755 | dvizh.service |
+Every Git command addressing the caller worktree is launched under sudo's
+numeric invoking UID and primary GID, cross-checked against passwd and SUDO_USER.
+Supplementary groups are emptied. The environment is constructed explicitly;
+Git global/system config, replacement objects, hooks, fsmonitor, credential
+helpers, external diff and executable transport overrides are disabled where
+applicable. Caller repository config/includes remain untrusted and are parsed
+only after the privilege drop. Git never runs as root in that worktree.
 
-`manual.html`, `app.js`, `sync.js`, `styles.css`, `sw.js` each map from the
-same basename in `minimal-ui-v1/health-recovery-v1/dist/` to
-`/opt/dvizh/static/`, approval-required, 0644, no restart. All owners root:root.
-Schema-2 restarts must equal the target-derived union. Jump is denied in both
-schemas; its service is removed from the legacy restart allowlist. Schema-1
-behavior remains historical unprivileged fixtures only, including other legacy
-allowlist differences. No production schema-1 authorization is intended.
+The exporter asks caller Git for the captured 40-hex commit's reachable pack.
+Only pack bytes enter a private root-owned temporary bare repository, initialized
+without templates. No caller config, hooks, refs, alternates, shallow metadata,
+worktree files or Git environment are copied. Export has a 100 MB file-size limit
+and timeouts. Root index-pack validates objects with --strict. Root rechecks
+ancestry, every commit's paths, and approved base/head pins in this fresh repo.
+The SSH push refspec names the exact validated SHA, never HEAD. Ref/config changes
+after capture cannot alter the bytes authorized for push. No actual push was run.
 
-## Unresolved critical/high requirements — no waiver
+The existing deploy-key location is retained. The SSH command uses the fixed
+system SSH binary, no SSH config, explicit key, identities-only and strict known
+host checking. This task did not read keys or verify production authentication.
+Caller identity relies on the existing sudo env_reset/SUDO_UID provenance
+contract; no sudo rule was added or changed.
 
-1. Component-specific behavioral checks bound to candidate bytes in an explicitly
-   unprivileged fixed sandbox with stripped environment/groups, no_new_privs and
-   confinement (or a fixed trusted service API) are NOT implemented. Running as
-   dvizh alone is insufficient: that account can reach secrets, friend data and
-   control-plane surfaces. Exact paths and hashes do not confine execution.
-2. Privilege-separated caller repository export and root-owned sanitized immutable
-   Git object boundary are NOT implemented. Legacy push code still contains
-   caller-repository Git and inherited environment/config surfaces. Root entry
-   rejection prevents using that path; do not remove it as a readiness switch.
-   Malicious Git config/hook/include/ssh/credential fixtures remain required.
-3. Owner-approved workflow/validator blob pins and per-commit protected-path
-   history enforcement independent of CI are NOT implemented. CI remains unsafe
-   for authorization. `CI-PINS-v231.json` records observed bytes, not approved pins.
-4. Bootstrap independent approval, immutable staging concurrency tests, live
-   recovery and actual owner installation remain unverified. The bootstrap shares
-   extracted primitive logic and needs independent scrutiny.
-5. The v2.2 later-message orchestration rule remains an explicitly accepted trust
-   limitation. Bearer approval does not prove Telegram identity or message origin.
+## Independent workflow and history authorization
 
-## Transaction contract retained
+Both gates read only the fixed root-owned owner-approval.json under the control
+state root. They reject writable ancestors, symlinks, nonregular/multilink files,
+duplicate JSON fields, incomplete pins and invalid identities. The exact required
+five workflow/validator blob pins and independent base come from that external
+manifest, not candidate code or an environment variable.
 
-All payloads and metadata validate before backup preparation; all backups and
-mapping verify before the first destination write. Durable pending journal,
-exclusive lock and pinned parent descriptors cover the mixed static/runtime
-transaction. Caught failures restore every target and mapped old service; failed
-restoration retains the journal. Interrupted journals block subsequent operations.
-Control state remains only `/var/lib/dvizh-release-gate`; no `/var/lib/dvizh`
-ownership change. Production correctness cannot be inferred from fixture tests.
+Release verification uses HTTPS GitHub immutable commit/tree APIs without proxy
+environment inheritance. It walks each single-parent commit back to the approved
+base (at most 50), rejects protected changes including add/remove history, and
+checks approved blobs in both base and candidate. CI success alone cannot bypass
+this check. Exact-commit, branch, event, completed-success run metadata is required;
+safety/gate jobs must succeed, plus AI contracts/browser jobs for static targets.
+Skipped/missing jobs and incomplete API pages are rejected.
 
-See OWNER-HANDOFF.md and evidence/v231/REPORT.md for actual results and blockers.
+Push repeats scope validation against immutable exported objects. Protected
+control-plane paths are denied on every commit, with merges disallowed. The
+workflow uses the externally owner-controlled DVIZH_OWNER_FOUNDATION_BASE variable,
+extracts validators from that immutable base and checks candidate blob identities.
+It uses every commit's changed paths. The installed gate independently enforces
+its own base/pins, so workflow self-reporting is not its authorization source.
+
+The owner manifest is outside Git: the approved base contains the reviewed
+workflows and validators, but not a digest of itself. This avoids a cyclic pin.
+No approved v2.3.2 base or owner manifest has been fabricated in this worktree.
+
+## Bootstrap and tests
+
+BOOTSTRAP-v232.md specifies the external authenticated digest contract and a
+buffered launcher under trusted `/usr/bin/python3 -I -S`. The launcher authenticates
+bootstrap bytes before executing that exact buffer; bootstrap authenticates
+standalone installer bytes before executing that exact buffer. No adjacent
+candidate modules are imported. Installer validates the composite payload digest
+and installs only verified in-memory gate buffers. It does not update the skill,
+keys, sudoers, units, or application mappings. Staging ancestors and metadata are
+checked. Replacements are rejected or leave the already verified buffer in use.
+
+The complete available owner/security unittest suite runs in the existing bwrap
+OS-isolation harness. Evidence/v232 records failing regressions, fixes and actual
+adversarial probes. Obsolete schema-2 positive assertions were replaced with
+retirement assertions; the restored v2.2 transaction/security suites remain.
+Root launch parameters are tested with subprocess spies; the suite does not claim
+to have exercised a real production root-to-user transition. Export/index-pack,
+harmless malicious hooks/config, history edits, buffered races and rollback run
+against disposable files and repositories. Network push and service effects are
+mocked. Full feature/runtime acceptance is outside the user's revised scope.

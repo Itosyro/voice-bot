@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "2026.09.08-hermes-autopilot.2"
+VERSION = "2026.09.11-hermes-autopilot.2.3.2"
 REPO_FULL_NAME = os.environ.get("DVIZH_DEV_REPO_FULL_NAME", "Itosyro/voice-bot").strip()
 BASE_BRANCH = os.environ.get("DVIZH_AUTOPILOT_BASE_BRANCH", "codex/hermes-autopilot-v2-2026-09-08").strip()
 HOME = Path.home()
@@ -277,8 +277,8 @@ def release_propose(job_id: str, manifest_rel: str) -> dict[str, Any]:
         payload = json.loads(manifest.read_text(encoding="utf-8"))
     except Exception as exc:
         raise AutoError("invalid release manifest JSON") from exc
-    if not isinstance(payload, dict) or payload.get("schema") not in {1, 2}:
-        raise AutoError("release manifest schema must equal 1 or 2")
+    if not isinstance(payload, dict) or payload.get("schema") != 1:
+        raise AutoError("release manifest schema must equal 1")
     if str(payload.get("commit") or "") not in ("", head):
         raise AutoError("manifest commit does not match current HEAD")
     tracked = run(["git", "-C", str(wt), "ls-files", "--error-unmatch", str(rel)], check=False)

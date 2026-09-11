@@ -23,14 +23,14 @@ class HardeningTests(unittest.TestCase):
 
     def test_health_never_invokes_candidate_helper(self):
         g = module('dvizhrelease')
-        plan = {'restarts': [], 'operations': [{'verification': 'python-context'}]}
-        with patch.object(g, 'http_get', return_value=b'{"ok":true}'), patch.object(g, 'run') as run:
-            g.trusted_health(plan)
+        plan = {'restarts': [], 'risk':'safe', 'operations': []}
+        with patch.object(g, 'http_get', return_value=b'{"ok":true}'), patch.object(g, 'run') as run, patch.object(g,'service_active',return_value=True):
+            g.check_health(plan)
             run.assert_not_called()
 
     def test_jump_denied_in_both_schemas(self):
         g = module('dvizhrelease')
-        self.assertNotIn('/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py', g.TARGET_POLICY)
+        self.assertEqual(g.target_risk('/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py'), 'deny')
         self.assertEqual(g.target_risk('/opt/dvizh/jump_web_bridge.py'), 'deny')
         manifest = {'schema': 1, 'operations': [{'source': 'jump-goal-release/dvizh_jump/jump_web_bridge.py', 'target': '/opt/dvizh/jump_web_bridge.py'}], 'restarts': []}
         with self.assertRaises(g.GateError): g.validate_manifest({'mode': 'auto'}, manifest)
@@ -67,10 +67,9 @@ class HardeningTests(unittest.TestCase):
             row = next(r for r in rows if r['target']=='/usr/local/sbin/dvizhrelease')
             self.assertEqual(row['new'], (ROOT/'hermes-dev-v2/dvizhrelease.py').read_bytes())
 
-    def test_incomplete_candidate_cannot_reach_privileged_git_or_apply(self):
+    def test_root_entry_accepts_fixed_production_configuration(self):
         for name in ('dvizhgitpush', 'dvizhrelease'):
             gate = module(name)
             with self.subTest(name=name), patch.object(gate, 'TEST_MODE', False), patch.object(gate.os, 'geteuid', return_value=0), patch.object(gate, 'run') as run:
-                with self.assertRaisesRegex(gate.GateError, 'v2.3.1.*incomplete'):
-                    gate.require_root()
+                gate.require_root()
                 run.assert_not_called()

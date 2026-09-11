@@ -1,0 +1,14 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_foundation_v232.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_export_is_immutable_and_copies_no_config (test_foundation_v232.FoundationTests.test_export_is_immutable_and_copies_no_config) ... ok
+test_harmless_fsmonitor_does_not_execute (test_foundation_v232.FoundationTests.test_harmless_fsmonitor_does_not_execute) ... ok
+test_protected_add_remove_rejected (test_foundation_v232.FoundationTests.test_protected_add_remove_rejected) ... ok
+test_remote_green_cannot_authorize_changed_pins_or_hidden_history (test_foundation_v232.FoundationTests.test_remote_green_cannot_authorize_changed_pins_or_hidden_history) ... ok
+test_root_entry_not_quarantined (test_foundation_v232.FoundationTests.test_root_entry_not_quarantined) ... ok
+test_schema_two_retired (test_foundation_v232.FoundationTests.test_schema_two_retired) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.110s
+
+OK
+COMMAND_EXIT=0

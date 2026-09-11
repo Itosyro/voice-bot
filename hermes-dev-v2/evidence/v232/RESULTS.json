@@ -1,0 +1,43 @@
+{
+  "kind": "local implementation inventory; not approved pins or independent verdict",
+  "version": "2.3.2",
+  "restoration_base": "da7395e436563774a29f7694b258bd85987bed2f",
+  "head_unchanged": "00dd0fc83bc53f8c5382ad55159769ba926ac220",
+  "owner_suite": {
+    "tests": 156,
+    "exit_code": 0,
+    "log": "10-complete-owner-security.log"
+  },
+  "source_sha256": {
+    "hermes-dev-v2/dvizhautopilot.py": "fde7483b477a9a2b213db855378ee97f9f36b6e4598398da7af28a98089b82d4",
+    "hermes-dev-v2/dvizhgitpush.py": "09522e6307c5d6dec6ac9d904dfa3a5c31d132fcd7e89abc2106f7b510394fd1",
+    "hermes-dev-v2/dvizhrelease.py": "c8619f3dc7857bfdfddbd90de051f15a8a6097a993e6f3019d06bf1e8e27bc12",
+    "hermes-dev-v2/owner_install.py": "c976026e09807a235b46dc4349469c5669149ff54387238038ff1cc45ea91a0b",
+    "hermes-dev-v2/bootstrap_v232.py": "1cbdc117a5256382643aeb2de1dc7d5e2aa700799e1f6c0ebe60e841adfc01c2"
+  },
+  "changed_scope": [
+    ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml",
+    ".github/workflows/dvizh-hermes-autopilot.yml",
+    "hermes-dev-v2/DESIGN.md",
+    "hermes-dev-v2/OWNER-HANDOFF.md",
+    "hermes-dev-v2/dvizhautopilot.py",
+    "hermes-dev-v2/dvizhgitpush.py",
+    "hermes-dev-v2/dvizhrelease.py",
+    "hermes-dev-v2/owner_install.py",
+    "tests/hermes_autopilot/test_hardening_v231.py",
+    "tests/hermes_autopilot/test_owner_install_v23.py",
+    "tests/hermes_autopilot/test_release_v22.py",
+    "tests/hermes_autopilot/test_release_v23.py"
+  ],
+  "static_checks": [
+    "git diff --check: exit 0",
+    "AST parse of five owner Python sources: success",
+    "all tracked and untracked paths in allowed scope: success"
+  ],
+  "limitations": [
+    "independent review pending",
+    "no externally approved v2.3.2 base, pins or bootstrap digests issued",
+    "real root privilege transition, network push, live CI and installation not exercised",
+    "full feature/runtime acceptance outside revised scope"
+  ]
+}

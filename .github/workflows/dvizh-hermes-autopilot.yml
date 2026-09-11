@@ -27,10 +27,11 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          BASE='origin/codex/hermes-autopilot-v2-2026-09-08'
-          git fetch origin codex/hermes-autopilot-v2-2026-09-08 --depth=1
+          BASE='${{ vars.DVIZH_OWNER_FOUNDATION_BASE }}'
+          [[ "$BASE" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$BASE"
           merge="$(git merge-base HEAD "$BASE")"
-          git diff --name-only "$merge" HEAD -- . > /tmp/changed
+          git log --format= --name-only "$merge"..HEAD -- . > /tmp/changed
           echo 'Changed files:'
           cat /tmp/changed
           ai=false
@@ -57,12 +58,23 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          BASE='origin/codex/hermes-autopilot-v2-2026-09-08'
-          git fetch origin codex/hermes-autopilot-v2-2026-09-08 --depth=1
+          BASE='${{ vars.DVIZH_OWNER_FOUNDATION_BASE }}'
+          [[ "$BASE" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin "$BASE"
           merge="$(git merge-base HEAD "$BASE")"
           git diff --check "$merge" HEAD -- .
-          git diff --name-only -z "$merge" HEAD -- . > /tmp/changed.z
-          python3 - <<'PY'
+          [[ "$merge" == "$BASE" ]]
+          [[ -z "$(git rev-list --merges "$BASE"..HEAD)" ]]
+          : > /tmp/changed.z
+          while read -r sha; do
+            git diff-tree --no-commit-id --no-renames --name-only -r -z "$sha^" "$sha" >> /tmp/changed.z
+          done < <(git rev-list "$BASE"..HEAD)
+          mkdir -p /tmp/owner-validators
+          for file in hermes-dev-v2/dvizhgitpush.py hermes-dev-v2/dvizhrelease.py; do
+            [[ "$(git rev-parse "$BASE:$file")" == "$(git rev-parse "HEAD:$file")" ]]
+            git show "$BASE:$file" > "/tmp/owner-validators/$(basename "$file")"
+          done
+          python3 -I -S - <<'PY'
           from pathlib import Path
           import importlib.util, re
           raw=Path('/tmp/changed.z').read_bytes().split(b'\0')
@@ -71,7 +83,7 @@ jobs:
             re.compile(r'(^|/)(\.env(?:\.|$)|credentials?(?:\.|$)|secrets?(?:\.|$)|auth\.json$)', re.I),
             re.compile(r'\.(pem|key|p12|pfx)$', re.I),
           ]
-          spec=importlib.util.spec_from_file_location('dvizhgitpush_ci', Path('hermes-dev-v2/dvizhgitpush.py'))
+          spec=importlib.util.spec_from_file_location('dvizhgitpush_ci', Path('/tmp/owner-validators/dvizhgitpush.py'))
           gate=importlib.util.module_from_spec(spec); spec.loader.exec_module(gate)
           for name in names:
             if name.startswith('/') or '..' in Path(name).parts:
@@ -99,15 +111,15 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ ! -f .autopilot/release.json ]] && exit 0
-          python3 - <<'PY'
+          python3 -I -S - <<'PY'
           import json
           import importlib.util
           from pathlib import Path
-          spec = importlib.util.spec_from_file_location('release_contract', Path('hermes-dev-v2/dvizhrelease.py'))
+          spec = importlib.util.spec_from_file_location('release_contract', Path('/tmp/owner-validators/dvizhrelease.py'))
           gate = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(gate)
           d = json.loads(Path('.autopilot/release.json').read_text(encoding='utf-8'), object_pairs_hook=gate.unique_object)
-          if d.get('schema') not in {1, 2}: raise SystemExit('release schema must be 1 or 2')
+          if d.get('schema') != 1: raise SystemExit('release schema must be 1')
           gate.validate_manifest({'mode': 'auto'}, d)
           print('release manifest structurally valid')
           PY

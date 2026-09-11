@@ -1,0 +1,40 @@
+[Compacted: successful per-test rows omitted; diagnostics and summary retained.]
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_actual_installer_uses_last_verified_buffers_after_replacement (test_foundation_v232.FoundationTests.test_actual_installer_uses_last_verified_buffers_after_replacement) ... ERROR
+
+======================================================================
+ERROR: test_actual_installer_uses_last_verified_buffers_after_replacement (test_foundation_v232.FoundationTests.test_actual_installer_uses_last_verified_buffers_after_replacement)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_foundation_v232.py", line 161, in test_actual_installer_uses_last_verified_buffers_after_replacement
+    result=g.install(gate,payload,expected)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/owner_install.py", line 89, in install
+    prepare(gate, payload, expected)
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1199, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_foundation_v232.py", line 157, in prepare
+    rows=original(*args);calls.append(True)
+         ^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/owner_install.py", line 82, in prepare
+    parent = gate.walk_parent(path, trusted=True); os.close(parent)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/owner_install.py", line 325, in walk_parent
+    trusted_directory(fd, current)
+  File "/repo/hermes-dev-v2/owner_install.py", line 206, in trusted_directory
+    raise GateError(f"untrusted writable/non-root ancestor: {path}")
+owner_install.GateError: untrusted writable/non-root ancestor: /tmp/tmphqil24gb/fs
+
+----------------------------------------------------------------------
+Ran 156 tests in 6.296s
+
+FAILED (errors=1)
+COMMAND_EXIT=1
