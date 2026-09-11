@@ -899,8 +899,15 @@ def preflight(path: str) -> dict[str, Any]:
 
 def doctor() -> dict[str, Any]:
     require_root()
+    # Use the same external authorization contract as the production gate.
+    # Report status only: never return manifest bytes or validation exceptions.
+    try:
+        owner_manifest()
+        owner_authorized = True
+    except GateError:
+        owner_authorized = False
     tools = {name: bool(shutil.which(name)) for name in ("python3", "curl", "systemctl")}
-    return {"ok": all(tools.values()) and not os.path.lexists(APPROVAL_ROOT/"pending.json"), "version": VERSION, "repo": REPO, "tools": tools, "production_schema": 1, "state_root": str(APPROVAL_ROOT.parent), "pending": os.path.lexists(APPROVAL_ROOT/"pending.json"), "safe_targets": sorted(SAFE_TARGETS), "approval_targets": sorted(APPROVAL_TARGETS), "allowed_restarts": sorted(ALLOWED_RESTARTS)}
+    return {"owner_authorized": owner_authorized, "ok": owner_authorized and all(tools.values()) and not os.path.lexists(APPROVAL_ROOT/"pending.json"), "version": VERSION, "repo": REPO, "tools": tools, "production_schema": 1, "state_root": str(APPROVAL_ROOT.parent), "pending": os.path.lexists(APPROVAL_ROOT/"pending.json"), "safe_targets": sorted(SAFE_TARGETS), "approval_targets": sorted(APPROVAL_TARGETS), "allowed_restarts": sorted(ALLOWED_RESTARTS)}
 
 
 @serialized
@@ -969,8 +976,8 @@ def owner_manifest():
                 out[k]=v
             return out
         d=json.loads(raw,object_pairs_hook=unique)
-        if (set(d) != {'schema','version','base','pins'} or d['schema'] != 1 or d['version'] != '2.3.2'
-            or not re.fullmatch('[0-9a-f]{40}', d['base']) or set(d['pins']) != PIN_PATHS
+        if (not isinstance(d, dict) or set(d) != {'schema','version','base','pins'} or d['schema'] != 1 or d['version'] != '2.3.2'
+            or not re.fullmatch('[0-9a-f]{40}', d['base']) or not isinstance(d['pins'], dict) or set(d['pins']) != PIN_PATHS
             or any(not re.fullmatch('[0-9a-f]{40}',v) for v in d['pins'].values())):
             raise GateError('invalid owner approval contract')
         return d

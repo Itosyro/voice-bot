@@ -1,0 +1,48 @@
+{
+  "status": "PENDING_INDEPENDENT_REVIEW_DO_NOT_INSTALL",
+  "base": "afd44df10909f365b39216e7676498d48c59870a",
+  "independent_review_performed": false,
+  "owner_approval_issued": false,
+  "red_before_implementation": true,
+  "runs": [
+    {
+      "log": "01-red.log",
+      "exit_code": 1
+    },
+    {
+      "log": "02-red-contract.log",
+      "exit_code": 1
+    },
+    {
+      "log": "03-red.log",
+      "exit_code": 1
+    },
+    {
+      "log": "04-green.log",
+      "exit_code": 0
+    },
+    {
+      "log": "05-full-owner-suite.log",
+      "exit_code": 0
+    },
+    {
+      "log": "06-actual-workflow.log",
+      "exit_code": 0
+    }
+  ],
+  "full_owner_suite_executions": 160,
+  "actual_static_workflow_blocks": 3,
+  "diff_check_exit_code": 0,
+  "inventory_recomputed_exact": true,
+  "mandatory_reviews_unchanged": true,
+  "head_unchanged": true,
+  "log_sha256": {
+    "01-red.log": "c6176520f428bf75c952ac9c5b0433281c4d554dd164553466e9782b96b82c46",
+    "02-red-contract.log": "7eeb54245eb00e59ed353d8af5ed16856ae06e1b97f6920eb6b095c1db9c97f7",
+    "03-red.log": "dea302306d84b5983227fee053501f6b368da452002f6b9d60152be2463bd0c2",
+    "04-green.log": "750ba549ca2ae83f63aaa5e44e2f7663ce4c461d8eb77e9d35d1f3ac1da8962f",
+    "05-full-owner-suite.log": "18ac972afae3e676149257e3d3d5a1044d8cb503fa644c7f519461b82d966820",
+    "06-actual-workflow.log": "04067eac3415838ab95a7c634405ef8d9bdfae0bab1278e211c3465489ffc67c",
+    "07-diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

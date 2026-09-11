@@ -229,14 +229,21 @@ def ssh_env() -> dict[str, str]:
 
 def doctor() -> dict[str, Any]:
     require_root()
+    # Use the same external authorization contract as the production gate.
+    # Report status only: never return manifest bytes or validation exceptions.
+    try:
+        owner_manifest()
+        owner_authorized = True
+    except GateError:
+        owner_authorized = False
     key_ok = KEY.is_file() and not KEY.is_symlink()
     authorized = False
     detail = "key missing"
     if key_ok:
         cp = run(["git", "ls-remote", f"git@github.com:{REPO}.git", "HEAD"], check=False, timeout=30, env=ssh_env())
         authorized = cp.returncode == 0
-        detail = (cp.stderr or cp.stdout).strip()[-1500:]
-    return {"ok": key_ok and authorized, "version": VERSION, "repo": REPO, "base_branch": BASE_BRANCH, "key_present": key_ok, "authorized": authorized, "detail": detail}
+        detail = "transport authorized" if authorized else "transport authorization failed"
+    return {"ok": owner_authorized and key_ok and authorized, "owner_authorized": owner_authorized, "version": VERSION, "repo": REPO, "base_branch": BASE_BRANCH, "key_present": key_ok, "authorized": authorized, "detail": detail}
 
 
 def push(job_id: str) -> dict[str, Any]:
@@ -297,8 +304,8 @@ def owner_manifest():
                 out[k]=v
             return out
         d=json.loads(raw,object_pairs_hook=unique)
-        if (set(d) != {'schema','version','base','pins'} or d['schema'] != 1 or d['version'] != '2.3.2'
-            or not re.fullmatch('[0-9a-f]{40}', d['base']) or set(d['pins']) != PIN_PATHS
+        if (not isinstance(d, dict) or set(d) != {'schema','version','base','pins'} or d['schema'] != 1 or d['version'] != '2.3.2'
+            or not re.fullmatch('[0-9a-f]{40}', d['base']) or not isinstance(d['pins'], dict) or set(d['pins']) != PIN_PATHS
             or any(not re.fullmatch('[0-9a-f]{40}',v) for v in d['pins'].values())):
             raise GateError('invalid owner approval contract')
         return d

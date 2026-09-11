@@ -1,0 +1,482 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_v232_blockers.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) ... 
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='valid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='missing') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='malformed') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='symlink') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='ancestor_symlink') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='file_mode') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='file_uid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='file_gid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='directory_mode') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='directory_uid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='directory_gid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='hardlink') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='fifo') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='oversized') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='duplicate') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='wrong_version') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='wrong_schema') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='invalid_base') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='missing_pin') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='invalid_pin') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='pins_list') ... ERROR
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='null') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='extra_field') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='valid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='missing') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='malformed') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='symlink') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='ancestor_symlink') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='file_mode') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='file_uid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='file_gid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='directory_mode') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='directory_uid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='directory_gid') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='hardlink') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='fifo') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='oversized') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='duplicate') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='wrong_version') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='wrong_schema') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='invalid_base') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='missing_pin') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='invalid_pin') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='pins_list') ... ERROR
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='null') ... FAIL
+  test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='extra_field') ... FAIL
+test_other_prerequisites_and_controller_aggregation (test_v232_blockers.DoctorAuthorization.test_other_prerequisites_and_controller_aggregation) ... ERROR
+test_actual_static_workflow_blocks (test_v232_blockers.WorkflowContracts.test_actual_static_workflow_blocks) ... 
+  test_actual_static_workflow_blocks (test_v232_blockers.WorkflowContracts.test_actual_static_workflow_blocks) (block=0) ... FAIL
+test_all_exact_versions (test_v232_blockers.WorkflowContracts.test_all_exact_versions) ... 
+  test_all_exact_versions (test_v232_blockers.WorkflowContracts.test_all_exact_versions) (command='grep -Fq \'VERSION = "2026.09.08-hermes-autopilot.2"\' hermes-dev-v2/dvizhautopilot.py') ... FAIL
+  test_all_exact_versions (test_v232_blockers.WorkflowContracts.test_all_exact_versions) (command='grep -Fq \'VERSION = "2026.09.08-dvizh-git-push-gate.1"\' hermes-dev-v2/dvizhgitpush.py') ... FAIL
+
+======================================================================
+ERROR: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='pins_list')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 121, in test_manifest_cases_and_gate_parity
+    with self.assertRaises(g.GateError): authorize()
+                                         ^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 117, in <lambda>
+    authorize = lambda: g.verify_local_pins(root, 'a'*40, 'a'*40)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/dvizhgitpush.py", line 375, in verify_local_pins
+    approval=owner_manifest()
+             ^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/dvizhgitpush.py", line 302, in owner_manifest
+    or any(not re.fullmatch('[0-9a-f]{40}',v) for v in d['pins'].values())):
+                                                       ^^^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'values'
+
+======================================================================
+ERROR: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='pins_list')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 121, in test_manifest_cases_and_gate_parity
+    with self.assertRaises(g.GateError): authorize()
+                                         ^^^^^^^^^^^
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 111, in <lambda>
+    authorize = lambda: g.verify_owner_history({'commit':'c'*40})
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/dvizhrelease.py", line 984, in verify_owner_history
+    approval=owner_manifest()
+             ^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/dvizhrelease.py", line 974, in owner_manifest
+    or any(not re.fullmatch('[0-9a-f]{40}',v) for v in d['pins'].values())):
+                                                       ^^^^^^^^^^^^^^^^
+AttributeError: 'list' object has no attribute 'values'
+
+======================================================================
+ERROR: test_other_prerequisites_and_controller_aggregation (test_v232_blockers.DoctorAuthorization.test_other_prerequisites_and_controller_aggregation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 146, in test_other_prerequisites_and_controller_aggregation
+    self.assertIs(result['owner_authorized'], True)
+                  ~~~~~~^^^^^^^^^^^^^^^^^^^^
+KeyError: 'owner_authorized'
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='valid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='malformed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='symlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='ancestor_symlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='file_mode')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='file_uid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='file_gid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='directory_mode')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='directory_uid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='directory_gid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='hardlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='fifo')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='oversized')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='duplicate')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='wrong_version')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='wrong_schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='invalid_base')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='missing_pin')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='invalid_pin')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='null')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhgitpush', case='extra_field')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='valid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='malformed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='symlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='ancestor_symlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='file_mode')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='file_uid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='file_gid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='directory_mode')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='directory_uid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='directory_gid')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='hardlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='fifo')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='oversized')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='duplicate')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='wrong_version')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='wrong_schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='invalid_base')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='missing_pin')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='invalid_pin')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='null')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) (gate='dvizhrelease', case='extra_field')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 124, in test_manifest_cases_and_gate_parity
+    self.assertEqual(contract.call_count, 1)
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_actual_static_workflow_blocks (test_v232_blockers.WorkflowContracts.test_actual_static_workflow_blocks) (block=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 50, in test_actual_static_workflow_blocks
+    self.assertEqual(result.returncode, 0, result.stderr)
+AssertionError: 1 != 0 : 
+
+======================================================================
+FAIL: test_all_exact_versions (test_v232_blockers.WorkflowContracts.test_all_exact_versions) (command='grep -Fq \'VERSION = "2026.09.08-hermes-autopilot.2"\' hermes-dev-v2/dvizhautopilot.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 42, in test_all_exact_versions
+    self.assertEqual(result.returncode, 0, command)
+AssertionError: 1 != 0 : grep -Fq 'VERSION = "2026.09.08-hermes-autopilot.2"' hermes-dev-v2/dvizhautopilot.py
+
+======================================================================
+FAIL: test_all_exact_versions (test_v232_blockers.WorkflowContracts.test_all_exact_versions) (command='grep -Fq \'VERSION = "2026.09.08-dvizh-git-push-gate.1"\' hermes-dev-v2/dvizhgitpush.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_v232_blockers.py", line 42, in test_all_exact_versions
+    self.assertEqual(result.returncode, 0, command)
+AssertionError: 1 != 0 : grep -Fq 'VERSION = "2026.09.08-dvizh-git-push-gate.1"' hermes-dev-v2/dvizhgitpush.py
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.401s
+
+FAILED (failures=47, errors=3)
+COMMAND_EXIT=1

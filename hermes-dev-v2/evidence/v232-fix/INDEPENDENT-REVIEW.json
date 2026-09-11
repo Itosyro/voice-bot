@@ -1,0 +1,670 @@
+{
+  "passed": true,
+  "security_concerns": [],
+  "logic_errors": [],
+  "tests": [
+    {
+      "id": "T1",
+      "command": "python3 hermes-dev-v2/regression_health.py python3 -m unittest discover -s tests/hermes_autopilot -q",
+      "exit_code": 0,
+      "result": "160 test executions passed in 6.760s; isolation probe passed.",
+      "output": "isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]\n{\"command\": [\"python3\", \"-m\", \"unittest\", \"discover\", \"-s\", \"tests/hermes_autopilot\", \"-q\"], \"health_commit\": null, \"boundary\": \"mount/pid/network/user namespaces; no capabilities; no_new_privs\", \"supplementary_groups\": \"inherited IDs unmapped except invoking gid; not a production privilege-drop contract\"}\n----------------------------------------------------------------------\nRan 160 tests in 6.760s\n\nOK\nCOMMAND_EXIT=0\n",
+      "limitations": "Includes inherited test methods, mocked root identity/transport/APIs, and disposable fixture install/rollback functions; not 160 independent production security properties."
+    },
+    {
+      "id": "T2",
+      "description": "Independent reviewer script, not imported from implementation tests: inventory recomputation, exact actual workflow static blocks, real owner_manifest/doctor/gate parity fixtures, read-only snapshots and controller aggregation.",
+      "command_argv": [
+        "python3",
+        "hermes-dev-v2/regression_health.py",
+        "python3",
+        "-c",
+        "import ast,hashlib,json,os,stat,subprocess,tempfile,types,contextlib,importlib.util\nfrom pathlib import Path\nfrom unittest.mock import patch\nroot=Path('/repo')\nout={}\ndef literal(p,n):\n t=ast.parse(p.read_bytes())\n return next(ast.literal_eval(x.value) for x in t.body if isinstance(x,ast.Assign) and any(isinstance(a,ast.Name) and a.id==n for a in x.targets))\ninv=json.loads((root/'hermes-dev-v2/evidence/v232-fix/INVENTORY.json').read_bytes())\nfor p,v in inv['candidate_files'].items():\n b=(root/p).read_bytes()\n assert v==dict(git_blob=hashlib.sha1(b'blob '+str(len(b)).encode()+b'\\0'+b).hexdigest(),sha256=hashlib.sha256(b).hexdigest()),p\npins=literal(root/'hermes-dev-v2/dvizhgitpush.py','PIN_PATHS')\nassert pins==literal(root/'hermes-dev-v2/dvizhrelease.py','PIN_PATHS')==set(inv['protected_git_blob_inventory'])\nassert all(inv['candidate_files'][p]['git_blob']==v for p,v in inv['protected_git_blob_inventory'].items())\nnames=sorted(set(literal(root/'hermes-dev-v2/owner_install.py','TARGETS').values())|{'owner_install.py'})\nassert names==inv['payload_names']\ndigest=hashlib.sha256(b''.join(n.encode()+b'\\0'+hashlib.sha256((root/'hermes-dev-v2'/n).read_bytes()).digest() for n in names)).hexdigest()\nassert digest==inv['payload_sha256']\nout['inventory']={'files':len(inv['candidate_files']),'pins':inv['protected_git_blob_inventory'],'payload_sha256':digest}\nlines=(root/'.github/workflows/dvizh-hermes-autopilot-v2-tests.yml').read_text().splitlines()\nblocks=[]\nfor i,l in enumerate(lines):\n if l=='        run: |':\n  b=[]\n  for v in lines[i+1:]:\n   if v and not v.startswith('          '):break\n   b.append(v[10:])\n  if not any('PREPARE_ONLY' in v for v in b):blocks.append('\\n'.join(b))\nassert len(blocks)==3\nout['workflow']=[]\nfor b in blocks:\n cp=subprocess.run(['/bin/bash','-c',b],capture_output=True,text=True)\n out['workflow'].append(dict(script=b,exit_code=cp.returncode,stderr=cp.stderr))\n assert cp.returncode==0\ndef module(n):\n spec=importlib.util.spec_from_file_location(n,root/'hermes-dev-v2'/ (n+'.py'))\n m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m\nout['doctors']=[]\ncases=['valid','missing','malformed','null','pins_list','base_number','pin_null','wrong_schema','missing_pin','duplicate','symlink','ancestor_symlink','hardlink','fifo','unsafe_mode','unsafe_uid','unsafe_gid','unsafe_ancestor','oversized','deep_json']\nfor name in ['dvizhgitpush','dvizhrelease']:\n for case in cases:\n  m=module(name)\n  with tempfile.TemporaryDirectory() as td,contextlib.ExitStack() as stack:\n   d=Path(td);trust=d/'trust';trust.mkdir();p=trust/'owner-approval.json'\n   obj=dict(schema=1,version='2.3.2',base='a'*40,pins={n:'b'*40 for n in pins})\n   if case=='pins_list':obj['pins']=sorted(pins)\n   if case=='base_number':obj['base']=23\n   if case=='pin_null':obj['pins'][next(iter(pins))]=None\n   if case=='wrong_schema':obj['schema']=2\n   if case=='missing_pin':obj['pins'].pop(next(iter(pins)))\n   raw=json.dumps(obj).encode()\n   if case=='malformed':raw=b'{\"CANARY\":'\n   if case=='null':raw=b'null'\n   if case=='duplicate':raw=raw[:-1]+b',\"version\":\"CANARY\"}'\n   if case=='oversized':raw=b' '*65537\n   if case=='deep_json':raw=b'['*2000+b'0'+b']'*2000\n   p.write_bytes(raw);p.chmod(0o600)\n   if case=='missing':p.unlink()\n   if case=='symlink':p.rename(trust/'real');p.symlink_to(trust/'real')\n   if case=='ancestor_symlink':\n    (d/'link').symlink_to(trust);p=d/'link'/p.name\n   if case=='hardlink':os.link(p,trust/'second')\n   if case=='fifo':p.unlink();os.mkfifo(p)\n   if case=='unsafe_mode':p.chmod(0o622)\n   def snapshot():\n    rows=[]\n    for f in sorted(d.rglob('*')):\n     st=f.lstat()\n     content=os.readlink(f) if stat.S_ISLNK(st.st_mode) else hashlib.sha256(f.read_bytes()).hexdigest() if stat.S_ISREG(st.st_mode) else None\n     rows.append((str(f),st.st_mode,st.st_uid,st.st_gid,st.st_size,st.st_mtime_ns,content))\n    return rows\n   real=os.fstat\n   def fs(fd):\n    s=real(fd);directory=stat.S_ISDIR(s.st_mode)\n    return types.SimpleNamespace(st_mode=(s.st_mode & ~0o022 if directory else s.st_mode)|(0o022 if directory and case=='unsafe_ancestor' else 0),st_uid=1000 if not directory and case=='unsafe_uid' else 0,st_gid=1000 if not directory and case=='unsafe_gid' else 0,st_nlink=s.st_nlink)\n   stack.enter_context(patch.object(m,'OWNER_APPROVAL',p));stack.enter_context(patch.object(m.os,'fstat',side_effect=fs));stack.enter_context(patch.object(m,'require_root'))\n   if name=='dvizhgitpush':\n    k=d/'fake-key';k.write_text('PUBLIC FIXTURE ONLY')\n    stack.enter_context(patch.object(m,'KEY',k));stack.enter_context(patch.object(m,'ssh_env',return_value={}))\n    stack.enter_context(patch.object(m,'run',return_value=subprocess.CompletedProcess([],0,'b'*40,'CANARY')))\n    auth=lambda:m.verify_local_pins(d,'a'*40,'a'*40)\n   else:\n    stack.enter_context(patch.object(m.shutil,'which',return_value='/fixture/tool'))\n    stack.enter_context(patch.object(m,'APPROVAL_ROOT',d/'state'))\n    stack.enter_context(patch.object(m,'source_tree',return_value={n:dict(type='blob',mode='100644',sha='b'*40) for n in pins}))\n    stack.enter_context(patch.object(m,'api_json',return_value={'sha':'c'*40,'parents':[{'sha':'a'*40}]}))\n    auth=lambda:m.verify_owner_history({'commit':'c'*40})\n   before=snapshot()\n   row=dict(module=name,case=case)\n   try:auth();row['gate']='accepted'\n   except Exception as e:row['gate']=type(e).__name__\n   with patch.object(m,'owner_manifest',wraps=m.owner_manifest) as spy:\n    try:\n     result=m.doctor();row['doctor']=result\n     assert result['owner_authorized']==(case=='valid') and result['ok']==(case=='valid')\n     assert all(s not in json.dumps(result) for s in ['CANARY','a'*40,'\"pins\"'])\n    except Exception as e:row['doctor_exception']=type(e).__name__\n    assert spy.call_count==1\n   assert before==snapshot()\n   row['read_only']=True\n   if True:\n    assert row['gate']==('accepted' if case=='valid' else 'GateError'),row\n    assert 'doctor_exception' not in row,row\n   out['doctors'].append(row)\n\nc=module('dvizhautopilot')\nout['aggregation']=[]\nwith patch.object(c,'api_json',return_value={}),patch.object(Path,'is_file',return_value=True):\n for case in cases:\n  pair=[r['doctor'] for r in out['doctors'] if r['case']==case]\n  with patch.object(c,'sudo_json',side_effect=pair):\n   answer=c.doctor();assert answer['ok']==(case=='valid')\n   out['aggregation'].append({'case':case,'ok':answer['ok']})\nout['other_readiness']=[]\nfor name in ['dvizhgitpush','dvizhrelease']:\n m=module(name)\n with tempfile.TemporaryDirectory() as td,patch.object(m,'require_root'),patch.object(m,'owner_manifest',return_value={}):\n  if name=='dvizhrelease':\n   with patch.object(m,'APPROVAL_ROOT',Path(td)),patch.object(m.shutil,'which',return_value='/fixture/tool'):\n    (Path(td)/'pending.json').write_text('PUBLIC FIXTURE')\n    r=m.doctor();assert r['owner_authorized'] and not r['ok'] and r['pending']\n    out['other_readiness'].append({'case':'pending_rollback','result':r})\n    (Path(td)/'pending.json').unlink()\n    with patch.object(m.shutil,'which',return_value=None):\n     r=m.doctor();assert r['owner_authorized'] and not r['ok']\n     out['other_readiness'].append({'case':'missing_tools','result':r})\n  else:\n   with patch.object(m,'KEY',Path(td)/'absent'):\n    r=m.doctor();assert r['owner_authorized'] and not r['ok']\n    out['other_readiness'].append({'case':'missing_key','result':r})\n   k=Path(td)/'fixture';k.write_text('PUBLIC FIXTURE')\n   with patch.object(m,'KEY',k),patch.object(m,'ssh_env',return_value={}),patch.object(m,'run',return_value=subprocess.CompletedProcess([],1,'CANARY','CANARY')):\n    r=m.doctor();assert r['owner_authorized'] and not r['ok'] and 'CANARY' not in json.dumps(r)\n    out['other_readiness'].append({'case':'transport_failure','result':r})\nprint(json.dumps(out,sort_keys=True))\n\n"
+      ],
+      "exit_code": 0,
+      "workflow_blocks": [
+        {
+          "exit_code": 0,
+          "script": "set -Eeuo pipefail\npython3 -m py_compile hermes-dev-v2/dvizhautopilot.py hermes-dev-v2/dvizhrelease.py hermes-dev-v2/dvizhgitpush.py\nbash -n install-dvizh-hermes-autopilot.sh\ngrep -Fq 'VERSION = \"2026.09.11-hermes-autopilot.2.3.2\"' hermes-dev-v2/dvizhautopilot.py\ngrep -Fq 'VERSION = \"2026.09.11-dvizh-release-gate.2.3.2\"' hermes-dev-v2/dvizhrelease.py\ngrep -Fq 'VERSION = \"2026.09.11-dvizh-git-push-gate.2.3.2\"' hermes-dev-v2/dvizhgitpush.py\ngrep -q '^name: dvizh-dev$' hermes-dev-v2/skill/SKILL.md\ngrep -Fq 'Do not call release-apply until a later user Telegram message contains that exact phrase.' hermes-dev-v2/skill/SKILL.md\ngrep -Fq 'FRIEND_PROJECT_MARKERS' hermes-dev-v2/dvizhgitpush.py\ngrep -Fq 'CONTROL_PLANE_DENY' hermes-dev-v2/dvizhgitpush.py\ngrep -Fq '\"src/\"' hermes-dev-v2/dvizhgitpush.py\ngrep -Fq '\"migrations/\"' hermes-dev-v2/dvizhgitpush.py\ngrep -Fq 'KEY = Path(os.environ.get(\"DVIZH_GIT_GATE_KEY\", \"/var/lib/dvizh/autopilot-github/id_ed25519\"))' hermes-dev-v2/dvizhgitpush.py\n! grep -Fq 'id_ed25519' hermes-dev-v2/dvizhautopilot.py\ngrep -Fq 'PAYLOAD_REF=\"0b6f9f17f1d1d314be61ec6b9b2a104b343ba864\"' install-dvizh-hermes-autopilot.sh\ngrep -Fq 'NOPASSWD: /usr/local/sbin/dvizhgitpush *' install-dvizh-hermes-autopilot.sh\ngrep -Fq 'NOPASSWD: /usr/local/sbin/dvizhrelease *' install-dvizh-hermes-autopilot.sh\ngrep -Fq 'ROOT_KEY_DIR=\"/var/lib/dvizh/autopilot-github\"' install-dvizh-hermes-autopilot.sh\n! grep -Fq 'NOPASSWD: ALL' install-dvizh-hermes-autopilot.sh\n! grep -Eq 'shell\\s*=\\s*True|os\\.system\\(' hermes-dev-v2/*.py\n! grep -Eq 'git[^\\n]*push[^\\n]*--force|reset[^\\n]*--hard|clean[^\\n]*-fd' hermes-dev-v2/*.py",
+          "stderr": ""
+        },
+        {
+          "exit_code": 0,
+          "script": "set -Eeuo pipefail\ngrep -Fq \"'hermes/dev/**'\" .github/workflows/dvizh-hermes-autopilot.yml\ngrep -Fq 'credential-shaped path forbidden' .github/workflows/dvizh-hermes-autopilot.yml\ngrep -Fq 'DVIZH-only path gate rejected' .github/workflows/dvizh-hermes-autopilot.yml\ngrep -Fq 'gate.path_allowed(name)' .github/workflows/dvizh-hermes-autopilot.yml\ngrep -Fq 'playwright==1.57.0' .github/workflows/dvizh-hermes-autopilot.yml\ngrep -Fq 'python tests/ai-home-v2/browser_test.py' .github/workflows/dvizh-hermes-autopilot.yml\ngrep -Fq 'Autopilot gate: green' .github/workflows/dvizh-hermes-autopilot.yml\n",
+          "stderr": ""
+        },
+        {
+          "exit_code": 0,
+          "script": "set -Eeuo pipefail\npython3 - <<'PY'\nfrom pathlib import Path\nrelease=Path('hermes-dev-v2/dvizhrelease.py').read_text()\npush=Path('hermes-dev-v2/dvizhgitpush.py').read_text()\nrequired_release=[\n  '\"/opt/dvizh/static/index.html\"',\n  '\"/opt/dvizh/static/ai-home-v2.js\"',\n  '\"/opt/dvizh/static/ai-home-v2.css\"',\n  '\"/opt/dvizh/server.py\"',\n  'ALLOWED_RESTARTS',\n  'target is outside the release allowlist',\n  'approval challenge does not match this exact proposal',\n]\nfor marker in required_release:\n  if marker not in release: raise SystemExit(f'missing release marker: {marker}')\nrequired_push=[\n  'FRIEND_PROJECT_MARKERS', 'CONTROL_PLANE_DENY',\n  'friend-project/out-of-scope paths',\n  'merge commits are not allowed',\n  'git@github.com:{REPO}.git',\n]\nfor marker in required_push:\n  if marker not in push: raise SystemExit(f'missing push marker: {marker}')\nfor forbidden in ['/etc/systemd/system/', '/var/lib/dvizh/auth', 'iptables', 'ufw ', 'authorized_keys']:\n  if forbidden in release + push: raise SystemExit(f'forbidden root surface: {forbidden}')\nif 'git push --force' in push or 'reset --hard' in push:\n  raise SystemExit('unsafe Git primitive')\nPY",
+          "stderr": ""
+        }
+      ],
+      "inventory": {
+        "files": 11,
+        "payload_sha256": "6b2e84e9f3e8baef9737e997a6f9c934ea93268fddaee06f1c8390b1131d6872",
+        "pins": {
+          ".github/workflows/dvizh-hermes-autopilot-installer-smoke.yml": "abbdad371aed2ad198213ec7853f20fabfe72796",
+          ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml": "ec53f5005632b551dd93192668000faac5be3c62",
+          ".github/workflows/dvizh-hermes-autopilot.yml": "c5783874ebd2abb3ba1e2f10eabd1c70847c7791",
+          "hermes-dev-v2/dvizhgitpush.py": "6a0d7f2d8067784d8b1b9e96e79d0f050a3b8a58",
+          "hermes-dev-v2/dvizhrelease.py": "76068f4fd797e86b3142a946c62268ac9524f834"
+        }
+      },
+      "doctor_cases": [
+        {
+          "module": "dvizhgitpush",
+          "case": "valid",
+          "gate_result": "accepted",
+          "owner_authorized": true,
+          "ok": true,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "missing",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "malformed",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "null",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "pins_list",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "base_number",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "pin_null",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "wrong_schema",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "missing_pin",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "duplicate",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "symlink",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "ancestor_symlink",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "hardlink",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "fifo",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "unsafe_mode",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "unsafe_uid",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "unsafe_gid",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "unsafe_ancestor",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "oversized",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhgitpush",
+          "case": "deep_json",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "valid",
+          "gate_result": "accepted",
+          "owner_authorized": true,
+          "ok": true,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "missing",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "malformed",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "null",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "pins_list",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "base_number",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "pin_null",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "wrong_schema",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "missing_pin",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "duplicate",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "symlink",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "ancestor_symlink",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "hardlink",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "fifo",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "unsafe_mode",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "unsafe_uid",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "unsafe_gid",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "unsafe_ancestor",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "oversized",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        },
+        {
+          "module": "dvizhrelease",
+          "case": "deep_json",
+          "gate_result": "GateError",
+          "owner_authorized": false,
+          "ok": false,
+          "read_only": true
+        }
+      ],
+      "aggregation": [
+        {
+          "case": "valid",
+          "ok": true
+        },
+        {
+          "case": "missing",
+          "ok": false
+        },
+        {
+          "case": "malformed",
+          "ok": false
+        },
+        {
+          "case": "null",
+          "ok": false
+        },
+        {
+          "case": "pins_list",
+          "ok": false
+        },
+        {
+          "case": "base_number",
+          "ok": false
+        },
+        {
+          "case": "pin_null",
+          "ok": false
+        },
+        {
+          "case": "wrong_schema",
+          "ok": false
+        },
+        {
+          "case": "missing_pin",
+          "ok": false
+        },
+        {
+          "case": "duplicate",
+          "ok": false
+        },
+        {
+          "case": "symlink",
+          "ok": false
+        },
+        {
+          "case": "ancestor_symlink",
+          "ok": false
+        },
+        {
+          "case": "hardlink",
+          "ok": false
+        },
+        {
+          "case": "fifo",
+          "ok": false
+        },
+        {
+          "case": "unsafe_mode",
+          "ok": false
+        },
+        {
+          "case": "unsafe_uid",
+          "ok": false
+        },
+        {
+          "case": "unsafe_gid",
+          "ok": false
+        },
+        {
+          "case": "unsafe_ancestor",
+          "ok": false
+        },
+        {
+          "case": "oversized",
+          "ok": false
+        },
+        {
+          "case": "deep_json",
+          "ok": false
+        }
+      ],
+      "other_readiness": [
+        {
+          "case": "missing_key",
+          "result": {
+            "authorized": false,
+            "base_branch": "codex/hermes-autopilot-v2-2026-09-08",
+            "detail": "key missing",
+            "key_present": false,
+            "ok": false,
+            "owner_authorized": true,
+            "repo": "Itosyro/voice-bot",
+            "version": "2026.09.11-dvizh-git-push-gate.2.3.2"
+          }
+        },
+        {
+          "case": "transport_failure",
+          "result": {
+            "authorized": false,
+            "base_branch": "codex/hermes-autopilot-v2-2026-09-08",
+            "detail": "transport authorization failed",
+            "key_present": true,
+            "ok": false,
+            "owner_authorized": true,
+            "repo": "Itosyro/voice-bot",
+            "version": "2026.09.11-dvizh-git-push-gate.2.3.2"
+          }
+        },
+        {
+          "case": "pending_rollback",
+          "result": {
+            "allowed_restarts": [
+              "dvizh-ai-home.service",
+              "dvizh.service"
+            ],
+            "approval_targets": [
+              "/opt/dvizh/server.py",
+              "/opt/dvizh/static/app.js",
+              "/opt/dvizh/static/manual.html",
+              "/opt/dvizh/static/styles.css",
+              "/opt/dvizh/static/sw.js",
+              "/opt/dvizh/static/sync.js"
+            ],
+            "ok": false,
+            "owner_authorized": true,
+            "pending": true,
+            "production_schema": 1,
+            "repo": "Itosyro/voice-bot",
+            "safe_targets": [
+              "/opt/dvizh/static/ai-home-v2.css",
+              "/opt/dvizh/static/ai-home-v2.js",
+              "/opt/dvizh/static/index.html"
+            ],
+            "state_root": "/tmp",
+            "tools": {
+              "curl": true,
+              "python3": true,
+              "systemctl": true
+            },
+            "version": "2026.09.11-dvizh-release-gate.2.3.2"
+          }
+        },
+        {
+          "case": "missing_tools",
+          "result": {
+            "allowed_restarts": [
+              "dvizh-ai-home.service",
+              "dvizh.service"
+            ],
+            "approval_targets": [
+              "/opt/dvizh/server.py",
+              "/opt/dvizh/static/app.js",
+              "/opt/dvizh/static/manual.html",
+              "/opt/dvizh/static/styles.css",
+              "/opt/dvizh/static/sw.js",
+              "/opt/dvizh/static/sync.js"
+            ],
+            "ok": false,
+            "owner_authorized": true,
+            "pending": false,
+            "production_schema": 1,
+            "repo": "Itosyro/voice-bot",
+            "safe_targets": [
+              "/opt/dvizh/static/ai-home-v2.css",
+              "/opt/dvizh/static/ai-home-v2.js",
+              "/opt/dvizh/static/index.html"
+            ],
+            "state_root": "/tmp",
+            "tools": {
+              "curl": false,
+              "python3": false,
+              "systemctl": false
+            },
+            "version": "2026.09.11-dvizh-release-gate.2.3.2"
+          }
+        }
+      ],
+      "limitations": "Actual candidate imports occurred only inside unprivileged OS isolation. Real file opens/reads, symlink rejection, file modes/link counts, content hashes and mtime/metadata snapshots; fstat models root ownership and trusted ancestors because no sudo/chown is permitted. Actual owner_manifest wrapped only to count calls, never substituted in the 40-case matrix. Actual verify_local_pins/verify_owner_history run with synthetic Git output/API trees; key is a public fixture and transport is mocked. Four separate readiness cases substitute successful owner_manifest solely to isolate other prerequisites. No real secrets, transport, provisioning or production doctor."
+    },
+    {
+      "id": "T3",
+      "command": "git diff --check afd44df10909f365b39216e7676498d48c59870a",
+      "exit_code": 0,
+      "result": "No whitespace errors. Read-only comparison also confirms mandatory prior artifacts, bootstrap, installer and isolation harness unchanged from requested base.",
+      "unchanged_sha256": {
+        "hermes-dev-v2/SECURITY-REVIEW-V232.md": "102e885d820d4df3152bf6b89a9aee3baa268c023f4446a73a4d53933e7b0da8",
+        "hermes-dev-v2/evidence/v232/INDEPENDENT-REVIEW.json": "b0ae82ff8fa97481d2e7d0a56dbc9a1e2725b91c1e872b1b56e1cefa2fa9f811",
+        "hermes-dev-v2/owner_install.py": "c976026e09807a235b46dc4349469c5669149ff54387238038ff1cc45ea91a0b",
+        "hermes-dev-v2/bootstrap_v232.py": "1cbdc117a5256382643aeb2de1dc7d5e2aa700799e1f6c0ebe60e841adfc01c2",
+        "hermes-dev-v2/regression_health.py": "b87edfb2d354c5d97db679e93c7fa95ebe2de5e10fd9b73dca857009e34d9903"
+      }
+    }
+  ],
+  "summary": {
+    "verdict": "PASS_NARROW_L1_L2_CODE_REVIEW_WITH_EXTERNAL_OWNER_PREREQUISITE",
+    "review_date_utc": "2026-09-11",
+    "base": "afd44df10909f365b39216e7676498d48c59870a",
+    "head": "afd44df10909f365b39216e7676498d48c59870a",
+    "scope": "Installation-ready code assessment of uncommitted L1/L2 rework against requested base, new blocker tests and evidence metadata, with relevant inherited foundation security and rollback contracts reviewed. No remaining CRITICAL/HIGH or other security/logic findings identified within this bounded review.",
+    "mandatory_read": [
+      "hermes-dev-v2/SECURITY-REVIEW-V232.md",
+      "hermes-dev-v2/evidence/v232/INDEPENDENT-REVIEW.json"
+    ],
+    "prior_disposition": {
+      "L1": "RESOLVED: all three exact controller/release/push 2026.09.11 .2.3.2 VERSION assertions and all three actual static workflow blocks independently pass. Only the two stale version literals changed in the workflow; security assertions and contents:read permissions retained.",
+      "L2": "RESOLVED: both doctors invoke the same actual owner_manifest function as production authorization, expose boolean owner_authorized and require it for overall ok. Missing, malformed, unsafe and contract-invalid fixtures fail both doctor readiness and production authorization. Valid fixtures pass both. Controller aggregation consumes the real doctor results and is false for every invalid case. No fixture manifest content/base/pins or transport canary exposed; fixture content and metadata remain unchanged."
+    },
+    "foundation_assessment": {
+      "authorization": "Fixed external manifest path, trusted nofollow ancestor traversal, single-link regular root:root file, no group/world write, bounded reads, duplicate rejection, exact pin-path inventory and hash shape retained. Actual owner_manifest implementations and PIN_PATHS are equivalent. Doctor readiness validates the provisioned contract; proposed commit/pinned-base consistency remains the production gate's separate responsibility.",
+      "push": "Existing authenticated caller UID/GID transition with empty supplementary groups, sanitized environment and private immutable object export retained. Captured-SHA push, protected per-commit history and external pins remain enforced. Relevant owner suite export/config/history tests passed. No actual privileged transition or push claimed.",
+      "bootstrap": "Reviewed standalone external launcher authenticates and executes one buffered bootstrap; bootstrap authenticates and executes buffered standalone installer; installer authenticates sorted-name payload buffers and installs captured bytes. Root-owned staging/ancestor metadata and installed-target metadata are checked. Only three existing control-plane executable targets. No adjacent candidate imports or new permission mappings.",
+      "rollback": "Installer verifies original backups and metadata, journals before replacement, restores/verifies originals on failure and retains pending state on uncertain restoration or journal cleanup. Existing owner-suite middle-failure rollback and foundation verified-buffer fixtures passed. Independently tested release doctor returns pending=true and ok=false even with valid owner authorization; recovery remains documented owner operation, never clearing pending merely to unblock.",
+      "scope_preservation": "Schema 2/trusted runtime auto remain OFF. Only original three static auto targets; existing owner approval for runtime/Manual/server and privileged targets retained; Jump DENY. No new sudo permissions, targets, skill edits or runtime materialization."
+    },
+    "installation_readiness": "Code passes this narrow review with the documented owner prerequisite and rollback/doctor contracts. This verdict is not installation authority and does not provision trust. A successful fixture doctor does not authenticate an owner or approve a candidate commit.",
+    "external_prerequisites_not_defects": [
+      "Owner independently authenticates launcher text, bootstrap/installer SHA256, complete payload digest and exact owner manifest through a channel outside candidate control.",
+      "Owner approves an immutable replacement base containing these exact five workflow/validator blobs, provisions root-owned fixed-path owner-approval.json, and aligns both gates, DVIZH_OWNER_FOUNDATION_BASE and controller managed-job base branch. No such approved replacement base is supplied by this working-tree review.",
+      "Owner validates installed OS/interpreter/Git/SSH and existing sudo identity/transport trust, staging and actual installed doctor/recovery under separate authorization."
+    ],
+    "inventory": {
+      "approved_replacement_base": null,
+      "candidate_files": {
+        ".github/workflows/dvizh-hermes-autopilot-installer-smoke.yml": {
+          "git_blob": "abbdad371aed2ad198213ec7853f20fabfe72796",
+          "sha256": "5b97142e21462704b695406dadc7451997cd36f620e02d09ea72f6eb06e1ace9"
+        },
+        ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml": {
+          "git_blob": "ec53f5005632b551dd93192668000faac5be3c62",
+          "sha256": "1f5abfc834fd6a4d50802c6c92e491fafb6bf10dc7959e23144ecbe0742df6dc"
+        },
+        ".github/workflows/dvizh-hermes-autopilot.yml": {
+          "git_blob": "c5783874ebd2abb3ba1e2f10eabd1c70847c7791",
+          "sha256": "df30377b8d221795731d1a833ac336e3f007a07e554b1168215c35a100c439a6"
+        },
+        "hermes-dev-v2/BOOTSTRAP-v232.md": {
+          "git_blob": "7fd884e9ab6d76020d88622bb2de61ecb1f83947",
+          "sha256": "29131aafd1095abd95e95a99e49eef01d1b25b1bcd751134887d8b7f2d9ac59d"
+        },
+        "hermes-dev-v2/OWNER-HANDOFF.md": {
+          "git_blob": "6d570f807375e86f44bdb551a425975c4a95ac21",
+          "sha256": "e1afa859a8f21bea2d97080220f7b9da9d09203e6c1a4f667d5605ae1bce51b0"
+        },
+        "hermes-dev-v2/bootstrap_v232.py": {
+          "git_blob": "07d4d5c228f6d0634b8d5ab6effcb9bda099ff38",
+          "sha256": "1cbdc117a5256382643aeb2de1dc7d5e2aa700799e1f6c0ebe60e841adfc01c2"
+        },
+        "hermes-dev-v2/dvizhautopilot.py": {
+          "git_blob": "8aaa181f37e0cfe667446d0b3be4ffd8c6bda36c",
+          "sha256": "fde7483b477a9a2b213db855378ee97f9f36b6e4598398da7af28a98089b82d4"
+        },
+        "hermes-dev-v2/dvizhgitpush.py": {
+          "git_blob": "6a0d7f2d8067784d8b1b9e96e79d0f050a3b8a58",
+          "sha256": "65732d15d603a59d330f8aa0ba3085d36a1b0e383ae83fa9b4ea7c164ef10245"
+        },
+        "hermes-dev-v2/dvizhrelease.py": {
+          "git_blob": "76068f4fd797e86b3142a946c62268ac9524f834",
+          "sha256": "b744f6931fae8ddb5a8855e7b58f1b2e89f4ebc2f4a71c189f929b75f4315913"
+        },
+        "hermes-dev-v2/owner_install.py": {
+          "git_blob": "9aac320fea8fd789220e1e7b1bc0f9cc4f83ab10",
+          "sha256": "c976026e09807a235b46dc4349469c5669149ff54387238038ff1cc45ea91a0b"
+        },
+        "tests/hermes_autopilot/test_v232_blockers.py": {
+          "git_blob": "b649063a8ff262517e8d41084fdc40e9283ab7d7",
+          "sha256": "95f606a427a2d969326a78aef02a92543c27fcd500c6864368f36517c3640f6f"
+        }
+      },
+      "owner_approval_issued": false,
+      "payload_names": [
+        "dvizhautopilot.py",
+        "dvizhgitpush.py",
+        "dvizhrelease.py",
+        "owner_install.py"
+      ],
+      "payload_sha256": "6b2e84e9f3e8baef9737e997a6f9c934ea93268fddaee06f1c8390b1131d6872",
+      "protected_git_blob_inventory": {
+        ".github/workflows/dvizh-hermes-autopilot-installer-smoke.yml": "abbdad371aed2ad198213ec7853f20fabfe72796",
+        ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml": "ec53f5005632b551dd93192668000faac5be3c62",
+        ".github/workflows/dvizh-hermes-autopilot.yml": "c5783874ebd2abb3ba1e2f10eabd1c70847c7791",
+        "hermes-dev-v2/dvizhgitpush.py": "6a0d7f2d8067784d8b1b9e96e79d0f050a3b8a58",
+        "hermes-dev-v2/dvizhrelease.py": "76068f4fd797e86b3142a946c62268ac9524f834"
+      },
+      "rework_base": "afd44df10909f365b39216e7676498d48c59870a",
+      "status": "PENDING_INDEPENDENT_REVIEW_DO_NOT_INSTALL"
+    },
+    "tracked_diff_sha256": "428a9d9ca0b5a4686c1ea90b5e8f0aa7994902ad77846dcd1b1d1c75ad12b6bc",
+    "limitations": [
+      "Existing v2.1 installer smoke is legacy coverage, not v2.3.2 production installation acceptance. No preparation/install workflow step was run.",
+      "No full-repository/browser/live CI, actual root identity transition, network push, installation, production recovery or power-loss durability claim. Prior independent evidence was read, not represented as newly executed.",
+      "Bounded review does not prove every hostile-object resource case, OS vulnerability or race safe. External missing owner provisioning is distinguished from implementation defects."
+    ],
+    "write_boundary": "Only hermes-dev-v2/evidence/v232-fix/INDEPENDENT-REVIEW.json written persistently by this reviewer. Mandatory prior artifacts retained unchanged. Disposable harness clones/fixtures only for execution. No code fixes, production writes/imports, sudo, real keys/secrets, push/install/--apply, friend/jobs changes or commit."
+  }
+}

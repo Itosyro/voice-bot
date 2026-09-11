@@ -1,0 +1,12 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_v232_blockers.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_manifest_cases_and_gate_parity (test_v232_blockers.DoctorAuthorization.test_manifest_cases_and_gate_parity) ... ok
+test_other_prerequisites_and_controller_aggregation (test_v232_blockers.DoctorAuthorization.test_other_prerequisites_and_controller_aggregation) ... ok
+test_actual_static_workflow_blocks (test_v232_blockers.WorkflowContracts.test_actual_static_workflow_blocks) ... ok
+test_all_exact_versions (test_v232_blockers.WorkflowContracts.test_all_exact_versions) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.441s
+
+OK
+COMMAND_EXIT=0

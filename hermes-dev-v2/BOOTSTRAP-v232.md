@@ -60,3 +60,21 @@ checks the external manifest, not an inventory shipped by the candidate.
 No approved v2.3.2 base commit or authenticated digest has been supplied yet.
 Creating that owner-reviewed base and installing its approval manifest are
 external rollout prerequisites, not work authorized in this local task.
+
+## L1/L2 rework inventory (pending independent review)
+
+The uncommitted rework from `afd44df10909f365b39216e7676498d48c59870a`
+is identified in `evidence/v232-fix/INVENTORY.json`. It contains exact computed
+Git blob IDs for all five protected paths, bootstrap and installer SHA256, and
+the complete sorted-name payload digest described above. Recompute with
+`python3 hermes-dev-v2/evidence/v232-fix/inventory.py`; the computation reads
+candidate bytes without importing or executing the installer or gates.
+
+These values are an unauthenticated review inventory, never an owner manifest.
+The workflow and both gate blobs changed for L1/L2, so prior blob inventories
+and prior payload digests cannot identify this candidate. Independent review
+and external owner authentication remain mandatory. Align the approved base
+across both manifests, `DVIZH_OWNER_FOUNDATION_BASE`, and the controller's
+managed-job base branch. Neither this document nor successful fixture doctors
+supplies that approval. Trusted runtime auto remains OFF; Manual/server require
+approval and Jump remains DENY. No bootstrap/install command was executed.

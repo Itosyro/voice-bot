@@ -1,8 +1,27 @@
-# STOP — v2.3.2 review FAIL — DO NOT INSTALL
+# STOP — v2.3.2 L1/L2 rework pending independent review — DO NOT INSTALL
 
-Final status: SECURITY-REVIEW-V232.md and evidence/v232/INDEPENDENT-REVIEW.json.
-The implementation-stage handoff below predates review and final blocked bundle.
-Its pending-review/commit statements are historical, not final delivery status.
+Rework base: `afd44df10909f365b39216e7676498d48c59870a`.
+The prior failed verdict in SECURITY-REVIEW-V232.md and
+evidence/v232/INDEPENDENT-REVIEW.json is retained unchanged. This candidate has
+local L1/L2 fixes only; no new independent verdict or owner approval is issued.
+See evidence/v232-fix/REPORT.md for RED/GREEN evidence and verification limits,
+and evidence/v232-fix/INVENTORY.json for computed exact Git blob IDs and bootstrap,
+installer and payload SHA256 identities. These are candidate inventory, not pins
+issued by the owner. No approved immutable replacement base exists yet.
+
+All three exact workflow VERSION assertions now match their actual sources.
+Both doctors expose `owner_authorized` from the same `owner_manifest()` contract
+used by their production gates; absent or invalid trust makes `ok` false.
+Authorization status reads do not provision or modify the manifest. Push
+transport `authorized` remains separate; its detail is a fixed status message.
+A valid manifest alone does not establish tool/transport/pending-state readiness,
+validate a proposed commit, or authorize installation.
+
+The owner must independently approve the final immutable foundation base and
+exact five blob pins, then coordinate both gate manifests, the workflow variable
+`DVIZH_OWNER_FOUNDATION_BASE`, and the controller managed-job base branch.
+The original historical base is not approval for this revised candidate.
+Legacy installer smoke is v2.1 coverage, not v2.3.2 installation acceptance.
 
 # OWNER v2.3.2 foundation handoff
 
