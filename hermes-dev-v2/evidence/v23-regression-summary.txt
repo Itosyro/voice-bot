@@ -1,0 +1,8 @@
+Health feature: 41 Python + 6 Node + 4 browser scenarios PASS.
+AI Home bridge: 2 tests PASS.
+Broad AI Home archive: 98 total, 72 PASS, 26 FAIL (archive lacks root scripts/Git history); NOT VERIFIED.
+
+PASS browser: sleep/edit/midnight/mean, supplements, check-in, form rebase, API persistence, legacy routes, no reload, mobile
+PASS mixed cache: old/new app+HTML combinations, stale legacy saves retain remote health, no reload
+PASS browser confirmation: exact proposed dose/times/zone visible; inert before approval; existing command bridge applies to temporary API
+PASS real concurrent browser saves: same revision, HTTP 409 retry, 22–08/600 persisted, independent edits and both readbacks retained

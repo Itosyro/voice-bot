@@ -107,7 +107,7 @@ jobs:
           gate = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(gate)
           d = json.loads(Path('.autopilot/release.json').read_text(encoding='utf-8'), object_pairs_hook=gate.unique_object)
-          if d.get('schema') != 1: raise SystemExit('release schema must be 1')
+          if d.get('schema') not in {1, 2}: raise SystemExit('release schema must be 1 or 2')
           gate.validate_manifest({'mode': 'auto'}, d)
           print('release manifest structurally valid')
           PY

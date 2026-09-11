@@ -25,10 +25,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "2026.09.09-dvizh-release-gate.2.2"
+VERSION = "2026.09.11-dvizh-release-gate.2.3"
 REPO = "Itosyro/voice-bot"
-BACKUP_ROOT = Path(os.environ.get("DVIZH_RELEASE_BACKUP_ROOT", "/var/lib/dvizh/backups"))
-APPROVAL_ROOT = Path(os.environ.get("DVIZH_RELEASE_APPROVAL_ROOT", "/var/lib/dvizh/autopilot-approvals"))
+BACKUP_ROOT = Path(os.environ.get("DVIZH_RELEASE_BACKUP_ROOT", "/var/lib/dvizh-release-gate/backups"))
+APPROVAL_ROOT = Path(os.environ.get("DVIZH_RELEASE_APPROVAL_ROOT", "/var/lib/dvizh-release-gate/approvals"))
 FS_ROOT = Path(os.environ.get("DVIZH_RELEASE_FS_ROOT", "/"))
 SOURCE_ROOT = os.environ.get("DVIZH_RELEASE_SOURCE_ROOT", "").strip()
 HTTP_BASE = os.environ.get("DVIZH_RELEASE_HTTP_BASE", "http://127.0.0.1:8000").rstrip("/")
@@ -99,7 +99,7 @@ def trusted_directory(fd: int, path: Path) -> None:
                              for root in (FS_ROOT, APPROVAL_ROOT, BACKUP_ROOT)):
         return
     st = os.fstat(fd)
-    if st.st_uid != (os.geteuid() if TEST_MODE else 0) or st.st_mode & 0o022:
+    if st.st_uid != (os.geteuid() if TEST_MODE else 0) or st.st_gid != (os.getegid() if TEST_MODE else 0) or st.st_mode & 0o022:
         raise GateError(f"untrusted writable/non-root ancestor: {path}")
 
 
@@ -215,12 +215,12 @@ def emit(value: Any) -> None:
 def run(args: list[str], *, check: bool = True, timeout: int = 60) -> subprocess.CompletedProcess[str]:
     cp = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=timeout)
     if check and cp.returncode != 0:
-        raise GateError((cp.stderr or cp.stdout or "command failed").strip()[-4000:])
+        raise GateError("fixed command failed")
     return cp
 
 
 def require_root() -> None:
-    if os.geteuid() == 0 and (TEST_MODE or SOURCE_ROOT or FS_ROOT != Path("/") or BACKUP_ROOT != Path("/var/lib/dvizh/backups") or APPROVAL_ROOT != Path("/var/lib/dvizh/autopilot-approvals") or HTTP_BASE != "http://127.0.0.1:8000"):
+    if os.geteuid() == 0 and (TEST_MODE or SOURCE_ROOT or FS_ROOT != Path("/") or BACKUP_ROOT != Path("/var/lib/dvizh-release-gate/backups") or APPROVAL_ROOT != Path("/var/lib/dvizh-release-gate/approvals") or HTTP_BASE != "http://127.0.0.1:8000"):
         raise GateError("root execution cannot use fixture environment overrides")
     if not TEST_MODE and os.geteuid() != 0:
         raise GateError("dvizhrelease must run as root")
@@ -327,7 +327,7 @@ def load_manifest(proposal: dict[str, Any]) -> tuple[dict[str, Any], bytes]:
         manifest = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
     except Exception as exc:
         raise GateError("release manifest is invalid JSON") from exc
-    if not isinstance(manifest, dict) or manifest.get("schema") != 1:
+    if not isinstance(manifest, dict) or manifest.get("schema") not in {1, 2}:
         raise GateError("release manifest schema must equal 1")
     declared = str(manifest.get("commit") or "")
     if declared and declared != commit:
@@ -350,6 +350,8 @@ def target_risk(target: str) -> str:
 
 
 def validate_manifest(proposal: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    if manifest.get("schema") == 2:
+        return validate_trusted_manifest(proposal, manifest)
     if set(manifest) - {"schema", "name", "commit", "operations", "restarts", "restart_reason"}:
         raise GateError("manifest contains unsupported keys")
     operations = manifest.get("operations")
@@ -494,6 +496,8 @@ def service_active(name: str) -> bool:
 
 
 def restart_service(name: str) -> None:
+    if name not in ALLOWED_RESTARTS | {BRIDGE_SERVICE}:
+        raise GateError("unmapped service")
     if TEST_MODE:
         return
     run(["systemctl", "restart", name], timeout=60)
@@ -605,6 +609,8 @@ def privileged_metadata() -> dict[str, int]:
 
 
 def check_health(plan: dict[str, Any]) -> None:
+    if plan.get("schema") == 2:
+        return trusted_health(plan)
     services = {"dvizh.service", "dvizh-auth.service", "dvizh-ai-home.service", *plan["restarts"]}
     for service in sorted(services):
         if not service_active(service):
@@ -619,24 +625,32 @@ def check_health(plan: dict[str, Any]) -> None:
 
 @serialized
 def apply_release(proposal: dict[str, Any], raw: bytes, manifest: dict[str, Any], manifest_raw: bytes, plan: dict[str, Any]) -> dict[str, Any]:
+    if not TEST_MODE and manifest.get("schema") != 2:
+        raise GateError("production releases require schema 2")
+    validate_branch(proposal)
     commit = str(proposal.get("commit"))
-    privileged = plan["risk"] == PRIVILEGED_CLASS
+    v23 = plan.get("schema") == 2
+    privileged = v23 or plan["risk"] == PRIVILEGED_CLASS
     tree = source_tree(commit) if privileged else None
     if privileged:
         verify_blob(tree, proposal["manifest"], manifest_raw)
         verify_ci(proposal)
+    if v23:
+        verify_ancestry(proposal)
+        verify_privileged_sources(proposal, manifest_raw, plan)
     sources = []
     for op in plan["operations"]:
         data = fetch_bytes(commit, op["source"])
         if tree is not None:
             verify_blob(tree, op["source"], data)
-        if op["risk"] == PRIVILEGED_CLASS:
+        if op["risk"] == PRIVILEGED_CLASS or plan.get("schema") == 2:
             if hashlib.sha256(data).hexdigest() != op["sha256"]:
                 raise GateError("privileged source SHA256 mismatch")
-            try:
-                compile(data, op["source"], "exec", dont_inherit=True)
-            except (SyntaxError, ValueError) as exc:
-                raise GateError("Python syntax verification failed") from exc
+            if op.get("verification", "").startswith("python-"):
+                try:
+                    compile(data, op["source"], "exec", dont_inherit=True)
+                except (SyntaxError, ValueError) as exc:
+                    raise GateError("Python syntax verification failed") from exc
         sources.append((op, data))
     check_health(plan)
     backup_parent = walk_parent(BACKUP_ROOT / "placeholder", create=True, trusted=True)
@@ -646,7 +660,7 @@ def apply_release(proposal: dict[str, Any], raw: bytes, manifest: dict[str, Any]
         os.fsync(backup_parent)
     finally:
         os.close(backup_parent)
-    _STATE.privileged_paths = {fs_path(op["target"]) for op, _ in sources if op["risk"] == PRIVILEGED_CLASS}
+    _STATE.privileged_paths = {fs_path(op["target"]) for op, _ in sources if v23 or op["risk"] == PRIVILEGED_CLASS}
     records = []
     # Phase one completes and verifies EVERY backup and its durable mapping.
     # Failure here must never enter rollback or touch any destination.
@@ -663,7 +677,7 @@ def apply_release(proposal: dict[str, Any], raw: bytes, manifest: dict[str, Any]
                   "parent_device": parent_device, "parent_inode": parent_inode}
         if record["existed"]:
             old, metadata = read_regular(target)
-            if op["risk"] == PRIVILEGED_CLASS and metadata != privileged_metadata():
+            if (v23 or op["risk"] == PRIVILEGED_CLASS) and metadata != operation_metadata(op):
                 raise GateError("privileged target metadata does not match root:root 0755 policy")
             bp = backup_dir / f"{idx:02d}-{target.name}"
             record.update(metadata, backup=str(bp), sha256=hashlib.sha256(old).hexdigest())
@@ -823,36 +837,168 @@ def verify_privileged_sources(proposal: dict[str, Any], manifest_raw: bytes, pla
     for op in plan["operations"]:
         data = fetch_bytes(proposal["commit"], op["source"])
         verify_blob(tree, op["source"], data)
-        if op["risk"] == PRIVILEGED_CLASS:
+        if op["risk"] == PRIVILEGED_CLASS or plan.get("schema") == 2:
             if hashlib.sha256(data).hexdigest() != op["sha256"]:
                 raise GateError("privileged source SHA256 mismatch")
-            try:
-                compile(data, op["source"], "exec", dont_inherit=True)
-            except (SyntaxError, ValueError) as exc:
-                raise GateError("Python syntax verification failed") from exc
+            if op.get("verification", "").startswith("python-"):
+                try:
+                    compile(data, op["source"], "exec", dont_inherit=True)
+                except (SyntaxError, ValueError) as exc:
+                    raise GateError("Python syntax verification failed") from exc
         checked_path(fs_path(op["target"]))
         parent = walk_parent(fs_path(op["target"]), trusted=True)
         os.close(parent)
-        if op["risk"] == PRIVILEGED_CLASS and read_regular(fs_path(op["target"]))[1] != privileged_metadata():
+        if (plan.get("schema") == 2 or op["risk"] == PRIVILEGED_CLASS) and read_regular(fs_path(op["target"]))[1] != operation_metadata(op):
             raise GateError("privileged target metadata does not match root:root 0755 policy")
     verify_ci(proposal)
+
+
+
+# Schema 2 is the only production contract. Schema 1 remains solely to execute
+# the unchanged v2.1/v2.2 historical regression fixtures.
+TRUSTED_BASE = "accb555b0da3b90eed9d1708ee68a286506d4feb"
+TARGET_POLICY = {
+    "/opt/dvizh/static/index.html": dict(source="ai-home-v2/index.html", mode="0644", verification="http-bytes", service=None, route="/", **{"class": "auto-safe"}),
+    "/opt/dvizh/static/ai-home-v2.js": dict(source="ai-home-v2/ai-home-v2.js", mode="0644", verification="http-bytes", service=None, route="/ai-home-v2.js", **{"class": "auto-safe"}),
+    "/opt/dvizh/static/ai-home-v2.css": dict(source="ai-home-v2/ai-home-v2.css", mode="0644", verification="http-bytes", service=None, route="/ai-home-v2.css", **{"class": "auto-safe"}),
+    "/usr/local/libexec/dvizh-context": dict(source="hermes-control-v1/dvizh_context.py", mode="0755", verification="python-context", service=None, route="", **{"class": "trusted-runtime"}),
+    "/usr/local/libexec/dvizh-proposals": dict(source="hermes-control-v1/dvizh_proposals.py", mode="0755", verification="python-context", service=None, route="", **{"class": "trusted-runtime"}),
+    "/opt/dvizh-ai-approval/proposal_bridge.py": dict(source="hermes-control-v1/dvizh_proposal_bridge.py", mode="0755", verification="python-service-context", service="dvizh-ai-approval.service", route="", **{"class": "trusted-runtime"}),
+    "/opt/dvizh-ai-home/ai_home_bridge.py": dict(source="ai-home-v2/ai_home_bridge.py", mode="0755", verification="python-service-context", service="dvizh-ai-home.service", route="", **{"class": "trusted-runtime"}),
+    "/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py": dict(source="jump-goal-release/dvizh_jump/jump_web_bridge.py", mode="0755", verification="python-service-context", service="dvizh-jump.service", route="", **{"class": "trusted-runtime"}),
+    "/opt/dvizh/server.py": dict(source="minimal-ui-v1/health-recovery-v1/baseline/helpers/server.py", mode="0755", verification="python-service-context", service="dvizh.service", route="", **{"class": "approval-required"}),
+}
+# Deliberately not auto-safe: no binding browser job for these exact sources yet.
+for _name in ("manual.html", "app.js", "sync.js", "styles.css", "sw.js"):
+    TARGET_POLICY["/opt/dvizh/static/" + _name] = dict(
+        source="minimal-ui-v1/health-recovery-v1/dist/" + _name, mode="0644",
+        verification="http-bytes", service=None, route="/" + _name,
+        **{"class": "approval-required"})
+
+
+def operation_metadata(op):
+    metadata = privileged_metadata()
+    metadata["mode"] = int(op.get("required_mode", "0755"), 8)
+    return metadata
+
+
+def validate_trusted_manifest(proposal, manifest):
+    if set(manifest) - {"schema", "name", "commit", "operations", "restarts"}:
+        raise GateError("manifest contains unsupported keys")
+    rows = manifest.get("operations")
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 20:
+        raise GateError("manifest operations must contain 1..20 entries")
+    operations, seen, services = [], set(), set()
+    for row in rows:
+        if not isinstance(row, dict) or set(row) != PRIVILEGED_FIELDS:
+            raise GateError("operation requires exact policy fields")
+        target, source = row["target"], row["source"]
+        if not canonical_path(target, absolute=True) or not canonical_path(source, absolute=False):
+            raise GateError("noncanonical operation path")
+        policy = TARGET_POLICY.get(target)
+        if not policy or target in seen:
+            raise GateError("unknown or duplicate target")
+        if (source != policy["source"] or row["required_owner"] != "root:root"
+                or row["required_mode"] != policy["mode"]
+                or row["verification"] != policy["verification"]
+                or row["release_class"] != policy["class"]
+                or not isinstance(row["sha256"], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])):
+            raise GateError("operation does not match exact source/metadata/verification policy")
+        seen.add(target)
+        if policy["service"]: services.add(policy["service"])
+        operations.append({**row, "risk": policy["class"], "http_path": policy["route"]})
+    restarts = manifest.get("restarts", [])
+    if not isinstance(restarts, list) or any(not isinstance(x, str) for x in restarts) or sorted(restarts) != sorted(services):
+        raise GateError("restarts must equal the exact target service union")
+    mode = proposal.get("mode")
+    if mode not in {"safe", "auto"}: raise GateError("unsupported mode")
+    risk = "approval-required" if any(x["risk"] == "approval-required" for x in operations) else ("trusted-runtime" if any(x["risk"] == "trusted-runtime" for x in operations) else "auto-safe")
+    return dict(schema=2, operations=operations, restarts=sorted(services), mode=mode,
+                risk=risk, approval_required=mode == "safe" or risk == "approval-required")
+
+
+def verify_ancestry(proposal):
+    payload = api_json(f"https://api.github.com/repos/{REPO}/compare/{TRUSTED_BASE}...{proposal['commit']}")
+    commits = payload.get("commits", [])
+    if (payload.get("status") != "ahead" or payload.get("merge_base_commit", {}).get("sha") != TRUSTED_BASE
+            or not 1 <= len(commits) <= 50 or payload.get("total_commits") != len(commits)
+            or any(len(c.get("parents", [])) != 1 for c in commits)):
+        raise GateError("release ancestry must be complete, managed and merge-free")
+
+
+def trusted_health(plan):
+    # Only fixed read-only probes. Never return helper stdout or HTTP bodies.
+    for service in plan["restarts"]:
+        if not service_active(service): raise GateError("mapped service was not active")
+        cp = run(["systemctl", "show", "--property=MainPID", "--value", service], timeout=15)
+        if not cp.stdout.strip().isdigit() or int(cp.stdout.strip()) <= 0:
+            raise GateError("mapped service has no active process")
+    try:
+        health = json.loads(http_get("/api/health"))
+        if not isinstance(health, dict) or health.get("ok") is not True:
+            raise GateError("fixed API health failed")
+        if any(op["verification"].startswith("python-") for op in plan["operations"]):
+            cp = run(["/usr/local/libexec/dvizh-context", "today"], timeout=30)
+            context = json.loads(cp.stdout)
+            if not isinstance(context, dict) or context.get("read_only") is not True or context.get("web", {}).get("ok") is not True:
+                raise GateError("fixed context smoke failed")
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise GateError("fixed smoke returned invalid response") from exc
 
 
 def load_and_plan(proposal_path: str) -> tuple[dict[str, Any], bytes, dict[str, Any], bytes, dict[str, Any], str]:
     _, raw, proposal = safe_json_file(proposal_path)
     validate_branch(proposal)
     manifest, manifest_raw = load_manifest(proposal)
+    if not TEST_MODE and manifest.get("schema") != 2:
+        raise GateError("production releases require schema 2; legacy fixtures only")
     plan = validate_manifest(proposal, manifest)
-    if plan["risk"] == PRIVILEGED_CLASS:
+    if plan.get("schema") == 2:
+        verify_ancestry(proposal)
+    if plan.get("schema") == 2 or plan["risk"] == PRIVILEGED_CLASS:
         verify_privileged_sources(proposal, manifest_raw, plan)
     digest = proposal_digest(raw, manifest_raw)
     return proposal, raw, manifest, manifest_raw, plan, digest
 
 
+def preflight(path: str) -> dict[str, Any]:
+    """Read-only preview. No challenge, backup, lock creation, or authorization."""
+    require_root()
+    lock = APPROVAL_ROOT / "transaction.lock"
+    fd = None
+    try:
+        if os.path.lexists(lock):
+            parent = walk_parent(lock, trusted=True)
+            try:
+                fd = os.open(lock.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+            finally:
+                os.close(parent)
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != (os.geteuid() if TEST_MODE else 0) or st.st_gid != (os.getegid() if TEST_MODE else 0) or stat.S_IMODE(st.st_mode) != 0o600 or st.st_nlink != 1:
+                raise GateError("unsafe transaction lock")
+            try: fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError as exc: raise GateError("transaction active; retry preflight later") from exc
+        if os.path.lexists(APPROVAL_ROOT / "pending.json"):
+            raise GateError("interrupted pending transaction; owner recovery required")
+        proposal, raw, manifest, manifest_raw, plan, digest = load_and_plan(path)
+        return {"ok": True, "status": "preflight-verified", "digest": digest,
+                "approval_required": plan["approval_required"], "operations": plan["operations"],
+                "restarts": plan["restarts"], "risk": plan["risk"]}
+    finally:
+        if fd is not None: os.close(fd)
+
+
 def doctor() -> dict[str, Any]:
     require_root()
     tools = {name: bool(shutil.which(name)) for name in ("python3", "curl", "systemctl")}
-    return {"ok": all(tools.values()), "version": VERSION, "repo": REPO, "tools": tools, "safe_targets": sorted(SAFE_TARGETS), "approval_targets": sorted(APPROVAL_TARGETS), "allowed_restarts": sorted(ALLOWED_RESTARTS)}
+    pending = os.path.lexists(APPROVAL_ROOT / "pending.json")
+    return {"ok": all(tools.values()) and not pending, "version": VERSION, "repo": REPO,
+            "tools": tools, "production_schema": 2, "state_root": str(APPROVAL_ROOT.parent),
+            "pending": pending, "trusted_base": TRUSTED_BASE, "targets": TARGET_POLICY,
+            "safe_targets": sorted(t for t, p in TARGET_POLICY.items() if p["class"] == "auto-safe"),
+            "approval_targets": sorted(t for t, p in TARGET_POLICY.items() if p["class"] == "approval-required"),
+            "allowed_restarts": sorted({p["service"] for p in TARGET_POLICY.values()} - {None})}
 
 
 @serialized
@@ -869,7 +1015,7 @@ def plan_release(path: str) -> dict[str, Any]:
 def apply(path: str, approval: str | None) -> dict[str, Any]:
     require_root()
     proposal, raw, manifest, manifest_raw, plan, digest = load_and_plan(path)
-    if plan["risk"] == PRIVILEGED_CLASS:
+    if plan["risk"] == PRIVILEGED_CLASS or (plan.get("schema") == 2 and plan["approval_required"]):
         match = re.fullmatch(r"APPROVE " + re.escape(str(proposal.get("id"))) + r" ([0-9A-F]{8})", approval or "")
         if not match:
             raise GateError("exact later owner APPROVE phrase required")
@@ -888,11 +1034,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Root-owned allowlisted DVIZH release gate")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("doctor")
+    p_preflight = sub.add_parser("preflight"); p_preflight.add_argument("proposal")
     p_plan = sub.add_parser("plan"); p_plan.add_argument("proposal")
     p_apply = sub.add_parser("apply"); p_apply.add_argument("proposal"); p_apply.add_argument("--approval")
     args = parser.parse_args()
     try:
         if args.cmd == "doctor": result = doctor()
+        elif args.cmd == "preflight": result = preflight(args.proposal)
         elif args.cmd == "plan": result = plan_release(args.proposal)
         elif args.cmd == "apply": result = apply(args.proposal, args.approval)
         else: raise GateError("unsupported command")

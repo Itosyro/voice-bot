@@ -1,0 +1,204 @@
+{
+  "base": "da7395e436563774a29f7694b258bd85987bed2f",
+  "status": "LOCAL IMPLEMENTATION; INDEPENDENT REVIEW PENDING",
+  "fix_rounds_used": 5,
+  "owner_test_command": "python3 -m unittest discover -s tests/hermes_autopilot -q",
+  "owner_final": {
+    "tests": 148,
+    "passed": 148,
+    "failures": 0,
+    "runtime_seconds": 6.482
+  },
+  "old_suite": {
+    "tests": 126,
+    "files_unchanged": true
+  },
+  "red_green": [
+    {
+      "label": "baseline",
+      "sha256": "82da8c4e9bb50c4f7f976c24fc9ea4821a8828b3bfe36360732af81064b169e8",
+      "summary": [
+        "Ran 126 tests in 6.428s",
+        "OK"
+      ]
+    },
+    {
+      "label": "red1",
+      "sha256": "f8da242e1c5b63aa285bd0bb8e58733e0a3e064bafa98ba60a3db5234ede5673",
+      "summary": [
+        "ERROR: test_all_sources_and_metadata_preflight_zero_destination_writes (test_release_v23.TrustedTests.test_all_sources_and_metadata_preflight_zero_destination_writes)",
+        "ERROR: test_exact_policy_mutations_deny (test_release_v23.TrustedTests.test_exact_policy_mutations_deny)",
+        "ERROR: test_manual_not_auto_without_binding_browser_evidence (test_release_v23.TrustedTests.test_manual_not_auto_without_binding_browser_evidence)",
+        "ERROR: test_middle_write_failure_restores_mixed_batch_and_restarts_old (test_release_v23.TrustedTests.test_middle_write_failure_restores_mixed_batch_and_restarts_old)",
+        "ERROR: test_mixed_runtime_auto_and_approval_union (test_release_v23.TrustedTests.test_mixed_runtime_auto_and_approval_union)",
+        "ERROR: test_pending_blocks_plan_and_apply (test_release_v23.TrustedTests.test_pending_blocks_plan_and_apply)",
+        "ERROR: test_safe_full_phrase_wrong_expired_digest_replay (test_release_v23.TrustedTests.test_safe_full_phrase_wrong_expired_digest_replay)",
+        "FAIL: test_production_rejects_legacy_manifest (test_release_v23.TrustedTests.test_production_rejects_legacy_manifest)",
+        "FAIL: test_root_state_defaults (test_release_v23.TrustedTests.test_root_state_defaults)",
+        "Ran 9 tests in 0.011s",
+        "FAILED (failures=2, errors=7)"
+      ]
+    },
+    {
+      "label": "green1",
+      "sha256": "61d1fcf2e0a42df46247843dcd412d638d80e3a07f01ac210155cdbe67aa3974",
+      "summary": [
+        "ERROR: test_safe_full_phrase_wrong_expired_digest_replay (test_release_v23.TrustedTests.test_safe_full_phrase_wrong_expired_digest_replay)",
+        "FAIL: test_workflow_accepts_privileged_contract_rejects_bad_policy (test_release_v22.BoundaryTests.test_workflow_accepts_privileged_contract_rejects_bad_policy)",
+        "FAIL: test_middle_write_failure_restores_mixed_batch_and_restarts_old (test_release_v23.TrustedTests.test_middle_write_failure_restores_mixed_batch_and_restarts_old)",
+        "FAIL: test_pending_blocks_plan_and_apply (test_release_v23.TrustedTests.test_pending_blocks_plan_and_apply)",
+        "Ran 135 tests in 6.302s",
+        "FAILED (failures=3, errors=1)"
+      ]
+    },
+    {
+      "label": "green2",
+      "sha256": "ae6e95de9ce2ec243eac17b2790eb07a7d48e90a3dff86b897868de76c2184fd",
+      "summary": [
+        "Ran 135 tests in 6.327s",
+        "OK"
+      ]
+    },
+    {
+      "label": "red3",
+      "sha256": "8860f0347d2db0b4c991ed232b66ba169a35a7a80e3878f7196f3c417afd6998",
+      "summary": [
+        "FAIL: test_ai_home_maps_actual_feature_source (test_release_v23.TrustedTests.test_ai_home_maps_actual_feature_source)",
+        "Ran 15 tests in 0.176s",
+        "FAILED (failures=1)"
+      ]
+    },
+    {
+      "label": "installer-red",
+      "sha256": "cc12c80d1d90db1ad5e5ac604b96df1cb02ef43634ff93cec2fdfd5a0e5818d1",
+      "summary": [
+        "ERROR: test_bad_digest_zero_writes_and_no_secrets_or_sudo_targets (test_owner_install_v23.InstallerTests.test_bad_digest_zero_writes_and_no_secrets_or_sudo_targets)",
+        "ERROR: test_conflicting_append_or_symlink_denied (test_owner_install_v23.InstallerTests.test_conflicting_append_or_symlink_denied)",
+        "ERROR: test_middle_failure_full_rollback (test_owner_install_v23.InstallerTests.test_middle_failure_full_rollback)",
+        "ERROR: test_preserve_whole_actual_skill_and_idempotent_backup (test_owner_install_v23.InstallerTests.test_preserve_whole_actual_skill_and_idempotent_backup)",
+        "Ran 4 tests in 0.002s",
+        "FAILED (errors=4)"
+      ]
+    },
+    {
+      "label": "green3",
+      "sha256": "c782171df2baa1cbdab40b35bf7c336fefd893028d0800e3e0d22c6678812fcb",
+      "summary": [
+        "Ran 145 tests in 6.573s",
+        "OK"
+      ]
+    },
+    {
+      "label": "red4",
+      "sha256": "eb79937bee277dfa59b927d69befb4a4eb02525000e89d6162fbc65c8cf3eda9",
+      "summary": [
+        "ERROR: test_doctor_reports_policy_state_and_pending_without_reading_keys (test_release_v23.TrustedTests.test_doctor_reports_policy_state_and_pending_without_reading_keys)",
+        "FAIL: test_all_target_ancestors_require_mapped_group (test_release_v23.TrustedTests.test_all_target_ancestors_require_mapped_group)",
+        "Ran 17 tests in 0.186s",
+        "FAILED (failures=1, errors=1)"
+      ]
+    },
+    {
+      "label": "green4",
+      "sha256": "eb55650f0bd48920b2fa884849ce7471fac29c4fee66bb13802cf9fe1f9a09b9",
+      "summary": [
+        "Ran 147 tests in 6.543s",
+        "OK"
+      ]
+    },
+    {
+      "label": "red5",
+      "sha256": "bb7a8aa82bf5d21cd3bbff2a9417c6f62779238c5628a47aefa6f975692d2dc5",
+      "summary": [
+        "ERROR: test_readonly_preflight_never_creates_state_or_writes (test_release_v23.TrustedTests.test_readonly_preflight_never_creates_state_or_writes)",
+        "Ran 18 tests in 0.168s",
+        "FAILED (errors=1)"
+      ]
+    },
+    {
+      "label": "green5",
+      "sha256": "de6412bfff18f3a04ad6f6d4524852fe018dae21d154bb40c9e38f322fe24db7",
+      "summary": [
+        "Ran 148 tests in 6.482s",
+        "OK"
+      ]
+    }
+  ],
+  "feature_regression": {
+    "commit": "9d492693de2c7cf66350293afcf42b74edeebaef",
+    "command": "python3 hermes-dev-v2/regression_health.py",
+    "health_full": {
+      "exit": 0,
+      "python_tests": 41,
+      "node_tests": 6,
+      "browser_scenarios": 4
+    },
+    "ai_home_contracts": {
+      "exit": 1,
+      "tests": 98,
+      "passed": 72,
+      "failed": 26,
+      "classification": "NOT VERIFIED: selected archive omits required root installer/diagnostic files and historical Git objects"
+    },
+    "ai_home_bridge": {
+      "exit": 0,
+      "tests": 2
+    },
+    "logs": {
+      "health-full.log": "8a047b62dfb04c787defbb3577cd0bad22ce2550cffd95f2ffcc2874e9ea8ea6",
+      "ai-home-contracts.log": "002c351477cb960f66bd29cc9a7cedee0d658731bbf14909e769e62cb9896d2c",
+      "ai-home-bridge.log": "1e3e2a3b7f04bca41ed02dcd6d25336e4fac9d8b541bb359a8f74963150a10f0"
+    },
+    "fixture_isolation": "Temporary git archive; Python loader redirects hardcoded runtime paths before imports, clean subprocess environment, Python audit denies production paths and live ports. Feature bytes in owner branch unchanged.",
+    "no_further_fix_after_round_5": true
+  },
+  "coverage": {
+    "exact_source_target_wildcard_traversal_extra_operation": "test_release_v23.TrustedTests.test_exact_policy_mutations_deny",
+    "source_destination_ancestor_symlink_uid_gid_mode": "v23 metadata/source-parent/ancestor-group tests plus unchanged v22 TrustTests",
+    "mixed_batch_service_union_arbitrary_restart": "v23 mixed_runtime_auto_and_approval_union, exact_policy_mutations_deny",
+    "preflight_zero_writes": "v23 readonly_preflight_never_creates_state_or_writes and all_sources_and_metadata_preflight_zero_destination_writes",
+    "backup_failure_before_destination_write": "v23 backup_failure_zero_target_writes",
+    "middle_failure_full_rollback_restart_smoke": "v23 middle_write_failure_restores_mixed_batch_and_restarts_old, restart_and_smoke_failure_restore_and_recheck",
+    "pending_lock_interrupt_journal_cleanup": "v23 pending_blocks_plan_and_apply; unchanged v22_review process concurrency, SIGTERM/SIGKILL and journal fsync/unlink fixtures",
+    "approval_full_phrase_wrong_expired_digest_replay_correct": "v23 safe_full_phrase_wrong_expired_digest_replay; unchanged v22 approval process-race tests",
+    "sensitive_cannot_auto": "v23 mixed_runtime_auto_and_approval_union (server), exact_policy_mutations_deny (sensitive/unknown)",
+    "friend_isolation_control_self_protection": "unchanged test_git_push_gate and v22 BoundaryTests; all changed/untracked paths independently checked against owner scope",
+    "key_invisible_sudo_unchanged": "static old boundary tests and unchanged push/bootstrap sources; no live key/auth/sudoers inspection; live authorization NOT VERIFIED",
+    "skill_preservation_installer_idempotency_rollback": "test_owner_install_v23 (full installed nonsecret skill fixture); cmp installed skill/fixture exit 0",
+    "fixed_active_pid_api_context_no_output_leak": "v23 health_fixed_active_pid_api_context_no_diagnostics_leak (mocked); production NOT VERIFIED",
+    "ci_immutable_sha_ancestry": "v23 ci_and_ancestry_fail_closed/source git modes/SHA preflight; unchanged v22 CI/blob fixtures; live CI NOT VERIFIED"
+  },
+  "not_verified": [
+    "GitHub CI/publication and schema-2 remote workflow rollout",
+    "Production install/apply/restart/smoke and root filesystem durability",
+    "Live key invisibility/authorization (no key/auth reads permitted)",
+    "Exhaustive AI Home voice/speech and real audible device playback",
+    "Complete Quiet Signal/toggle/unsaved-route binding managed browser CI",
+    "Complete Jump/social/training/facts acceptance",
+    "Actual power-loss recovery"
+  ],
+  "blockers": [
+    "Jump exact source jump-goal-release/dvizh_jump/jump_web_bridge.py not materialized in repository; no alternate mapping allowed",
+    "AI Home broad archive suite: 26 failures from missing root scripts/history; no more fixes under cap",
+    "Manual/shared frontend stays approval-required; binding browser policy not available",
+    "Owner review and coordinated schema-2 workflow/base rollout required before installation"
+  ],
+  "production_state_observed": {
+    "/var/lib/dvizh": "997:988 0750",
+    "/var/lib/dvizh-release-gate": "0:0 0700"
+  },
+  "installed_skill_sha256": "2a3c60edec9fe19445ee5059b365ad9545d39c3a5006bc078216e6859547d7d0",
+  "prohibited_mutations": {
+    "production": false,
+    "other_profiles": false,
+    "existing_skills": false,
+    "friend_files": false,
+    "sudoers": false,
+    "keys": false,
+    "commit": false,
+    "push": false,
+    "bundle": false
+  },
+  "owner_scope_check": "PASS",
+  "syntax": "all owner Python compile() PASS; unchanged bootstrap bash -n PASS; git diff --check PASS"
+}
