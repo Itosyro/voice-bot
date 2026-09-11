@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-VERSION = "2026.09.11-dvizh-release-gate.2.3"
+VERSION = "2026.09.11-dvizh-release-gate.2.3.1-pending"
 REPO = "Itosyro/voice-bot"
 BACKUP_ROOT = Path(os.environ.get("DVIZH_RELEASE_BACKUP_ROOT", "/var/lib/dvizh-release-gate/backups"))
 APPROVAL_ROOT = Path(os.environ.get("DVIZH_RELEASE_APPROVAL_ROOT", "/var/lib/dvizh-release-gate/approvals"))
@@ -50,10 +50,9 @@ APPROVAL_TARGETS = {
     "/opt/dvizh/static/styles.css",
     "/opt/dvizh/static/sw.js",
     "/opt/dvizh/server.py",
-    "/opt/dvizh/jump_web_bridge.py",
 }
 APPROVAL_PREFIXES = ("/opt/dvizh-ai-home/",)
-ALLOWED_RESTARTS = {"dvizh.service", "dvizh-ai-home.service", "dvizh-jump.service"}
+ALLOWED_RESTARTS = {"dvizh.service", "dvizh-ai-home.service"}
 DENY_PREFIXES = ("/var/lib/", "/etc/", "/usr/local/", "/home/", "/root/", "/boot/", "/proc/", "/sys/", "/dev/")
 
 # v2.2 owner maintenance extension; the separate installer still pins v2.1.
@@ -220,6 +219,8 @@ def run(args: list[str], *, check: bool = True, timeout: int = 60) -> subprocess
 
 
 def require_root() -> None:
+    if os.geteuid() == 0:
+        raise GateError("v2.3.1 hardening incomplete; production execution disabled pending independent review")
     if os.geteuid() == 0 and (TEST_MODE or SOURCE_ROOT or FS_ROOT != Path("/") or BACKUP_ROOT != Path("/var/lib/dvizh-release-gate/backups") or APPROVAL_ROOT != Path("/var/lib/dvizh-release-gate/approvals") or HTTP_BASE != "http://127.0.0.1:8000"):
         raise GateError("root execution cannot use fixture environment overrides")
     if not TEST_MODE and os.geteuid() != 0:
@@ -865,7 +866,6 @@ TARGET_POLICY = {
     "/usr/local/libexec/dvizh-proposals": dict(source="hermes-control-v1/dvizh_proposals.py", mode="0755", verification="python-context", service=None, route="", **{"class": "trusted-runtime"}),
     "/opt/dvizh-ai-approval/proposal_bridge.py": dict(source="hermes-control-v1/dvizh_proposal_bridge.py", mode="0755", verification="python-service-context", service="dvizh-ai-approval.service", route="", **{"class": "trusted-runtime"}),
     "/opt/dvizh-ai-home/ai_home_bridge.py": dict(source="ai-home-v2/ai_home_bridge.py", mode="0755", verification="python-service-context", service="dvizh-ai-home.service", route="", **{"class": "trusted-runtime"}),
-    "/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py": dict(source="jump-goal-release/dvizh_jump/jump_web_bridge.py", mode="0755", verification="python-service-context", service="dvizh-jump.service", route="", **{"class": "trusted-runtime"}),
     "/opt/dvizh/server.py": dict(source="minimal-ui-v1/health-recovery-v1/baseline/helpers/server.py", mode="0755", verification="python-service-context", service="dvizh.service", route="", **{"class": "approval-required"}),
 }
 # Deliberately not auto-safe: no binding browser job for these exact sources yet.
@@ -928,7 +928,8 @@ def verify_ancestry(proposal):
 
 
 def trusted_health(plan):
-    # Only fixed read-only probes. Never return helper stdout or HTTP bodies.
+    # Fixed service API only; generic health is NOT component behavioral proof.
+    # Never execute deployed candidate helpers from this privileged process.
     for service in plan["restarts"]:
         if not service_active(service): raise GateError("mapped service was not active")
         cp = run(["systemctl", "show", "--property=MainPID", "--value", service], timeout=15)
@@ -938,11 +939,6 @@ def trusted_health(plan):
         health = json.loads(http_get("/api/health"))
         if not isinstance(health, dict) or health.get("ok") is not True:
             raise GateError("fixed API health failed")
-        if any(op["verification"].startswith("python-") for op in plan["operations"]):
-            cp = run(["/usr/local/libexec/dvizh-context", "today"], timeout=30)
-            context = json.loads(cp.stdout)
-            if not isinstance(context, dict) or context.get("read_only") is not True or context.get("web", {}).get("ok") is not True:
-                raise GateError("fixed context smoke failed")
     except (ValueError, TypeError, AttributeError) as exc:
         raise GateError("fixed smoke returned invalid response") from exc
 

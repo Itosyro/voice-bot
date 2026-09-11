@@ -1,0 +1,39 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_hardening_v231.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_health_never_invokes_candidate_helper (test_hardening_v231.HardeningTests.test_health_never_invokes_candidate_helper) ... ERROR
+test_jump_denied_in_both_schemas (test_hardening_v231.HardeningTests.test_jump_denied_in_both_schemas) ... FAIL
+test_regression_harness_does_not_substitute_candidate_bytes (test_hardening_v231.HardeningTests.test_regression_harness_does_not_substitute_candidate_bytes) ... ok
+
+======================================================================
+ERROR: test_health_never_invokes_candidate_helper (test_hardening_v231.HardeningTests.test_health_never_invokes_candidate_helper)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/hermes-dev-v2/dvizhrelease.py", line 943, in trusted_health
+    context = json.loads(cp.stdout)
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 339, in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+TypeError: the JSON object must be str, bytes or bytearray, not MagicMock
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 28, in test_health_never_invokes_candidate_helper
+    g.trusted_health(plan)
+  File "/repo/hermes-dev-v2/dvizhrelease.py", line 947, in trusted_health
+    raise GateError("fixed smoke returned invalid response") from exc
+dvizhrelease.GateError: fixed smoke returned invalid response
+
+======================================================================
+FAIL: test_jump_denied_in_both_schemas (test_hardening_v231.HardeningTests.test_jump_denied_in_both_schemas)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 33, in test_jump_denied_in_both_schemas
+    self.assertNotIn('/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py', g.TARGET_POLICY)
+AssertionError: '/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py' unexpectedly found in {'/opt/dvizh/static/index.html': {'source': 'ai-home-v2/index.html', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/', 'class': 'auto-safe'}, '/opt/dvizh/static/ai-home-v2.js': {'source': 'ai-home-v2/ai-home-v2.js', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/ai-home-v2.js', 'class': 'auto-safe'}, '/opt/dvizh/static/ai-home-v2.css': {'source': 'ai-home-v2/ai-home-v2.css', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/ai-home-v2.css', 'class': 'auto-safe'}, '/usr/local/libexec/dvizh-context': {'source': 'hermes-control-v1/dvizh_context.py', 'mode': '0755', 'verification': 'python-context', 'service': None, 'route': '', 'class': 'trusted-runtime'}, '/usr/local/libexec/dvizh-proposals': {'source': 'hermes-control-v1/dvizh_proposals.py', 'mode': '0755', 'verification': 'python-context', 'service': None, 'route': '', 'class': 'trusted-runtime'}, '/opt/dvizh-ai-approval/proposal_bridge.py': {'source': 'hermes-control-v1/dvizh_proposal_bridge.py', 'mode': '0755', 'verification': 'python-service-context', 'service': 'dvizh-ai-approval.service', 'route': '', 'class': 'trusted-runtime'}, '/opt/dvizh-ai-home/ai_home_bridge.py': {'source': 'ai-home-v2/ai_home_bridge.py', 'mode': '0755', 'verification': 'python-service-context', 'service': 'dvizh-ai-home.service', 'route': '', 'class': 'trusted-runtime'}, '/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py': {'source': 'jump-goal-release/dvizh_jump/jump_web_bridge.py', 'mode': '0755', 'verification': 'python-service-context', 'service': 'dvizh-jump.service', 'route': '', 'class': 'trusted-runtime'}, '/opt/dvizh/server.py': {'source': 'minimal-ui-v1/health-recovery-v1/baseline/helpers/server.py', 'mode': '0755', 'verification': 'python-service-context', 'service': 'dvizh.service', 'route': '', 'class': 'approval-required'}, '/opt/dvizh/static/manual.html': {'source': 'minimal-ui-v1/health-recovery-v1/dist/manual.html', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/manual.html', 'class': 'approval-required'}, '/opt/dvizh/static/app.js': {'source': 'minimal-ui-v1/health-recovery-v1/dist/app.js', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/app.js', 'class': 'approval-required'}, '/opt/dvizh/static/sync.js': {'source': 'minimal-ui-v1/health-recovery-v1/dist/sync.js', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/sync.js', 'class': 'approval-required'}, '/opt/dvizh/static/styles.css': {'source': 'minimal-ui-v1/health-recovery-v1/dist/styles.css', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/styles.css', 'class': 'approval-required'}, '/opt/dvizh/static/sw.js': {'source': 'minimal-ui-v1/health-recovery-v1/dist/sw.js', 'mode': '0644', 'verification': 'http-bytes', 'service': None, 'route': '/sw.js', 'class': 'approval-required'}}
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.031s
+
+FAILED (failures=1, errors=1)
+COMMAND_EXIT=1

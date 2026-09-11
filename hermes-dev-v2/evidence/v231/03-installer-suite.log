@@ -1,0 +1,12 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_*install*.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_bad_digest_zero_writes_and_no_secrets_or_sudo_targets (test_owner_install_v23.InstallerTests.test_bad_digest_zero_writes_and_no_secrets_or_sudo_targets) ... ok
+test_conflicting_append_or_symlink_denied (test_owner_install_v23.InstallerTests.test_conflicting_append_or_symlink_denied) ... ok
+test_middle_failure_full_rollback (test_owner_install_v23.InstallerTests.test_middle_failure_full_rollback) ... ok
+test_preserve_whole_actual_skill_and_idempotent_backup (test_owner_install_v23.InstallerTests.test_preserve_whole_actual_skill_and_idempotent_backup) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.142s
+
+OK
+COMMAND_EXIT=0

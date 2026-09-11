@@ -1,0 +1,32 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_hardening_v231.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_health_never_invokes_candidate_helper (test_hardening_v231.HardeningTests.test_health_never_invokes_candidate_helper) ... ok
+test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) ...
+  test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) (name='dvizhgitpush') ... FAIL
+  test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) (name='dvizhrelease') ... FAIL
+test_installer_installs_the_digest_buffer_despite_reread_race (test_hardening_v231.HardeningTests.test_installer_installs_the_digest_buffer_despite_reread_race) ... ok
+test_installer_never_imports_adjacent_candidate (test_hardening_v231.HardeningTests.test_installer_never_imports_adjacent_candidate) ... ok
+test_jump_denied_in_both_schemas (test_hardening_v231.HardeningTests.test_jump_denied_in_both_schemas) ... ok
+test_regression_harness_does_not_substitute_candidate_bytes (test_hardening_v231.HardeningTests.test_regression_harness_does_not_substitute_candidate_bytes) ... ok
+
+======================================================================
+FAIL: test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) (name='dvizhgitpush')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 74, in test_incomplete_candidate_cannot_reach_privileged_git_or_apply
+    with self.assertRaisesRegex(gate.GateError, 'v2.3.1.*incomplete'):
+AssertionError: GateError not raised
+
+======================================================================
+FAIL: test_incomplete_candidate_cannot_reach_privileged_git_or_apply (test_hardening_v231.HardeningTests.test_incomplete_candidate_cannot_reach_privileged_git_or_apply) (name='dvizhrelease')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 74, in test_incomplete_candidate_cannot_reach_privileged_git_or_apply
+    with self.assertRaisesRegex(gate.GateError, 'v2.3.1.*incomplete'):
+AssertionError: GateError not raised
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.064s
+
+FAILED (failures=2)
+COMMAND_EXIT=1

@@ -1,100 +1,88 @@
-# Trusted DVIZH Mode v2.3 — local owner maintenance
+# OWNER MAINTENANCE v2.3.1 — incomplete, pending independent review
 
-Implementation base: `da7395e436563774a29f7694b258bd85987bed2f`.
-This is an uncommitted owner control-plane change, not a feature release.
+Base: `fbbfad02e61882c174660a3ef7db384546d80e6a`.
+Local changes only. Five internal test-fix cycles exhausted; DO NOT INSTALL.
+This document supersedes the v2.3 design. SECURITY-REVIEW-V23.md remains the
+original independent review; this task is not an independent review.
 
-## Contract and trust
+## Implemented and tested
 
-Production plan/apply accepts manifest schema **2**. The unchanged schema-1
-fixtures retain their historical validation/apply behavior only in unprivileged
-TEST_MODE; root execution rejects fixture overrides. Structural validation alone
-still understands schema 1 for historical workflow tests. It cannot authorize a
-production apply. Proposal envelope remains schema 1.
+The release health probe no longer executes the deployed context helper. It
+checks fixed service status/PID and HTTP health only. These are availability
+checks, not binding proof of candidate component behavior. Root entry points
+in both gates now reject production execution because required boundaries are
+incomplete. This quarantine is a blocker, not a substitute for implementing them.
 
-Each schema-2 operation has exactly `source`, `target`, `sha256`, `release_class`,
-`required_owner`, `required_mode`, `verification`. Values must equal TARGET_POLICY;
-SHA256 must match immutable downloaded bytes. No manifest HTTP path or executable
-command is accepted. Fixed HTTP routes and restart names come from the target map.
+The offline owner installer no longer imports adjacent release code. Its
+filesystem/transaction primitives are standalone source within owner_install.py.
+It reads payloads into byte buffers, verifies their composite digest, and uses
+those exact buffers for installation. Root staging must have root-owned,
+non-writable ancestors/files. Candidate bytes are syntax-compiled, never imported.
+The bootstrap itself must be independently trusted BEFORE execution: self-hashing
+or a digest supplied by the candidate cannot establish that trust. Only stdlib
+imports are used. Fixture tests cover payload reread races and rollback; this is
+not proof of power-loss behavior or every possible staging race.
 
-| Target | Exact source | Class; mode; verification; restart |
-|---|---|---|
-| `/opt/dvizh/static/index.html` | `ai-home-v2/index.html` | auto-safe; 0644; http-bytes; none |
-| `/opt/dvizh/static/ai-home-v2.js` | `ai-home-v2/ai-home-v2.js` | auto-safe; 0644; http-bytes; none |
-| `/opt/dvizh/static/ai-home-v2.css` | `ai-home-v2/ai-home-v2.css` | auto-safe; 0644; http-bytes; none |
-| `/usr/local/libexec/dvizh-context` | `hermes-control-v1/dvizh_context.py` | trusted-runtime; 0755; python-context; none |
-| `/usr/local/libexec/dvizh-proposals` | `hermes-control-v1/dvizh_proposals.py` | trusted-runtime; 0755; python-context; none |
-| `/opt/dvizh-ai-approval/proposal_bridge.py` | `hermes-control-v1/dvizh_proposal_bridge.py` | trusted-runtime; 0755; python-service-context; dvizh-ai-approval.service |
-| `/opt/dvizh-ai-home/ai_home_bridge.py` | `ai-home-v2/ai_home_bridge.py` | trusted-runtime; 0755; python-service-context; dvizh-ai-home.service |
-| `/opt/dvizh-jump/dvizh_jump/jump_web_bridge.py` | `jump-goal-release/dvizh_jump/jump_web_bridge.py` | trusted-runtime; 0755; python-service-context; dvizh-jump.service |
-| `/opt/dvizh/server.py` | `minimal-ui-v1/health-recovery-v1/baseline/helpers/server.py` | approval-required; 0755; python-service-context; dvizh.service |
+The regression harness uses temporary complete Git clones, with unchanged
+candidate/test bytes inside mount, PID, network and user namespaces. It exposes
+system runtime directories read-only, a copied Node executable, and the disposable
+clone; host /home, /etc, /usr/local, application state and sockets are absent.
+No Python rewriting/audit hook is used. Probes test host sentinel invisibility,
+child-shell invisibility, network rejection, zero capabilities and no_new_privs.
+Inherited supplementary IDs are unmapped except invoking GID; this local harness
+is NOT the required production privilege-drop boundary with stripped groups.
+Full history includes health commit `9d492693de2c7cf66350293afcf42b74edeebaef`.
 
-Five additional **exact** approval-required static mappings use the same basename
-under `minimal-ui-v1/health-recovery-v1/dist/`: `manual.html`, `app.js`, `sync.js`,
-`styles.css`, `sw.js`. These are individual entries, not a prefix permission.
-They require 0644, http-bytes, and no restart. Every target requires root:root;
-fixture tests substitute the invoking UID/GID.
+## Exact proposed policy
 
-Unknown/sensitive backend, auth, storage, systemd, control-plane targets, wildcard
-and traversing paths are denied. Manual promotion to auto-safe is deferred:
-there is no binding managed-CI browser contract covering every required route,
-unsaved state, reload, Quiet Signal, and toggle behavior for these exact sources.
-The server source is intentionally a baseline source and still requires approval;
-it is not permission to substitute an arbitrary backend file.
+| Target | Source | Class | Mode | Restart |
+|---|---|---|---|---|
+| /opt/dvizh/static/index.html | ai-home-v2/index.html | auto-safe | 0644 | none |
+| /opt/dvizh/static/ai-home-v2.js | ai-home-v2/ai-home-v2.js | auto-safe | 0644 | none |
+| /opt/dvizh/static/ai-home-v2.css | ai-home-v2/ai-home-v2.css | auto-safe | 0644 | none |
+| /usr/local/libexec/dvizh-context | hermes-control-v1/dvizh_context.py | trusted-runtime | 0755 | none |
+| /usr/local/libexec/dvizh-proposals | hermes-control-v1/dvizh_proposals.py | trusted-runtime | 0755 | none |
+| /opt/dvizh-ai-approval/proposal_bridge.py | hermes-control-v1/dvizh_proposal_bridge.py | trusted-runtime | 0755 | dvizh-ai-approval.service |
+| /opt/dvizh-ai-home/ai_home_bridge.py | ai-home-v2/ai_home_bridge.py | trusted-runtime | 0755 | dvizh-ai-home.service |
+| /opt/dvizh/server.py | minimal-ui-v1/health-recovery-v1/baseline/helpers/server.py | approval-required | 0755 | dvizh.service |
 
-## Execution and failure boundaries
+`manual.html`, `app.js`, `sync.js`, `styles.css`, `sw.js` each map from the
+same basename in `minimal-ui-v1/health-recovery-v1/dist/` to
+`/opt/dvizh/static/`, approval-required, 0644, no restart. All owners root:root.
+Schema-2 restarts must equal the target-derived union. Jump is denied in both
+schemas; its service is removed from the legacy restart allowlist. Schema-1
+behavior remains historical unprivileged fixtures only, including other legacy
+allowlist differences. No production schema-1 authorization is intended.
 
-The root gate checks managed branch HEAD, complete merge-free ancestry from the
-existing managed base `accb555b0da3b90eed9d1708ee68a286506d4feb`, immutable manifest
-blob, every regular Git blob and SHA256, Python compile-only syntax where mapped,
-exact destination metadata and non-writable root-owned/group ancestors, and all
-CI runs for the exact branch/commit. Required CI is the push-triggered
-`.github/workflows/dvizh-hermes-autopilot.yml`. Apply repeats verification.
+## Unresolved critical/high requirements — no waiver
 
-`preflight` is a read-only preview: no state creation, challenge, backups or writes.
-It rejects pending recovery and takes a nonblocking shared lock when the existing
-lock exists. It is not an authorization; apply revalidates everything. Plan may
-create the root-owned lock and an approval challenge. “Before first write” in the
-transaction means before the first **destination** write: durable backup and
-journal writes necessarily precede destination replacement.
+1. Component-specific behavioral checks bound to candidate bytes in an explicitly
+   unprivileged fixed sandbox with stripped environment/groups, no_new_privs and
+   confinement (or a fixed trusted service API) are NOT implemented. Running as
+   dvizh alone is insufficient: that account can reach secrets, friend data and
+   control-plane surfaces. Exact paths and hashes do not confine execution.
+2. Privilege-separated caller repository export and root-owned sanitized immutable
+   Git object boundary are NOT implemented. Legacy push code still contains
+   caller-repository Git and inherited environment/config surfaces. Root entry
+   rejection prevents using that path; do not remove it as a readiness switch.
+   Malicious Git config/hook/include/ssh/credential fixtures remain required.
+3. Owner-approved workflow/validator blob pins and per-commit protected-path
+   history enforcement independent of CI are NOT implemented. CI remains unsafe
+   for authorization. `CI-PINS-v231.json` records observed bytes, not approved pins.
+4. Bootstrap independent approval, immutable staging concurrency tests, live
+   recovery and actual owner installation remain unverified. The bootstrap shares
+   extracted primitive logic and needs independent scrutiny.
+5. The v2.2 later-message orchestration rule remains an explicitly accepted trust
+   limitation. Bearer approval does not prove Telegram identity or message origin.
 
-The exclusive transaction flock covers plan/challenge/apply. All sources and
-metadata are checked before backup preparation. All backups and the durable
-mapping verify before any destination write. The fsynced pending journal records
-backup mapping SHA, commit and mapped restart union. Open parent descriptors remain
-pinned through atomic replace and rollback. All files restore on middle failure,
-including files after the failing operation; every mapped old service restarts
-and health is checked again. Any unconfirmed restoration keeps recovery blocked.
-Catchable signals trigger rollback; SIGKILL/power loss leaves pending recovery.
+## Transaction contract retained
 
-Only the target-derived service union is allowed, including mixed batches.
-Pre/post checks require prior service activity, MainPID > 0, fixed `/api/health`
-JSON `ok=true`, and for Python targets fixed `dvizh-context today` JSON with
-`read_only=true` and `web.ok=true`. Static responses must equal deployed bytes;
-rollback responses must equal original hashes. Commands use fixed argv, never a
-manifest shell. Helper output and HTTP bodies are not included in error reports.
-These checks do not prove every domain feature or audible speech on a user device.
+All payloads and metadata validate before backup preparation; all backups and
+mapping verify before the first destination write. Durable pending journal,
+exclusive lock and pinned parent descriptors cover the mixed static/runtime
+transaction. Caught failures restore every target and mapped old service; failed
+restoration retains the journal. Interrupted journals block subsequent operations.
+Control state remains only `/var/lib/dvizh-release-gate`; no `/var/lib/dvizh`
+ownership change. Production correctness cannot be inferred from fixture tests.
 
-Auto mode needs approval only if any row is approval-required. Safe mode always
-requires it. Every v2.3 approval uses the exact full later `APPROVE id TOKEN`
-phrase, digest binding, one-time consumption and TTL 1800. The additive skill
-forbids self-approval. The gate verifies the phrase, not Telegram sender provenance;
-a trusted later-user-message decision remains an orchestration responsibility.
-
-## Owner upgrade
-
-The installed nonsecret 2.2.1-state-root gate supplied the root-state correction:
-`/var/lib/dvizh-release-gate/{approvals,backups}`. `/var/lib/dvizh` is never chmodded
-or chowned. Observed metadata: application state 997:988 0750; gate state 0:0 0700.
-
-`owner_install.py` is a separate offline owner upgrade, not a sudo-authorized
-command. It upgrades only the three existing gates/controller plus the fixed
-exedev dvizh-dev skill. No keys, sudoers, services, business files, or other
-profiles are touched. Its payload digest includes the installer and all payload
-files. Existing gates must be root:root 0755 and the skill exedev's 0600 file.
-It verifies every backup before writes and uses the same lock/pending journal.
-
-The original skill bytes are retained as an exact prefix. One explicit appended
-section supersedes old limits and token-only instructions. Identical reinstallation
-is a no-op; conflicting markers fail closed. The installer preserves backups,
-metadata and restores all destinations on caught failure. It is upgrade-only:
-missing files require separate owner provisioning, not implicit creation.
+See OWNER-HANDOFF.md and evidence/v231/REPORT.md for actual results and blockers.

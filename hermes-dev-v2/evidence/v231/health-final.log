@@ -1,0 +1,44 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["bash", "minimal-ui-v1/health-recovery-v1/tests/run.sh"], "health_commit": "9d492693de2c7cf66350293afcf42b74edeebaef", "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+.........................................
+----------------------------------------------------------------------
+Ran 41 tests in 18.794s
+
+OK
+✔ remote app merge never traverses inherited properties, including nested array records (2.150736ms)
+✔ partial schedule confirmation resolves exact targets and before/after values (7.499697ms)
+✔ actual concurrent PUT/CAS merges two clock edits and independent fields (24.367108ms)
+✔ clock/reported transitions preserve temporal bundle and independent edits in both conflict directions (5.607705ms)
+✔ cached prefeature sync may persist stale derived data; new client repairs on read and next save (5.104881ms)
+✔ reported to clock transition wins over reported-duration edit without losing note/source (6.554372ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 140.541747
+node:internal/modules/cjs/loader:1573
+  throw err;
+  ^
+
+Error: Cannot find module '/home/exedev/.hermes/dev/dvizh/browser-tools-sync-stability/node_modules/playwright'
+Require stack:
+- /repo/minimal-ui-v1/health-recovery-v1/tests/browser.cjs
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1569:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1123:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1147:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1174:12)
+    at Module._load (node:internal/modules/cjs/loader:1346:5)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.require (node:internal/modules/cjs/loader:1679:12)
+    at require (node:internal/modules/helpers:196:16)
+    at Object.<anonymous> (/repo/minimal-ui-v1/health-recovery-v1/tests/browser.cjs:5:20)
+    at Module._compile (node:internal/modules/cjs/loader:1934:14) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [ '/repo/minimal-ui-v1/health-recovery-v1/tests/browser.cjs' ]
+}
+
+Node.js v26.8.1
+COMMAND_EXIT=1

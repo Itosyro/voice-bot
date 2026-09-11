@@ -1,0 +1,32 @@
+{
+  "status": "INCOMPLETE_NOT_OWNER_APPROVED_NOT_ENFORCED",
+  "base": "fbbfad02e61882c174660a3ef7db384546d80e6a",
+  "approved_pins": {},
+  "observed_candidate_bytes": {
+    ".github/workflows/dvizh-hermes-autopilot.yml": {
+      "observed_git_blob_sha1": "97c4dcb68182530f9bf0670565963344a21da230",
+      "observed_sha256": "6781f951ff2f88dcd057e0f3abf40012886c17b844788b0fa2671c45e8ba3273"
+    },
+    ".github/workflows/dvizh-hermes-autopilot-v2-tests.yml": {
+      "observed_git_blob_sha1": "3bfa3f411d8213c0bd27acbad1ecb891568edab0",
+      "observed_sha256": "e544ef7f220e743ad28ac001c2234d003d97fa2f47e4efcddc3f14aa438e1d06"
+    },
+    ".github/workflows/dvizh-hermes-autopilot-installer-smoke.yml": {
+      "observed_git_blob_sha1": "abbdad371aed2ad198213ec7853f20fabfe72796",
+      "observed_sha256": "5b97142e21462704b695406dadc7451997cd36f620e02d09ea72f6eb06e1ace9"
+    },
+    "hermes-dev-v2/dvizhgitpush.py": {
+      "observed_git_blob_sha1": "73e28aa0db0febed9ca75d251846d8b8479d9a2c",
+      "observed_sha256": "2f9f7eb6cad150a90e3029f7af515824b05bc47d15f8c82914f98890202841c4"
+    },
+    "hermes-dev-v2/dvizhrelease.py": {
+      "observed_git_blob_sha1": "32700665e17a546df309b93018e893f65861d1a9",
+      "observed_sha256": "1ef88cf6100cabfff90e4c958b765eb29f3877f959ed3c572f2ff0b6fe4386be"
+    }
+  },
+  "blockers": [
+    "Independent owner approval absent",
+    "Release gate pin and protected per-commit history enforcement absent",
+    "Binding runtime behavioral workflow absent"
+  ]
+}

@@ -1,0 +1,133 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["bash", "-c", "node --test tests/ai-home-v2/*.test.cjs"], "health_commit": "9d492693de2c7cf66350293afcf42b74edeebaef", "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+✔ immutable bootstrap installs only the preview from the pinned release payload (410.987358ms)
+✔ bootstrap refuses a payload whose Git blob does not match the pinned release (88.920656ms)
+✔ bootstrap cannot be used as a promotion entry point (11.654486ms)
+✔ bootstrap release source and blob identities are immutable (0.330813ms)
+✔ stable root primes permission and stops every track before recognition, then shows answer (20.606449ms)
+✔ permission NotAllowedError never starts recognition and text still works (2.206961ms)
+✔ permission SecurityError never starts recognition and text still works (2.102473ms)
+✔ permission NotFoundError never starts recognition and text still works (1.994328ms)
+✔ permission NotReadableError never starts recognition and text still works (3.137554ms)
+✔ permission AbortError never starts recognition and text still works (2.027729ms)
+✔ permission UnknownError never starts recognition and text still works (2.105567ms)
+✔ late permission after tap releases tracks without recognition (2.587418ms)
+✔ late permission after escape releases tracks without recognition (2.051505ms)
+✔ late permission after hide releases tracks without recognition (1.548391ms)
+✔ text at stable root does not request microphone and unsupported speech stays usable (2.030953ms)
+✔ webkit recognition uses the same permission flow (2.039727ms)
+✔ missing mediaDevices does not bypass permission priming (1.307305ms)
+✔ idle boot reads once, never writes or schedules a perpetual poll (0.841938ms)
+✔ one submitted message preserves tasks, proposals and unknown state fields (3.300863ms)
+✔ double submit produces a single write (1.161213ms)
+✔ active request polls until answer, then stops (2.051434ms)
+✔ a request started by another tab is not duplicated (1.665108ms)
+✔ 409 retry rereads and preserves concurrent data (2.948036ms)
+✔ revision conflict retries are bounded and preserve the draft (2.030813ms)
+✔ ambiguous successful PUT is reconciled by id instead of written again (1.087141ms)
+✔ hung HTTP fetch is aborted and controls recover (0.877913ms)
+✔ HTTP timeout also covers a stalled JSON body (1.542662ms)
+✔ GET 401 presents auth without writes (1.276388ms)
+✔ GET 403 presents auth without writes (1.929339ms)
+✔ PUT 401 preserves draft and enters auth (1.861166ms)
+✔ auth can recover on a subsequent visible-page read (0.861688ms)
+✔ malformed GET fails closed: {} (1.848006ms)
+✔ malformed GET fails closed: {"state":[],"revision":1} (1.56734ms)
+✔ malformed GET fails closed: {"state":{},"revision":-1} (2.270648ms)
+✔ malformed GET fails closed: {"state":{},"revision":"oops"} (0.82941ms)
+✔ non-successful PUT payload does not clear input or automatically retry (1.810609ms)
+✔ polling never overlaps a pending HTTP request (1.282507ms)
+✔ polling an endless pending request has a finite deadline (29.450137ms)
+✔ polling network errors also stops at the deadline (17.321892ms)
+✔ repeated BFCache hide/show cycles restore pending polling (13.23771ms)
+✔ visibility hide aborts work and visible resumes with one read (0.881679ms)
+✔ an initially hidden page does not start network activity (0.672741ms)
+✔ late GET cannot repaint a hidden page or restart its poll (1.273273ms)
+✔ old operation completion cannot release a new visible-page operation (3.76745ms)
+✔ hide during accepted PUT never replays it after returning (1.047931ms)
+✔ answer remains literal text and unchanged refresh preserves scroll (3.142801ms)
+✔ IME composition and Shift+Enter do not submit (2.162013ms)
+✔ unsupported speech falls back to focused text input (0.65252ms)
+✔ microphone permission error cannot send the existing draft via late onend (1.608082ms)
+✔ interim-only speech never autosends a draft (1.794084ms)
+✔ final transcript sends exactly once and appends to draft (2.183375ms)
+✔ speech error after a final result still does not autosend (0.802409ms)
+✔ Escape aborts voice and ignores late results (2.427376ms)
+✔ leaving while listening cannot send a hidden request (0.995762ms)
+✔ rapid microphone taps reserve one recognition before onstart (1.161083ms)
+✔ manual hold remains available while thinking without starting speech (1.759701ms)
+✔ cancelled hold does not navigate (1.219271ms)
+✔ pagehide cancels a held manual gesture (0.638459ms)
+✔ manual command and keyboard shortcut navigate without state writes (2.317048ms)
+✔ viewport updates only the isolated root and does not override pinch zoom (3.870827ms)
+✔ standalone source has no shared-worker/cache mutation, DOM observer or interval (0.556004ms)
+✔ final plus interim result sends and clears only the final transcript (4.206508ms)
+✔ idle and completed answer do not add a greeting or follow-up on the empty home (2.480567ms)
+✔ promoted / uses manual.html, including auth (0.663388ms)
+✔ promoted /index.html uses manual.html, including auth (0.595034ms)
+✔ promoted /index.html/ uses manual.html, including auth (0.628995ms)
+✔ preview auth leads to stable root instead of missing manual.html (5.866568ms)
+✔ long hold waits for release and never starts speech after navigation (1.302468ms)
+✔ default mode only validates and leaves the site directory byte-for-byte unchanged (60.375574ms)
+✔ preview install creates only its own page, preserving absent manual and stable root (120.593088ms)
+✔ repeated preview install does not overwrite an existing manual interface (226.70074ms)
+✔ missing payload fails before modifying any site files (12.106483ms)
+✔ worker/cache-mutating payload is rejected (20.361516ms)
+✔ old application bundle with " quotes is rejected (32.36988ms)
+✔ old application bundle with ' quotes is rejected (13.392055ms)
+✔ symlink destination is rejected and its target is untouched (9.08217ms)
+✔ root already replaced by AI without a manual page is refused (6.203099ms)
+✔ promotion without an installed preview and unexpected flags are refused (31.17754ms)
+✔ a mid-install failure restores previous preview files and does not create a manual alias (44.052318ms)
+✔ installer uses a local checkout and read-only default without service changes (0.34878ms)
+✔ explicit legacy preview environment mode is preserved (39.110205ms)
+✔ explicit promote preserves stable root as manual and repeated promote is safe (152.440514ms)
+✔ promote cannot replace a different existing manual or promote changed assets (108.349757ms)
+✔ preview after promotion cannot silently update assets used by the main page (110.920932ms)
+✔ promotion bootstrap publishes AI root and preserves the old root as manual (252.549348ms)
+✔ failure after promote automatically restores the previous root and removes newly-created manual (271.972389ms)
+✔ changed preview is refused before the stable root can be replaced (167.20962ms)
+✔ promotion bootstrap is idempotent after a successful promote (466.407658ms)
+✔ promotion bootstrap accepts no flags and cannot float to an unverified release (58.324319ms)
+✔ recovered relative ./app.js manual promotes successfully (249.354307ms)
+✔ relative-path compatibility fix keeps automatic rollback (248.644168ms)
+✔ compatibility wrapper is pinned and only patches the four legacy app.js checks (62.082345ms)
+✖ read-only routing probe detects file-backed root and manual fallback without changing site files (4.907782ms)
+✔ routing diagnostic contains no site mutation or service restart path (4.293289ms)
+✔ live dvizh service routing probe is read-only and does not inspect process environment (1.074962ms)
+✔ probe snapshots site files and redacts common secret-shaped argv/source values (0.199373ms)
+✔ probe focuses source inspection on routing and excludes static, backups and virtualenvs (0.232473ms)
+✔ voice promotion changes only script cache key, never home markup or CSS (7.121023ms)
+✔ voice promotion leaves all non-AI production sources and Manual/SW assets byte-identical (628.947115ms)
+✔ health feature preserves existing sources except the three authorized Hermes helpers (655.265626ms)
+ℹ tests 100
+ℹ suites 0
+ℹ pass 99
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5154.26915
+
+✖ failing tests:
+
+test at tests/ai-home-v2/routing-diagnostic.test.cjs:75:1
+✖ read-only routing probe detects file-backed root and manual fallback without changing site files (4.907782ms)
+  AssertionError [ERR_ASSERTION]: Не найден обязательный инструмент: awk
+
+
+  1 !== 0
+
+      at TestContext.<anonymous> (/repo/tests/ai-home-v2/routing-diagnostic.test.cjs:79:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+COMMAND_EXIT=1

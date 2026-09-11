@@ -1,0 +1,29 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "-m", "unittest", "discover", "-s", "tests/hermes_autopilot", "-p", "test_hardening_v231.py", "-v"], "health_commit": null, "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_health_never_invokes_candidate_helper (test_hardening_v231.HardeningTests.test_health_never_invokes_candidate_helper) ... ok
+test_installer_installs_the_digest_buffer_despite_reread_race (test_hardening_v231.HardeningTests.test_installer_installs_the_digest_buffer_despite_reread_race) ... ERROR
+test_installer_never_imports_adjacent_candidate (test_hardening_v231.HardeningTests.test_installer_never_imports_adjacent_candidate) ... ok
+test_jump_denied_in_both_schemas (test_hardening_v231.HardeningTests.test_jump_denied_in_both_schemas) ... ok
+test_regression_harness_does_not_substitute_candidate_bytes (test_hardening_v231.HardeningTests.test_regression_harness_does_not_substitute_candidate_bytes) ... ok
+
+======================================================================
+ERROR: test_installer_installs_the_digest_buffer_despite_reread_race (test_hardening_v231.HardeningTests.test_installer_installs_the_digest_buffer_despite_reread_race)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/repo/tests/hermes_autopilot/test_hardening_v231.py", line 64, in test_installer_installs_the_digest_buffer_despite_reread_race
+    rows = installer.prepare(gate, payload, expected)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/owner_install.py", line 99, in prepare
+    parent = gate.walk_parent(path, trusted=True); os.close(parent)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/repo/hermes-dev-v2/owner_install.py", line 342, in walk_parent
+    trusted_directory(fd, current)
+  File "/repo/hermes-dev-v2/owner_install.py", line 223, in trusted_directory
+    raise GateError(f"untrusted writable/non-root ancestor: {path}")
+owner_install.GateError: untrusted writable/non-root ancestor: /tmp/tmpbkwa3tf_/fs
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.041s
+
+FAILED (errors=1)
+COMMAND_EXIT=1

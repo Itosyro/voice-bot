@@ -1,0 +1,14 @@
+COMMAND: git status --short
+ M hermes-dev-v2/DESIGN.md
+ M hermes-dev-v2/OWNER-HANDOFF.md
+ M hermes-dev-v2/TRUSTED-MODE-v2.3.md
+ M hermes-dev-v2/dvizhgitpush.py
+ M hermes-dev-v2/dvizhrelease.py
+ M hermes-dev-v2/owner_install.py
+ M hermes-dev-v2/regression_health.py
+?? hermes-dev-v2/CI-PINS-v231.json
+?? hermes-dev-v2/evidence/v231/
+?? tests/hermes_autopilot/test_hardening_v231.py
+EXIT: 0
+COMMAND: git diff --check
+EXIT: 0

@@ -1,75 +1,88 @@
 #!/usr/bin/env python3
-"""Run fixed health-commit regression in a temporary archive, never the live app."""
-import io
+"""Run unchanged test bytes in a disposable Git clone and OS namespaces.
+
+No installation or dependency download. Missing tools fail closed. Host homes,
+application state, sockets, /etc and /usr/local are absent from the mount tree.
+This is a local test harness, not the privileged runtime verification boundary.
+"""
+import argparse
 import json
 import os
-import shutil
 from pathlib import Path
+import shutil
 import subprocess
-import tarfile
 import tempfile
 
 SHA = '9d492693de2c7cf66350293afcf42b74edeebaef'
 
 
+def sandbox(copy, node=None):
+    argv = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session',
+            '--uid', str(os.getuid()), '--gid', str(os.getgid()), '--cap-drop', 'ALL']
+    for name in ('bin', 'lib', 'lib64', 'share'):
+        path = Path('/usr')/name
+        if path.exists(): argv += ['--ro-bind', str(path), str(path)]
+    argv += ['--symlink', 'usr/bin', '/bin', '--symlink', 'usr/lib', '/lib',
+             '--symlink', 'usr/lib64', '/lib64', '--proc', '/proc', '--dev', '/dev',
+             '--tmpfs', '/tmp', '--dir', '/home/test', '--dir', '/var/lib', '--dir', '/opt',
+             '--bind', str(copy), '/repo', '--chdir', '/repo', '--clearenv',
+             '--setenv', 'HOME', '/home/test', '--setenv', 'PATH', '/tools:/usr/bin:/bin',
+             '--setenv', 'PYTHONDONTWRITEBYTECODE', '1', '--setenv', 'GIT_CONFIG_NOSYSTEM', '1']
+    if node: argv += ['--ro-bind', str(node), '/tools/node']
+    return argv
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--health', action='store_true')
+    parser.add_argument('command', nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    if os.geteuid() == 0: raise SystemExit('unprivileged harness only')
     repo = Path(__file__).resolve().parents[1]
-    root = Path(tempfile.mkdtemp(prefix='dvizh-v23-regression-'))
-    archive = root/'archive'; archive.mkdir()
-    raw = subprocess.check_output(['git','archive',SHA,'minimal-ui-v1','ai-home-v2','hermes-control-v1','tests/ai-home-v2'],cwd=repo)
-    with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
-        tar.extractall(archive, filter='data')
-    hooks = root/'hooks'; hooks.mkdir()
-    # Archive bytes stay intact. Redirect hardcoded runtime defaults during Python
-    # compilation, before module execution; subprocesses inherit these guards.
-    (hooks/'sitecustomize.py').write_text('''import importlib.machinery, os, sys
-from pathlib import Path
-base=Path(os.environ['DVIZH_REGRESSION_ROOT'])
-original=importlib.machinery.SourceFileLoader.source_to_code
-def compile_fixture(self, data, path, *, _optimize=-1):
-    if str(path).startswith(str(base/'archive')) and Path(path).name in {'dvizh_context.py','dvizh_proposals.py','dvizh_proposal_bridge.py','dvizh_ai_home_bridge.py','ai_home_bridge.py','context.py','proposals.py','proposal_bridge.py','server.py'}:
-        if isinstance(data,bytes): data=data.decode('utf-8')
-        data=data.replace('/var/lib/dvizh',str(base/'runtime')).replace('/opt/dvizh',str(base/'runtime-opt'))
-        data=data.replace('http://127.0.0.1:8000','http://127.0.0.1:1').replace('http://127.0.0.1:8642','http://127.0.0.1:1')
-    return original(self,data,path,_optimize=_optimize)
-importlib.machinery.SourceFileLoader.source_to_code=compile_fixture
-def audit(event,args):
-    if event=='open' and isinstance(args[0],(str,bytes)):
-        name=os.fsdecode(args[0])
-        if name.startswith(('/var/lib/','/opt/dvizh','/etc/sudoers','/root/.ssh')):
-            raise RuntimeError('production read/write denied by fixture guard')
-    if event=='socket.connect' and isinstance(args[1],tuple):
-        host,port=args[1][:2]
-        if host not in ('127.0.0.1','::1','localhost') or port in (8000,8642):
-            raise RuntimeError('nonfixture network denied')
-sys.addaudithook(audit)
-''')
-    env = {'PATH':os.defpath+':/usr/local/bin:'+str(Path(shutil.which('node') or '/nonexistent/node').parent),'PYTHONPATH':str(hooks),'PYTHONDONTWRITEBYTECODE':'1',
-           'DVIZH_REGRESSION_ROOT':str(root),'DVIZH_PROPOSAL_DIR':str(root/'runtime/proposals'),
-           'DVIZH_WEB_API':'http://127.0.0.1:1','HERMES_API_URL':'http://127.0.0.1:1',
-           'HERMES_API_KEY':'','PLAYWRIGHT_MODULE':'/home/exedev/.hermes/dev/dvizh/browser-tools-sync-stability/node_modules/playwright',
-           'CHROMIUM_PATH':'/home/exedev/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome'}
-    cases = [
-        ('health-full',['bash','minimal-ui-v1/health-recovery-v1/tests/run.sh']),
-        ('ai-home-contracts',['bash','-c','node --test tests/ai-home-v2/*.test.cjs']),
-        ('ai-home-bridge',['python3','tests/ai-home-v2/bridge_contract_test.py']),
-    ]
-    results=[]
-    for label, argv in cases:
-        log=root/(label+'.log')
+    command = args.command or ['python3', '-m', 'unittest', 'discover', '-s', 'tests/hermes_autopilot', '-v']
+    if command[0] == '--': command = command[1:]
+    with tempfile.TemporaryDirectory(prefix='dvizh-v231-isolated-') as temp:
+        root = Path(temp); copy = root/'repo'
+        # Keep complete local history: feature contracts resolve historical blobs.
+        subprocess.run(['git', 'clone', '--quiet', '--no-hardlinks', str(repo), str(copy)], check=True)
+        if args.health:
+            subprocess.run(['git', '-C', str(copy), 'checkout', '--quiet', SHA], check=True)
+        else:
+            for rel in ('hermes-dev-v2', 'tests/hermes_autopilot', '.github/workflows'):
+                shutil.copytree(repo/rel, copy/rel, dirs_exist_ok=True)
+        node = shutil.which('node')
+        if node:
+            shutil.copyfile(Path(node).resolve(), root/'node'); (root/'node').chmod(0o755)
+        boundary = sandbox(copy, root/'node' if node else None)
+        sentinel = root/'host-only'; sentinel.write_text('fixture sentinel')
+        probe = '''import os, pathlib, socket, subprocess, sys
+assert os.geteuid() != 0
+status=pathlib.Path('/proc/self/status').read_text()
+assert 'NoNewPrivs:\\t1' in status
+assert 'CapEff:\\t0000000000000000' in status
+assert not pathlib.Path(sys.argv[1]).exists()
+assert not pathlib.Path('/home/exedev').exists()
+assert not pathlib.Path('/usr/local/sbin/dvizhrelease').exists()
+assert not pathlib.Path('/var/lib/dvizh').exists()
+subprocess.run(['/bin/sh','-c','test ! -e "$1" && test ! -e /home/exedev', 'probe',sys.argv[1]],check=True)
+s=socket.socket();s.settimeout(.1)
+try: s.connect(('192.0.2.1',443))
+except OSError: pass
+else: raise AssertionError('network escaped')
+print('isolation probe PASS; uid=',os.geteuid(),'groups=',os.getgroups(),flush=True)
+'''
+        subprocess.run(boundary+['python3', '-c', probe, str(sentinel)], check=True)
+        print(json.dumps({'command': command, 'health_commit': SHA if args.health else None,
+                          'boundary': 'mount/pid/network/user namespaces; no capabilities; no_new_privs',
+                          'supplementary_groups': 'inherited IDs unmapped except invoking gid; not a production privilege-drop contract'}), flush=True)
         try:
-            with log.open('wb') as out:
-                cp=subprocess.run(argv,cwd=archive,env=env,stdout=out,stderr=subprocess.STDOUT,timeout=300)
-            result=dict(case=label,exit=cp.returncode,log=str(log))
+            result = subprocess.run(boundary+command, timeout=300)
+            print('COMMAND_EXIT='+str(result.returncode), flush=True)
+            return result.returncode
         except subprocess.TimeoutExpired:
-            result=dict(case=label,exit='timeout',log=str(log))
-        results.append(result)
-        print(json.dumps(result),flush=True)
-    report=dict(commit=SHA,temporary_archive=str(archive),results=results,
-                production='untouched',audible_device_speech='NOT VERIFIED')
-    (root/'report.json').write_text(json.dumps(report,indent=2)+'\n')
-    return int(any(r['exit']!=0 for r in results))
+            print('BLOCKED: command timeout after 300 seconds', flush=True)
+            return 124
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     raise SystemExit(main())

@@ -1,0 +1,11 @@
+isolation probe PASS; uid= 1000 groups= [65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 65534, 1000]
+{"command": ["python3", "tests/ai-home-v2/bridge_contract_test.py"], "health_commit": "9d492693de2c7cf66350293afcf42b74edeebaef", "boundary": "mount/pid/network/user namespaces; no capabilities; no_new_privs", "supplementary_groups": "inherited IDs unmapped except invoking gid; not a production privilege-drop contract"}
+test_hermes_failure_is_published_without_touching_other_dvizh_data (__main__.BridgeContractTest.test_hermes_failure_is_published_without_touching_other_dvizh_data) ... AI Home request failed: BridgeError: Hermes API HTTP 503
+ok
+test_pending_request_round_trips_through_real_bridge_contract (__main__.BridgeContractTest.test_pending_request_round_trips_through_real_bridge_contract) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.142s
+
+OK
+COMMAND_EXIT=0

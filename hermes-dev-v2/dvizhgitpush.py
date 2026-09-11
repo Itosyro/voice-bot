@@ -86,6 +86,8 @@ def run(args: list[str], *, cwd: Path | None = None, check: bool = True, timeout
 
 
 def require_root() -> None:
+    if os.geteuid() == 0:
+        raise GateError("v2.3.1 hardening incomplete; production execution disabled pending independent review")
     if not TEST_MODE and os.geteuid() != 0:
         raise GateError("dvizhgitpush must run as root")
 
