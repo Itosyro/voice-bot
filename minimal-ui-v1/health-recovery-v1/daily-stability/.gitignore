@@ -1,0 +1,6 @@
+__pycache__/
+dist/
+PAYLOAD.json
+release.json
+tests/*.png
+tests/browser-results.json
