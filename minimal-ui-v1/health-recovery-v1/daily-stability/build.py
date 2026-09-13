@@ -40,6 +40,9 @@ def generate() -> dict[str, bytes]:
             text = module.once(text,
                 '      if (submission?.mayHaveBeenSent) return;\n      const text = voice ? voice.draft : input.value;',
                 '      const text = voice ? voice.draft : input.value;\n      // A different newly typed draft was never submitted.\n      if (submission?.mayHaveBeenSent && text.trim().slice(0, 12000) === submission.text) return;')
+        if name == 'sync.js':
+            text = module.once(text, '    inFlight = true;\n    queued = false;',
+                '    clearTimeout(pushTimer);\n    pushTimer = null;\n    inFlight = true;\n    queued = false;')
         output[f'dist/{name}'] = text.encode('utf-8')
     # Missing/unknown display preference must not crash navigation after a remote pull.
     # This is a read-only display fallback; never invent or overwrite a saved preference.

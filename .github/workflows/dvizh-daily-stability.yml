@@ -34,12 +34,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/dvizh-daily-evidence"
           bash minimal-ui-v1/health-recovery-v1/tests/run.sh 2>&1 | tee "$RUNNER_TEMP/dvizh-daily-evidence/health.log"
           git diff --exit-code
-      - name: Build five-file candidate and run 74 client and 8 build checks
+      - name: Build five-file candidate and run 76 client plus 14 build and diagnostic checks
         run: |
           set -o pipefail
           python3 minimal-ui-v1/health-recovery-v1/daily-stability/build.py
           node --test minimal-ui-v1/health-recovery-v1/daily-stability/tests/*lifecycle.cjs 2>&1 | tee "$RUNNER_TEMP/dvizh-daily-evidence/unit.log"
           python3 minimal-ui-v1/health-recovery-v1/daily-stability/tests/test_contract.py 2>&1 | tee "$RUNNER_TEMP/dvizh-daily-evidence/build-contract.log"
+          python3 minimal-ui-v1/health-recovery-v1/daily-stability/tests/test_inspector.py 2>&1 | tee "$RUNNER_TEMP/dvizh-daily-evidence/inspector.log"
       - name: Real daily application browser flows
         run: |
           set -o pipefail

@@ -118,7 +118,7 @@ async function run(name,fn) {
       other=await browser.newContext({viewport:{width:390,height:844},extraHTTPHeaders:headers(f.user),serviceWorkers:'block',reducedMotion:'reduce'});
       const p=await other.newPage();p.on('pageerror',e=>f.errors.push(e.message));
       await p.goto(origin+'/manual.html');await until(()=>p.evaluate(()=>Boolean(window.DVIZH_MANUAL_STATE)),'second client');await nav(p,'tasks');
-      await f.page.locator('[data-action="edit-task"]').first().click();await f.page.locator('#taskTitle').fill('Уточнённое название');
+      await f.page.locator('#view-tasks [data-action="edit-task"]:visible').first().click();await f.page.locator('#taskTitle').fill('Уточнённое название');
       await until(()=>p.evaluate(()=>document.getElementById('syncStatusDot')?.dataset.sync==='ok'),'second client settled');
       let count=0,conflicts=0,release;const revisions=[];
       const gate=new Promise(resolve=>release=resolve);
