@@ -13,6 +13,8 @@ const seed = () => ({version:1,tasks:[],hasSeenIntro:true,createdAt:'2026-09-13T
 const headers = user => ({'X-ExeDev-UserID':user,'X-ExeDev-Email':`${user}@example.invalid`});
 let server, browser, origin;
 const results = [];
+// Retain partial results on failure, rather than silently discarding passing flows.
+function recordResults() {fs.writeFileSync(path.join(__dirname,'browser-results.json'),JSON.stringify({environment:'isolated Chromium + temporary SQLite; no live AI/microphone',results},null,2)+'\n');}
 async function until(fn, description, timeout=10000) {
   const end = Date.now()+timeout;
   while(Date.now()<end) { if(await fn()) return; await wait(40); }
@@ -51,7 +53,9 @@ async function saved(f,count) {
   await until(()=>f.page.evaluate(()=>document.getElementById('syncStatusDot')?.dataset.sync==='ok'),'confirmed sync');
 }
 async function run(name,fn) {
-  await fn();results.push({name,status:'PASS'});console.log('PASS browser:',name);
+  try {await fn();results.push({name,status:'PASS'});console.log('PASS browser:',name);}
+  catch(error){results.push({name,status:'FAIL',error:String(error)});throw error;}
+  finally {recordResults();}
 }
 (async()=>{
   server=spawn(process.env.PYTHON || 'python3',[path.join(__dirname,'browser_server.py')],{stdio:['pipe','pipe','pipe']});
@@ -107,6 +111,40 @@ async function run(name,fn) {
       assert.deepEqual(f.errors,[]);
     } finally {await f.ctx.close();}
   });
+  await run('two real browser contexts: edit title + completion survive one CAS conflict',async()=>{
+    const f=await fresh('daily-conflict');let other;
+    try {
+      await manual(f);await nav(f.page,'tasks');await create(f.page,'Исходное название');await saved(f,1);
+      other=await browser.newContext({viewport:{width:390,height:844},extraHTTPHeaders:headers(f.user),serviceWorkers:'block',reducedMotion:'reduce'});
+      const p=await other.newPage();p.on('pageerror',e=>f.errors.push(e.message));
+      await p.goto(origin+'/manual.html');await until(()=>p.evaluate(()=>Boolean(window.DVIZH_MANUAL_STATE)),'second client');await nav(p,'tasks');
+      await f.page.locator('[data-action="edit-task"]').first().click();await f.page.locator('#taskTitle').fill('Уточнённое название');
+      await until(()=>p.evaluate(()=>document.getElementById('syncStatusDot')?.dataset.sync==='ok'),'second client settled');
+      let count=0,conflicts=0,release;const revisions=[];
+      const gate=new Promise(resolve=>release=resolve);
+      const timer=setTimeout(release,5000);
+      for(const page of [f.page,p]) {
+        page.on('response',r=>{if(r.url().endsWith('/api/state')&&r.status()===409)conflicts++;});
+        await page.route('**/api/state',async route=>{
+          if(route.request().method()==='PUT'&&count<2){revisions.push(route.request().postDataJSON().baseRevision);if(++count===2)release();await gate;}
+          await route.continue();
+        });
+      }
+      try {
+        await Promise.all([
+          (async()=>{await f.page.locator('#taskForm button[type=submit]').click();await f.page.evaluate(()=>window.DVIZH_SYNC.push());})(),
+          (async()=>{await p.locator('[data-action="toggle-task"]').first().click();await p.evaluate(()=>window.DVIZH_SYNC.push());})()
+        ]);
+      } finally {clearTimeout(timer);release();}
+      assert.equal(count,2);assert.equal(revisions[0],revisions[1]);assert.equal(conflicts,1);
+      const row=(await api(f.user)).state.tasks[0];assert.equal(row.title,'Уточнённое название');assert.equal(row.done,true);
+      await Promise.all([f.page,p].map(page=>page.evaluate(()=>window.DVIZH_SYNC.pull())));
+      for(const page of [f.page,p]) {
+        const task=await page.evaluate(()=>window.DVIZH_MANUAL_STATE.snapshot().tasks[0]);assert.equal(task.title,row.title);assert.equal(task.done,true);
+      }
+      assert.deepEqual(f.errors,[]);
+    } finally {if(other)await other.close();await f.ctx.close();}
+  });
   await run('HTML instead of save receipt cannot erase a task on the next pull',async()=>{
     const f=await fresh('daily-bad-receipt');
     try {
@@ -154,6 +192,8 @@ async function run(name,fn) {
       await f.ctx.route('**/api/state',()=>new Promise(()=>{}));
       await f.page.goto(origin+'/manual.html');
       await until(()=>f.page.evaluate(()=>Boolean(window.DVIZH_MANUAL_STATE)),'bounded 15-second bootstrap',22000);
+      // A brand-new browser cannot have loaded hasSeenIntro while its API is stalled.
+      await f.page.locator('[data-action="finish-intro"]').click();
       assert.notEqual(await f.page.locator('#syncStatusDot').getAttribute('data-sync'),'ok');
       await nav(f.page,'tasks');assert.deepEqual(f.errors,[]);
     } finally {await f.ctx.close();}
