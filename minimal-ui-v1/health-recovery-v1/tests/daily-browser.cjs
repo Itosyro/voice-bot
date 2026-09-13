@@ -43,7 +43,7 @@ const task = (id, title) => ({id, title, micro:'Open one page', area:'Разно
      async manual(){await p.goto(origin+'/manual.html?v='+KEY);await p.waitForFunction(()=>window.DVIZH_MANUAL_STATE);},
      async ai(){await p.goto(origin+'/');await p.waitForFunction(()=>!document.querySelector('#aiInput').disabled);},
      async tasks(){await p.locator('.health-more summary').click();await p.locator('.health-more [data-nav=tasks]').click();},
-     async newTask(title){await env.tasks();await p.locator('[data-action=new-task]').first().click();await p.locator('#taskTitle').fill(title);await p.locator('#taskMicro').fill('One manageable step');await p.locator('#taskForm [type=submit]').click();},
+     async newTask(title){await env.tasks();await p.locator('#view-tasks [data-action=new-task]').click();await p.locator('#taskTitle').fill(title);await p.locator('#taskMicro').fill('One manageable step');await p.locator('#taskForm [type=submit]').click();},
      async synced(title){await until(async()=> (await api(user)).state.tasks.some(t=>t.title===title));}
    };
    try {await fn(env);assert.deepEqual(errors,[],'no browser runtime errors');results.push({name,ok:true});console.log('PASS '+name);}
@@ -67,7 +67,7 @@ const task = (id, title) => ({id, title, micro:'Open one page', area:'Разно
    await p.reload();await p.waitForFunction(()=>window.DVIZH_MANUAL_STATE);
    assert.equal(await p.evaluate(id=>DVIZH_MANUAL_STATE.snapshot().tasks.find(t=>t.id===id).title,row.id),row.title);
    await p.locator('.health-more summary').click();await p.locator('.health-more [data-nav=tasks]').click();
-   await p.locator(`[data-action=toggle-task][data-task-id="${row.id}"]`).click();
+   await p.locator(`#taskList [data-action=toggle-task][data-task-id="${row.id}"]`).click();
    await until(async()=> (await get()).state.tasks.find(t=>t.id===row.id).done===true);
    const second=await ctx.newPage();await second.goto(p.url());await second.waitForFunction(()=>window.DVIZH_MANUAL_STATE);
    assert.equal(await second.evaluate(id=>DVIZH_MANUAL_STATE.snapshot().tasks.find(t=>t.id===id).done,row.id),true);
@@ -95,7 +95,7 @@ const task = (id, title) => ({id, title, micro:'Open one page', area:'Разно
  });
  await one('Manual: focused edit survives remote sync and preserves concurrently changed field',async({p,manual,tasks,get,put,until})=>{
    let snap=await get();snap.state.tasks=[task('edit-task','Original title')];await put(snap.state,snap.revision);
-   await manual();await tasks();await p.locator('[data-action=edit-task][data-task-id="edit-task"]').click();
+   await manual();await tasks();await p.locator('#taskList [data-action=edit-task][data-task-id="edit-task"]').click();
    await p.locator('#taskTitle').fill('My changed title');
    snap=await get();snap.state.tasks[0].micro='Remote micro step';snap.state.future.concurrent=true;await put(snap.state,snap.revision);
    await p.evaluate(()=>DVIZH_SYNC.pull());assert.equal(await p.locator('#taskTitle').inputValue(),'My changed title');
