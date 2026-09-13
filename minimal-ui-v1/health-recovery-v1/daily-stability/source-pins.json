@@ -1,0 +1,14 @@
+{
+  "commit": "9d492693de2c7cf66350293afcf42b74edeebaef",
+  "sha256": {
+    "ai-home-v2.css": "a43b073c4788e1ba93240fb46bc726b1e07edfdbe653183e0a115a01ffdb42fb",
+    "ai-home-v2.js": "3ae439ba11611bd5ec5ea0c61e81245e9032fba36396c4ffeeaebc871c5fb186",
+    "app.js": "c6882d8821515f0046742e99cce10ed9b8115fabd4c7cd0a06c830a25a6366bf",
+    "boot.js": "1c766410e239a8092de001d6450da6fabcdd552a91f7de593abb0d626fbb0500",
+    "index.html": "973bd18e8086cad28d889a10768e94d8b85ca086c4a0cbac4887ef6a9f8f2ebc",
+    "manual.html": "8bfc125485dab2e6134ca5154991bad7869d3f9d3503dae4449f8bec55599797",
+    "styles.css": "4fc9de09753daffb3dcacba770684b7f6a152c23a9956fb85a797beba068c8c5",
+    "sw.js": "7065b95ceac21bf528eeef9635a0b67141fac2e5135dc51e9aaf3c0c085fe86d",
+    "sync.js": "04e10a67cb566180ec3590dae4b73dc19f3bb2083fca6ec7002e987a3bb63a71"
+  }
+}

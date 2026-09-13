@@ -1,4 +1,4 @@
-name: DVIZH daily stability evidence
+name: DVIZH daily stability acceptance
 on:
   push:
     branches: ['chatgpt/dvizh-daily-stability-2026-09-14']
@@ -9,24 +9,49 @@ on:
 permissions:
   contents: read
 jobs:
-  source-fixture:
+  acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Export committed DVIZH sources only (not an acceptance test)
-        run: |
-          mkdir -p "$RUNNER_TEMP/dvizh-source-evidence"
-          git rev-parse HEAD > "$RUNNER_TEMP/dvizh-source-evidence/COMMIT"
-          git ls-tree -r HEAD -- minimal-ui-v1/health-recovery-v1 ai-home-v2 hermes-control-v1 tests/ai-home-v2 > "$RUNNER_TEMP/dvizh-source-evidence/TREE.txt"
-          git archive --format=tar.gz -o "$RUNNER_TEMP/dvizh-source-evidence/source.tar.gz" HEAD -- minimal-ui-v1/health-recovery-v1 ai-home-v2 hermes-control-v1 tests/ai-home-v2
-          cd "$RUNNER_TEMP/dvizh-source-evidence"
-          sha256sum source.tar.gz > SHA256SUMS
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-python@v5
         with:
-          name: dvizh-client-source
-          path: ${{ runner.temp }}/dvizh-source-evidence/
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/dvizh-daily-browser" --no-audit --no-fund playwright@1.63.0
+          "$RUNNER_TEMP/dvizh-daily-browser/node_modules/.bin/playwright" install chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/dvizh-daily-browser/node_modules/playwright" >> "$GITHUB_ENV"
+          node -e 'console.log("CHROMIUM_PATH="+require(process.argv[1]).chromium.executablePath())' "$RUNNER_TEMP/dvizh-daily-browser/node_modules/playwright" >> "$GITHUB_ENV"
+      - name: Existing Health Recovery acceptance remains unchanged
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/dvizh-daily-evidence"
+          bash minimal-ui-v1/health-recovery-v1/tests/run.sh 2>&1 | tee "$RUNNER_TEMP/dvizh-daily-evidence/health.log"
+          git diff --exit-code
+      - name: Build the four-file client candidate and test real browser flows
+        run: |
+          set -o pipefail
+          python3 minimal-ui-v1/health-recovery-v1/daily-stability/build.py
+          node minimal-ui-v1/health-recovery-v1/daily-stability/tests/browser-daily.cjs 2>&1 | tee "$RUNNER_TEMP/dvizh-daily-evidence/daily-browser.log"
+          python3 minimal-ui-v1/health-recovery-v1/daily-stability/build.py --check
+      - name: Package exact candidate (never deploy)
+        run: |
+          git rev-parse HEAD > "$RUNNER_TEMP/dvizh-daily-evidence/COMMIT"
+          tar -czf "$RUNNER_TEMP/dvizh-daily-evidence/candidate.tar.gz" -C minimal-ui-v1/health-recovery-v1/daily-stability dist PAYLOAD.json release.json
+          sha256sum "$RUNNER_TEMP/dvizh-daily-evidence/candidate.tar.gz" > "$RUNNER_TEMP/dvizh-daily-evidence/SHA256SUMS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dvizh-daily-stability-evidence
+          path: |
+            ${{ runner.temp }}/dvizh-daily-evidence/
+            minimal-ui-v1/health-recovery-v1/daily-stability/tests/*.png
+            minimal-ui-v1/health-recovery-v1/daily-stability/tests/browser-results.json
           if-no-files-found: error
           retention-days: 14
