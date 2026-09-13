@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 import build_daily
 
 EXPECTED = {
+    'app.js': '195813a14b558e7bb5c59d61faf0462a0eb1a952342881b8b42aa10fef959734',
     'ai-home-v2.js': 'e449ac6a7abdc5eda6bba09b7fb86e0da72bf16854d5e8b6003a755cd602a1c3',
     'sync.js': 'd474da15914297cdcf064d50eb471172854f051c2bc5c645f2eb0b2a9345569f',
     'index.html': '656d6062346ae6b651eeaec2119fd800144e0854c9c55aced05b2f90edbabb43',
@@ -25,7 +26,7 @@ class DailyResilienceTests(unittest.TestCase):
     def test_exact_candidate_and_unchanged_design(self):
         before = {p.name: p.read_bytes() for p in (ROOT / 'dist').iterdir() if p.is_file()}
         payload = build_daily.render()
-        self.assertEqual(set(payload), set(EXPECTED)|{'app.js'})
+        self.assertEqual(set(payload), set(EXPECTED))
         for name, expected in EXPECTED.items():
             self.assertEqual(hashlib.sha256(payload[name]).hexdigest(), expected, name)
         print('DAILY_APP_SHA256='+hashlib.sha256(payload['app.js']).hexdigest(), flush=True)
@@ -55,12 +56,35 @@ class DailyResilienceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='daily-native-browser-') as tmp:
             static = Path(tmp)/'static'
             build_daily.build(static)
-            # Actual app/boot/styles and helper snapshots stay byte-identical.
-            # No generated replacement or UI stub substitutes for Manual.
+            # The actual app receives the narrow native-submit delta; boot,
+            # styles and unrelated assets stay byte-identical. No UI stubs.
             for name, data in before.items():
                 if name not in build_daily.INPUT_BLOBS: (static/name).write_bytes(data)
             result = subprocess.run(['node',str(ROOT/'tests/daily-browser.cjs'),str(static)],
                 stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=240)
             print(result.stdout, flush=True)
             self.assertEqual(result.returncode,0,'native daily browser acceptance failed:\n'+result.stdout)
+        self.assertEqual(before,{p.name:p.read_bytes() for p in (ROOT/'dist').iterdir() if p.is_file()})
+
+    def test_candidate_retains_existing_health_browser_flows(self):
+        # Existing Health browser scripts are reused unchanged on the cumulative
+        # client candidate, not only on the historical release snapshots.
+        before = {p.name:p.read_bytes() for p in (ROOT/'dist').iterdir() if p.is_file()}
+        with tempfile.TemporaryDirectory(prefix='daily-health-regression-') as tmp:
+            sandbox=Path(tmp)
+            feature=sandbox/'minimal-ui-v1'/'health-recovery-v1'
+            feature.mkdir(parents=True)
+            for folder in ('dist','baseline','tests'):
+                shutil.copytree(ROOT/folder, feature/folder,
+                    ignore=shutil.ignore_patterns('__pycache__','*.png','semantic-live*','node_modules'))
+            helpers=sandbox/'hermes-control-v1'; helpers.mkdir()
+            for name in ('dvizh_context.py','dvizh_proposals.py','dvizh_proposal_bridge.py'):
+                shutil.copy2(ROOT.parents[1]/'hermes-control-v1'/name, helpers/name)
+            for name,data in build_daily.render().items():
+                (feature/'dist'/name).write_bytes(data)
+            for script in ('browser.cjs','mixed-cache.cjs','approval-browser.cjs','sync-concurrent-browser.cjs'):
+                result=subprocess.run(['node',str(feature/'tests'/script)],
+                    stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=90)
+                print('CANDIDATE_HEALTH_FLOW '+script+'\n'+result.stdout,flush=True)
+                self.assertEqual(result.returncode,0,'candidate Health regression: '+script+'\n'+result.stdout)
         self.assertEqual(before,{p.name:p.read_bytes() for p in (ROOT/'dist').iterdir() if p.is_file()})

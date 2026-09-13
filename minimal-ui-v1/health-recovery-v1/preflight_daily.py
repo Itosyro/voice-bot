@@ -13,9 +13,10 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = '2026.09.14-daily-preflight.1'
+VERSION = '2026.09.14-daily-preflight.2'
 MAX_BYTES = 2_000_000
 TARGETS = {
+ 'app.js': ('89fa0ccaa3b72f28571042f8b820ea7238c41731','195813a14b558e7bb5c59d61faf0462a0eb1a952342881b8b42aa10fef959734'),
  'ai-home-v2.js': ('075cea330640ab94da266365a87c81c769e0d467','e449ac6a7abdc5eda6bba09b7fb86e0da72bf16854d5e8b6003a755cd602a1c3'),
  'sync.js': ('d1a935c1451d58b5671bc3553db0864a5caf2746','d474da15914297cdcf064d50eb471172854f051c2bc5c645f2eb0b2a9345569f'),
  'index.html': ('271d72f3f6b5021240b32ee1a90f76d56de4ddbc','656d6062346ae6b651eeaec2119fd800144e0854c9c55aced05b2f90edbabb43'),
@@ -76,7 +77,7 @@ def main() -> None:
         row['http']=http(request_path+'?daily_preflight='+str(time.time_ns()))
         row['http_matches_disk']=row.get('sha256') is not None and row['http'].get('sha256')==row['sha256']
         result['files'][name]=row
-    for name in ('app.js','boot.js','styles.css','sw.js'):
+    for name in ('boot.js','styles.css','sw.js'):
         result['files'][name]=fingerprint(Path('/opt/dvizh/static')/name)
     result['backend']=fingerprint(Path('/opt/dvizh/server.py'))
     result['backend']['matches_tested_contract']=result['backend'].get('sha256')=='ac30e07d5abc77a09830218e6cf7d290e46f6d1b719789a7fb7db7fba2854899'

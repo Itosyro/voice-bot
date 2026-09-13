@@ -43,7 +43,7 @@ class PreflightTests(unittest.TestCase):
         with patch.object(subject,'fingerprint',fingerprint),patch.object(subject,'http',http),patch.object(subject.subprocess,'run',run),contextlib.redirect_stdout(output):subject.main()
         result=json.loads(output.getvalue())
         self.assertTrue(result['read_only']);self.assertFalse(result['installed_by_this_command'])
-        self.assertTrue(all(p.startswith(('/?','/sync.js?','/ai-home-v2.js?','/manual.html?','/api/ai-home/health')) for p in http_paths))
+        self.assertTrue(all(p.startswith(('/?','/app.js?','/sync.js?','/ai-home-v2.js?','/manual.html?','/api/ai-home/health')) for p in http_paths))
         self.assertNotIn('/api/state',' '.join(http_paths))
         self.assertEqual(len(commands),3)
         self.assertTrue(all(c[:2]==['/usr/bin/systemctl','is-active'] for c in commands))
@@ -63,5 +63,21 @@ class PreflightTests(unittest.TestCase):
         self.assertFalse(result['reported_ok']);self.assertNotIn('sensitive',json.dumps(result))
     def test_redirect_handler_does_not_follow_remote_location(self):
         self.assertIsNone(subject.NoRedirect().redirect_request(None,None,302,'redirect',{},'https://example.invalid'))
+
+    def test_app_fingerprint_participates_in_compatibility(self):
+        def inspect(drift=False):
+            def fingerprint(p):
+                digest = ('ac30e07d5abc77a09830218e6cf7d290e46f6d1b719789a7fb7db7fba2854899'
+                          if p.name == 'server.py' else 'fixture')
+                value = {'blob':subject.TARGETS.get(p.name,('unknown',''))[0], 'sha256':digest}
+                if drift and p.name == 'app.js': value['blob'] = 'unknown-app'
+                return value
+            output=io.StringIO()
+            with patch.object(subject,'fingerprint',fingerprint), patch.object(subject,'http',return_value={'status':200,'sha256':'fixture'}), patch.object(subject.subprocess,'run',return_value=type('Result',(),{'stdout':'active\n'})()), contextlib.redirect_stdout(output):
+                subject.main()
+            return json.loads(output.getvalue())
+        self.assertTrue(inspect()['candidate_inputs_match'])
+        self.assertFalse(inspect(drift=True)['candidate_inputs_match'])
+        self.assertEqual(inspect()['files']['app.js']['match'],'reviewed_baseline')
 
 if __name__=='__main__':unittest.main()
