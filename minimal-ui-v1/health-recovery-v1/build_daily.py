@@ -1,4 +1,4 @@
-"""Build the four daily-use client updates offline from immutable snapshots.
+"""Build the five daily-use client updates offline from immutable snapshots.
 
 Does not install, contact a server, change tracked historical Health Recovery
 artifacts, or grant any authority. Output must be a new directory.
@@ -10,16 +10,18 @@ import json
 from pathlib import Path
 from client_resilience import (RELEASE_KEY, apply_ai_client, apply_sync_client,
                                apply_ai_entry, apply_manual_entry)
+from manual_submit_resilience import apply_manual_client
 
 ROOT = Path(__file__).resolve().parent
 BASE_COMMIT = '9d492693de2c7cf66350293afcf42b74edeebaef'
 INPUT_BLOBS = {
+    'app.js': '89fa0ccaa3b72f28571042f8b820ea7238c41731',
     'ai-home-v2.js': '075cea330640ab94da266365a87c81c769e0d467',
     'sync.js': 'd1a935c1451d58b5671bc3553db0864a5caf2746',
     'index.html': '271d72f3f6b5021240b32ee1a90f76d56de4ddbc',
     'manual.html': 'c94da18a1d5e2b87be7ddb09e4cb4548504e1928',
 }
-TRANSFORMS = {'ai-home-v2.js': apply_ai_client, 'sync.js': apply_sync_client,
+TRANSFORMS = {'app.js': apply_manual_client, 'ai-home-v2.js': apply_ai_client, 'sync.js': apply_sync_client,
               'index.html': apply_ai_entry, 'manual.html': apply_manual_entry}
 
 

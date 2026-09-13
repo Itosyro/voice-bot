@@ -25,9 +25,14 @@ class DailyResilienceTests(unittest.TestCase):
     def test_exact_candidate_and_unchanged_design(self):
         before = {p.name: p.read_bytes() for p in (ROOT / 'dist').iterdir() if p.is_file()}
         payload = build_daily.render()
-        self.assertEqual(set(payload), set(EXPECTED))
-        for name, data in payload.items():
-            self.assertEqual(hashlib.sha256(data).hexdigest(), EXPECTED[name], name)
+        self.assertEqual(set(payload), set(EXPECTED)|{'app.js'})
+        for name, expected in EXPECTED.items():
+            self.assertEqual(hashlib.sha256(payload[name]).hexdigest(), expected, name)
+        print('DAILY_APP_SHA256='+hashlib.sha256(payload['app.js']).hexdigest(), flush=True)
+        app = payload['app.js'].decode()
+        self.assertIn('if (epoch !== submitEpoch) return;', app)
+        self.assertNotIn('queueMicrotask(() => { submitBase = null;', app)
+        self.assertEqual(app.count('const epoch = ++submitEpoch;'), 1)
         for name in ('index.html', 'manual.html'):
             old, new = before[name].decode(), payload[name].decode()
             # HTML alterations are only the declared asset/self-navigation keys.
@@ -41,7 +46,7 @@ class DailyResilienceTests(unittest.TestCase):
             build_daily.build(one); build_daily.build(two)
             self.assertEqual({p.name:p.read_bytes() for p in one.iterdir()}, {p.name:p.read_bytes() for p in two.iterdir()})
             with self.assertRaises(FileExistsError): build_daily.build(one)
-            for name in ('sync.js','ai-home-v2.js'):
+            for name in ('sync.js','ai-home-v2.js','app.js'):
                 subprocess.run(['node','--check',str(one/name)],check=True,timeout=20)
         self.assertEqual(before, {p.name:p.read_bytes() for p in (ROOT/'dist').iterdir() if p.is_file()})
 
@@ -53,7 +58,7 @@ class DailyResilienceTests(unittest.TestCase):
             # Actual app/boot/styles and helper snapshots stay byte-identical.
             # No generated replacement or UI stub substitutes for Manual.
             for name, data in before.items():
-                if name not in EXPECTED: (static/name).write_bytes(data)
+                if name not in build_daily.INPUT_BLOBS: (static/name).write_bytes(data)
             result = subprocess.run(['node',str(ROOT/'tests/daily-browser.cjs'),str(static)],
                 stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=240)
             print(result.stdout, flush=True)
