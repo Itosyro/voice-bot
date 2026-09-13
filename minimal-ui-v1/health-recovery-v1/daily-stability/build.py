@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 HEALTH = ROOT.parent
 REPO = HEALTH.parents[1]
-FILES = ('ai-home-v2.js', 'sync.js', 'index.html', 'manual.html')
+FILES = ('ai-home-v2.js', 'sync.js', 'app.js', 'index.html', 'manual.html')
 
 
 def digest(data: bytes) -> str:
@@ -41,11 +41,18 @@ def generate() -> dict[str, bytes]:
                 '      if (submission?.mayHaveBeenSent) return;\n      const text = voice ? voice.draft : input.value;',
                 '      const text = voice ? voice.draft : input.value;\n      // A different newly typed draft was never submitted.\n      if (submission?.mayHaveBeenSent && text.trim().slice(0, 12000) === submission.text) return;')
         output[f'dist/{name}'] = text.encode('utf-8')
+    # Missing/unknown display preference must not crash navigation after a remote pull.
+    # This is a read-only display fallback; never invent or overwrite a saved preference.
+    app = source['app.js'].decode('utf-8')
+    if app.count('VIEW_COPY[state.tone]') != 4:
+        raise ValueError('Expected four tone-dependent render sites')
+    app = app.replace('VIEW_COPY[state.tone]', "VIEW_COPY[state.tone === 'calm' ? 'calm' : 'direct']")
+    output['dist/app.js'] = app.encode('utf-8')
     prefix = ROOT.relative_to(REPO).as_posix()
     manifest = {'schema': 1, 'name': module.RELEASE_KEY, 'operations': [
         {'source': f'{prefix}/dist/{name}', 'target': f'/opt/dvizh/static/{name}',
          'http_path': '/' if name == 'index.html' else '/' + name}
-        for name in ('sync.js', 'ai-home-v2.js', 'index.html', 'manual.html')], 'restarts': []}
+        for name in ('sync.js', 'app.js', 'ai-home-v2.js', 'index.html', 'manual.html')], 'restarts': []}
     payload = {'schema': 1, 'release': module.RELEASE_KEY, 'source_commit': pins['commit'],
                'production_installed': False, 'requires_owner_approval': True,
                'changed_files': list(FILES),
@@ -71,7 +78,7 @@ def build(check: bool = False) -> None:
             target.write_bytes(raw)
     if {p.name for p in (ROOT / 'dist').iterdir()} != {p.name for p in (HEALTH / 'dist').iterdir()}:
         raise ValueError('Unexpected generated static target')
-    print(f'PASS: {len(output)} reproducible artifacts; exactly four client files change; no service restart')
+    print(f'PASS: {len(output)} reproducible artifacts; exactly five client files change; no service restart')
 
 
 if __name__ == '__main__':
