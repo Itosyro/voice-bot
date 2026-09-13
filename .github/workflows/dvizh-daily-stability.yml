@@ -1,0 +1,32 @@
+name: DVIZH daily stability evidence
+on:
+  push:
+    branches: ['chatgpt/dvizh-daily-stability-2026-09-14']
+    paths:
+      - 'minimal-ui-v1/health-recovery-v1/**'
+      - '.github/workflows/dvizh-daily-stability.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export committed DVIZH sources only (not an acceptance test)
+        run: |
+          mkdir -p "$RUNNER_TEMP/dvizh-source-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/dvizh-source-evidence/COMMIT"
+          git ls-tree -r HEAD -- minimal-ui-v1/health-recovery-v1 ai-home-v2 hermes-control-v1 tests/ai-home-v2 > "$RUNNER_TEMP/dvizh-source-evidence/TREE.txt"
+          git archive --format=tar.gz -o "$RUNNER_TEMP/dvizh-source-evidence/source.tar.gz" HEAD -- minimal-ui-v1/health-recovery-v1 ai-home-v2 hermes-control-v1 tests/ai-home-v2
+          cd "$RUNNER_TEMP/dvizh-source-evidence"
+          sha256sum source.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dvizh-client-source
+          path: ${{ runner.temp }}/dvizh-source-evidence/
+          if-no-files-found: error
+          retention-days: 14
