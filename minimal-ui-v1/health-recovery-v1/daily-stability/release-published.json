@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "name": "20260914-daily-stability-1",
+  "operations": [
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/daily-stability/release-payload/sync.js",
+      "target": "/opt/dvizh/static/sync.js",
+      "http_path": "/sync.js"
+    },
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/daily-stability/release-payload/app.js",
+      "target": "/opt/dvizh/static/app.js",
+      "http_path": "/app.js"
+    },
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/daily-stability/release-payload/ai-home-v2.js",
+      "target": "/opt/dvizh/static/ai-home-v2.js",
+      "http_path": "/ai-home-v2.js"
+    },
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/daily-stability/release-payload/index.html",
+      "target": "/opt/dvizh/static/index.html",
+      "http_path": "/"
+    },
+    {
+      "source": "minimal-ui-v1/health-recovery-v1/daily-stability/release-payload/manual.html",
+      "target": "/opt/dvizh/static/manual.html",
+      "http_path": "/manual.html"
+    }
+  ],
+  "restarts": []
+}
